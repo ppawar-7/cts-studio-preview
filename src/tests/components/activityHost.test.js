@@ -18,8 +18,23 @@ describe('Activity Registry & Unimplemented Level Fallback', () => {
     }
   });
 
+  it('registers all 5 Synthesis Kingdom levels with valid components and validators', () => {
+    const synLevels = ['syn-1', 'syn-2', 'syn-3', 'syn-4', 'syn-5'];
+    for (const lvlId of synLevels) {
+      expect(hasActivity(lvlId)).toBe(true);
+      const desc = getActivity(lvlId);
+      expect(desc).not.toBeNull();
+      expect(desc.levelId).toBe(lvlId);
+      expect(desc.kingdomId).toBe('synthesis');
+      expect(desc.maxScore).toBeGreaterThan(0);
+      expect(desc.starThresholds).toHaveLength(3);
+      expect(typeof desc.validator).toBe('function');
+      expect(desc.component).toBeDefined();
+    }
+  });
+
   it('correctly reports unimplemented status for levels in upcoming kingdoms', () => {
-    const unimplementedLevels = ['syn-1', 'fp-1', 'cts-1', 'gds-5'];
+    const unimplementedLevels = ['fp-1', 'pl-1', 'cts-1', 'gds-5'];
     for (const lvlId of unimplementedLevels) {
       expect(hasActivity(lvlId)).toBe(false);
       expect(getActivity(lvlId)).toBeNull();
