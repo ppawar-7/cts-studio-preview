@@ -296,11 +296,11 @@ async function runTest() {
   await send('Page.navigate', { url: `${BASE_URL}/kingdom/placement` });
   await wait(800);
 
-  // Click "Inspect Preview" on first sanity check
+  // Click "Inspect Audit" on first sanity check
   const inspectBtn = await evalJs(`
     (() => {
       const btns = Array.from(document.querySelectorAll('.sanity-card button'));
-      const target = btns.find(b => b.textContent.includes('Inspect Preview'));
+      const target = btns.find(b => b.textContent.includes('Inspect Audit') || b.textContent.includes('Inspect Preview'));
       if (target) {
         target.click();
         return true;
@@ -308,14 +308,14 @@ async function runTest() {
       return false;
     })()
   `);
-  console.log(`✓ Clicked "Inspect Preview": ${inspectBtn}`);
+  console.log(`✓ Clicked "Inspect Audit": ${inspectBtn}`);
   await wait(600);
 
-  // Click "Run Command Demonstration"
+  // Click "Run Verification Audit"
   const runDemoBtn = await evalJs(`
     (() => {
       const btn = Array.from(document.querySelectorAll('.sanity-modal button')).find(b =>
-        b.textContent.includes('Run Command Demonstration')
+        b.textContent.includes('Run Verification Audit') || b.textContent.includes('Run Command Demonstration')
       );
       if (btn) {
         btn.click();
@@ -324,7 +324,7 @@ async function runTest() {
       return false;
     })()
   `);
-  console.log(`✓ Clicked "Run Command Demonstration": ${runDemoBtn}`);
+  console.log(`✓ Clicked "Run Verification Audit": ${runDemoBtn}`);
   await wait(1200);
 
   // Inspect generated terminal logs
@@ -338,14 +338,33 @@ async function runTest() {
   console.log(`✓ Terminal output verified real engineering ruledeck: ${hasPassedOrClean}`);
   if (!hasPassedOrClean) throw new Error('Terminal failed to produce expected physical ruledeck logs!');
 
-  // Verify unearned XP protection notice
-  const lockNotice = await evalJs(`
-    document.querySelector('.sanity-modal__actions')?.textContent.includes('Demonstration Preview Only')
-  `);
-  console.log(`✓ Unearned XP Protection Notice Present: ${lockNotice}`);
-  if (!lockNotice) throw new Error('Demonstration Preview notice missing!');
-
   await captureScreenshot('platform_sanity_terminal_logs.png');
+
+  // Verify certified stage check action button and certify
+  const certifyBtn = await evalJs(`
+    (() => {
+      const btn = Array.from(document.querySelectorAll('.sanity-modal button')).find(b =>
+        b.textContent.includes('Sign-Off & Certify Stage Check')
+      );
+      if (btn) {
+        btn.click();
+        return true;
+      }
+      return false;
+    })()
+  `);
+  console.log(`✓ Clicked "Sign-Off & Certify Stage Check": ${certifyBtn}`);
+  await wait(600);
+
+  // Verify check is certified in localStorage
+  const isCertifiedInStorage = await evalJs(`
+    (() => {
+      const state = JSON.parse(localStorage.getItem('pdplayground_player_v2') || '{}');
+      return Boolean(state.sanityCheckProgress?.['pl-legality']?.passed);
+    })()
+  `);
+  console.log(`✓ Verified Sanity Check certified in player state: ${isCertifiedInStorage}`);
+  if (!isCertifiedInStorage) throw new Error('Sanity check pl-legality failed to record certified completion!');
 
   // Close modal
   await evalJs(`

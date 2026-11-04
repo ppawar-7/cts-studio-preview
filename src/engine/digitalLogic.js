@@ -9,7 +9,7 @@
  * 2. Cycle-by-cycle clock stepping and waveform history generation.
  * 3. Combinational vs Sequential propagation evaluation.
  * 4. Latch inference hazard checking.
- * 5. Pipelined 8-bit accumulator datapath simulation.
+ * 5. Pipelined 8-bit accumulator datapath simulation (carry-out and signed overflow).
  * 6. Finite State Machine (Sequence Detector 1011) simulation.
  */
 
@@ -22,18 +22,18 @@
  * @param {Object} params
  * @param {number} params.d - Data input (0 or 1)
  * @param {number} params.currentQ - Current registered state (0 or 1)
- * @param {number} params.rst - Synchronous reset (0 or 1)
- * @param {number} params.en - Clock enable (0 or 1)
+ * @param {number} [params.rst=0] - Synchronous reset (0 or 1)
+ * @param {number} [params.en=1] - Clock enable (0 or 1)
  * @returns {number} Next Q state (0 or 1)
  */
-export function simulateDFF({ d, currentQ, rst, en }) {
-  if (rst === 1) {
+export function simulateDFF({ d, currentQ, rst = 0, en = 1 }) {
+  if (Number(rst) === 1) {
     return 0;
   }
-  if (en === 0) {
-    return currentQ;
+  if (Number(en) === 0) {
+    return Number(currentQ) === 1 ? 1 : 0;
   }
-  return d === 1 ? 1 : 0;
+  return Number(d) === 1 ? 1 : 0;
 }
 
 /**
@@ -41,10 +41,11 @@ export function simulateDFF({ d, currentQ, rst, en }) {
  *
  * @param {Array<{ d: number, rst: number, en: number }>} cycleInputs
  * @param {number} [initialQ=0]
- * @returns {Array<{ cycle: number, clk: number, d: number, rst: number, en: number, q: number }>}
+ * @returns {Array<{ cycle: number, clk: number, d: number, rst: number, en: number, q: number, prevQ: number }>}
  */
 export function simulateDFFSequence(cycleInputs, initialQ = 0) {
-  let q = initialQ;
+  if (!Array.isArray(cycleInputs)) return [];
+  let q = Number(initialQ) === 1 ? 1 : 0;
   const history = [];
 
   cycleInputs.forEach((inp, idx) => {
@@ -57,9 +58,9 @@ export function simulateDFFSequence(cycleInputs, initialQ = 0) {
     history.push({
       cycle: idx + 1,
       clk: 1, // sample on rising edge
-      d: inp.d,
-      rst: inp.rst,
-      en: inp.en,
+      d: Number(inp.d) === 1 ? 1 : 0,
+      rst: Number(inp.rst) === 1 ? 1 : 0,
+      en: Number(inp.en) === 1 ? 1 : 0,
       q: nextQ,
       prevQ: q,
     });
@@ -79,15 +80,18 @@ export function simulateDFFSequence(cycleInputs, initialQ = 0) {
  * @returns {Array<{ cycle: number, a: number, b: number, combY: number, seqY: number }>}
  */
 export function simulateCombVsSeq(inputs, initialQ = 0) {
-  let regQ = initialQ;
+  if (!Array.isArray(inputs)) return [];
+  let regQ = Number(initialQ) === 1 ? 1 : 0;
   return inputs.map((inp, idx) => {
-    const combY = (inp.a === 1 && inp.b === 1) ? 1 : 0;
+    const a = Number(inp.a) === 1 ? 1 : 0;
+    const b = Number(inp.b) === 1 ? 1 : 0;
+    const combY = (a === 1 && b === 1) ? 1 : 0;
     const seqY = regQ; // captured from previous cycle
     regQ = combY; // latch for next cycle
     return {
       cycle: idx + 1,
-      a: inp.a,
-      b: inp.b,
+      a,
+      b,
       combY,
       seqY,
     };
@@ -124,9 +128,9 @@ export function evaluateLatchInference({ hasElse, isClocked }) {
 }
 
 /**
- * Simulate an 8-bit accumulator datapath with synchronous reset and overflow detection.
+ * Simulate an 8-bit accumulator datapath with synchronous reset and overflow/carry detection.
  * Datapath: NextAcc = (MuxSel === 1 ? InData : Acc) + Operand;
- * Output: Acc (8-bit clamped: 0-255), Overflow: bool (sum > 255).
+ * Output: Acc (8-bit clamped: 0-255), CarryOut: bool (sum > 255), SignedOverflow: bool.
  *
  * @param {Object} state
  * @param {number} state.currentAcc - Current accumulator value (0-255)
@@ -134,17 +138,33 @@ export function evaluateLatchInference({ hasElse, isClocked }) {
  * @param {number} state.operand - Addend value (0-255)
  * @param {number} state.muxSel - 0: preserve currentAcc as base, 1: load inData as base
  * @param {number} state.rst - Synchronous reset (1 resets Acc to 0)
- * @returns {{ nextAcc: number, overflow: boolean }}
+ * @returns {{ nextAcc: number, overflow: boolean, carryOut: boolean, signedOverflow: boolean }}
  */
-export function simulateAccumulator({ currentAcc, inData, operand, muxSel, rst }) {
-  if (rst === 1) {
-    return { nextAcc: 0, overflow: false };
+export function simulateAccumulator({ currentAcc = 0, inData = 0, operand = 0, muxSel = 0, rst = 0 }) {
+  if (Number(rst) === 1) {
+    return { nextAcc: 0, overflow: false, carryOut: false, signedOverflow: false };
   }
-  const base = muxSel === 1 ? (inData & 0xff) : (currentAcc & 0xff);
-  const sum = base + (operand & 0xff);
-  const overflow = sum > 255;
+  const cleanCurrent = (Number(currentAcc) || 0) & 0xff;
+  const cleanIn = (Number(inData) || 0) & 0xff;
+  const cleanOp = (Number(operand) || 0) & 0xff;
+
+  const base = Number(muxSel) === 1 ? cleanIn : cleanCurrent;
+  const sum = base + cleanOp;
+  const carryOut = sum > 255;
   const nextAcc = sum & 0xff;
-  return { nextAcc, overflow };
+
+  // Signed 2's complement overflow: occurred if sign of base and operand match, but result sign differs
+  const baseSign = (base >> 7) & 1;
+  const opSign = (cleanOp >> 7) & 1;
+  const resSign = (nextAcc >> 7) & 1;
+  const signedOverflow = (baseSign === opSign) && (resSign !== baseSign);
+
+  return {
+    nextAcc,
+    overflow: carryOut,
+    carryOut,
+    signedOverflow,
+  };
 }
 
 /**
@@ -161,7 +181,7 @@ export function simulateAccumulator({ currentAcc, inData, operand, muxSel, rst }
  * @returns {{ nextState: string, match: boolean }}
  */
 export function stepSequenceDetector1011(currentState, bitIn) {
-  const b = bitIn === 1 ? 1 : 0;
+  const b = Number(bitIn) === 1 ? 1 : 0;
   switch (currentState) {
     case 'S0':
       return b === 1 ? { nextState: 'S1', match: false } : { nextState: 'S0', match: false };
@@ -170,8 +190,8 @@ export function stepSequenceDetector1011(currentState, bitIn) {
     case 'S2':
       return b === 1 ? { nextState: 'S3', match: false } : { nextState: 'S0', match: false };
     case 'S3':
-      // Saw '101'. If bitIn is 1, we completed '1011'!
-      // For overlapping detection, '1011' ends in '1', which can be the start of a new sequence -> nextState is S1.
+      // Saw '101'. If bitIn is 1, pattern '1011' completed!
+      // Overlapping sequence detection: '1011' ends in '1', which can be start of next sequence -> S1
       return b === 1 ? { nextState: 'S1', match: true } : { nextState: 'S2', match: false };
     default:
       return { nextState: 'S0', match: false };
@@ -185,12 +205,13 @@ export function stepSequenceDetector1011(currentState, bitIn) {
  * @returns {Array<{ cycle: number, bitIn: number, state: string, nextState: string, match: boolean }>}
  */
 export function simulateSequenceDetector(bitStream) {
+  if (!Array.isArray(bitStream)) return [];
   let state = 'S0';
   return bitStream.map((bitIn, idx) => {
     const { nextState, match } = stepSequenceDetector1011(state, bitIn);
     const step = {
       cycle: idx + 1,
-      bitIn,
+      bitIn: Number(bitIn) === 1 ? 1 : 0,
       state,
       nextState,
       match,

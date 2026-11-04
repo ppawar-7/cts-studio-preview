@@ -26,6 +26,11 @@ describe('Digital Logic Simulation Engine', () => {
       expect(simulateDFF({ d: 0, currentQ: 1, rst: 0, en: 0 })).toBe(1);
     });
 
+    it('handles string/number coerced inputs safely', () => {
+      expect(simulateDFF({ d: '1', currentQ: '0', rst: '0', en: '1' })).toBe(1);
+      expect(simulateDFF({ d: '1', currentQ: '0', rst: '1', en: '1' })).toBe(0);
+    });
+
     it('correctly simulates multi-cycle sequences', () => {
       const inputs = [
         { d: 1, rst: 0, en: 1 }, // captures 1
@@ -68,6 +73,8 @@ describe('Digital Logic Simulation Engine', () => {
       const r1 = simulateAccumulator({ currentAcc: 10, inData: 0, operand: 15, muxSel: 0, rst: 0 });
       expect(r1.nextAcc).toBe(25);
       expect(r1.overflow).toBe(false);
+      expect(r1.carryOut).toBe(false);
+      expect(r1.signedOverflow).toBe(false);
     });
 
     it('loads external data when muxSel is 1', () => {
@@ -76,16 +83,26 @@ describe('Digital Logic Simulation Engine', () => {
       expect(r2.overflow).toBe(false);
     });
 
-    it('handles 8-bit overflow clamping and flags', () => {
+    it('handles 8-bit unsigned overflow clamping and flags', () => {
       const r3 = simulateAccumulator({ currentAcc: 250, inData: 0, operand: 10, muxSel: 0, rst: 0 });
       expect(r3.nextAcc).toBe(4); // 260 & 0xff = 4
       expect(r3.overflow).toBe(true);
+      expect(r3.carryOut).toBe(true);
+    });
+
+    it('detects 2s complement signed overflow (e.g. +120 + 20 = -116 in 8-bit)', () => {
+      // +120 (0x78) + 20 (0x14) = 140 (0x8C) which has MSB=1 (negative)
+      const rSigned = simulateAccumulator({ currentAcc: 120, inData: 0, operand: 20, muxSel: 0, rst: 0 });
+      expect(rSigned.nextAcc).toBe(140);
+      expect(rSigned.carryOut).toBe(false); // < 256, no unsigned carry
+      expect(rSigned.signedOverflow).toBe(true); // Pos + Pos = Neg -> signed overflow!
     });
 
     it('synchronously resets to 0 regardless of inputs', () => {
       const r4 = simulateAccumulator({ currentAcc: 120, inData: 50, operand: 10, muxSel: 1, rst: 1 });
       expect(r4.nextAcc).toBe(0);
       expect(r4.overflow).toBe(false);
+      expect(r4.signedOverflow).toBe(false);
     });
   });
 
@@ -104,6 +121,12 @@ describe('Digital Logic Simulation Engine', () => {
       const matches = steps.map((s) => s.match);
       // Index 3 (bit 4: 1011) and Index 6 (bit 7: 1011 overlapping)
       expect(matches).toEqual([false, false, false, true, false, false, true]);
+    });
+
+    it('returns to S0 when stream breaks non-matching bit', () => {
+      const res = stepSequenceDetector1011('S2', 0); // saw 10, next is 0 -> 100 -> resets to S0
+      expect(res.nextState).toBe('S0');
+      expect(res.match).toBe(false);
     });
   });
 });

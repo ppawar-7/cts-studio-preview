@@ -4,11 +4,30 @@ import {
   computeCrosstalkGlitch,
   checkRoutingShorts,
   solveMaze2D,
+  computeWireResistance,
+  computeElmoreWireDelay,
   METAL_LAYERS,
   VIA_RESISTANCE_OHM,
 } from '../../engine/routingEngine.js';
 
 describe('Routing Engine', () => {
+  it('computes wire resistance from sheet resistance and dimensions', () => {
+    // M1 has rSheet = 0.18 Ohm/sq, width = 0.07 um. Length = 70 um -> 1000 squares -> R = 180 Ohm
+    const rM1 = computeWireResistance('M1', 70, 0.07);
+    expect(rM1).toBe(180.0);
+
+    // M3 has rSheet = 0.08 Ohm/sq, width = 0.14 um. Length = 140 um -> 1000 squares -> R = 80 Ohm
+    const rM3 = computeWireResistance('M3', 140, 0.14);
+    expect(rM3).toBe(80.0);
+  });
+
+  it('computes distributed Elmore delay for an interconnect wire', () => {
+    // R = 100 Ohm, Cwire = 0.010 pF (10 fF), Cload = 0.005 pF (5 fF)
+    // T_elmore = 100 * (0.5 * 0.010 + 0.005) = 100 * 0.010 = 1.00 ps
+    const delay = computeElmoreWireDelay(100, 0.010, 0.005);
+    expect(delay).toBe(1.00);
+  });
+
   it('computes coupling capacitance and crosstalk glitch voltage correctly', () => {
     // 100 um parallel run, 0.20 um spacing -> Cc = 0.04 * (100 / 0.20) = 20.0 fF
     const cc = computeCouplingCapacitance(100, 0.20, 0.04);
@@ -37,6 +56,18 @@ describe('Routing Engine', () => {
     ];
     const noShortCheck = checkRoutingShorts(segmentsDifferentLayers);
     expect(noShortCheck.hasShort).toBe(false);
+  });
+
+  it('detects spacing violations when minSpacing > 0 is enforced', () => {
+    // Two parallel wires on M1 separated by 5 units
+    const segmentsParallel = [
+      { netId: 'N1', layer: 'M1', x1: 10, y1: 20, x2: 100, y2: 20 },
+      { netId: 'N2', layer: 'M1', x1: 10, y1: 25, x2: 100, y2: 25 },
+    ];
+    // No direct intersection
+    expect(checkRoutingShorts(segmentsParallel, 0).hasShort).toBe(false);
+    // Violates minSpacing of 6 units
+    expect(checkRoutingShorts(segmentsParallel, 6).hasShort).toBe(true);
   });
 
   it('solves 2D grid maze routing with obstacle avoidance using BFS', () => {

@@ -40,6 +40,61 @@ export function computeLevelProgress(totalXP) {
 }
 
 /**
+ * Count how many kingdoms are unlocked for the player.
+ */
+export function countKingdomsUnlocked(player) {
+  return KINGDOMS.filter((k) => isKingdomUnlocked(player, k.id)).length;
+}
+
+/**
+ * Count total levels completed by player across all kingdoms.
+ */
+export function countLevelsCompleted(player) {
+  let count = 0;
+  for (const k of KINGDOMS) {
+    for (const l of k.levels) {
+      if (player?.levelProgress?.[l.id]?.completed) count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * Total number of sanity checks across all kingdoms.
+ */
+export function countTotalSanityChecks() {
+  return KINGDOMS.reduce((sum, k) => sum + (k.sanityChecks?.length || 0), 0);
+}
+
+/**
+ * Total number of sanity checks passed by the player across all kingdoms.
+ */
+export function countTotalSanityChecksPassed(player) {
+  let count = 0;
+  for (const k of KINGDOMS) {
+    for (const c of (k.sanityChecks || [])) {
+      if (player?.sanityCheckProgress?.[c.id]?.passed) count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * Compute overall progress percentage (0 - 100) across all 40 levels and 26 sanity checks.
+ */
+export function computeOverallProgress(player) {
+  const totalLevels = KINGDOMS.reduce((s, k) => s + k.levels.length, 0);
+  const totalSanity = countTotalSanityChecks();
+  const totalItems = totalLevels + totalSanity;
+  if (totalItems === 0) return 0;
+
+  const doneLevels = countLevelsCompleted(player);
+  const doneSanity = countTotalSanityChecksPassed(player);
+
+  return Math.min(100, Math.round(((doneLevels + doneSanity) / totalItems) * 100));
+}
+
+/**
  * Get the total XP a player has earned specifically within a kingdom
  * (from levels + sanity checks).
  */
@@ -85,7 +140,7 @@ export function countPassedKingdomSanityChecks(player, kingdomId) {
 
 /**
  * Check if ALL sanity checks in a kingdom are passed.
- * Returns true if the kingdom has no sanity checks (e.g. RTL, Synthesis).
+ * Returns true if the kingdom has no sanity checks (e.g. RTL, Synthesis, GDS).
  */
 export function areAllKingdomSanityChecksPassed(player, kingdomId) {
   const checks = getKingdomSanityChecks(kingdomId);
@@ -106,7 +161,7 @@ export function areAllKingdomLevelsCompleted(player, kingdomId) {
  * Check if a sanity check is unlocked and ready to be run.
  * Rules:
  * - The parent kingdom must be unlocked.
- * - All main levels of this kingdom must be completed (or at least kingdom XP >= pointsToUnlockNext).
+ * - All main levels of this kingdom must be completed.
  * - For order === 1: Available once kingdom levels are completed!
  * - For order > 1: Available when the previous sanity check in that kingdom has passed.
  */
@@ -142,9 +197,8 @@ export function getSanityCheckStatus(player, kingdomId, check) {
  * Determine if a specific kingdom is unlocked for the player.
  * Kingdom 1 is always unlocked.
  * Kingdom N is unlocked when:
- * 1. Previous kingdom's levels are completed.
+ * 1. Previous kingdom's main core levels are completed.
  * 2. Previous kingdom's XP >= its pointsToUnlockNext.
- * 3. ALL sanity checks (side quests) in the previous kingdom are passed!
  */
 export function isKingdomUnlocked(player, kingdomId) {
   const kingdom = KINGDOMS.find((k) => k.id === kingdomId);
@@ -162,10 +216,6 @@ export function isKingdomUnlocked(player, kingdomId) {
   const prevKingdomXP = getKingdomXP(player, prevKingdom.id);
   if (prevKingdomXP < prevKingdom.pointsToUnlockNext) return false;
 
-  // 3. All sanity checks in previous kingdom must be passed
-  const prevSanityPassed = areAllKingdomSanityChecksPassed(player, prevKingdom.id);
-  if (!prevSanityPassed) return false;
-
   return true;
 }
 
@@ -173,13 +223,14 @@ export function isKingdomUnlocked(player, kingdomId) {
  * Determine if a kingdom is completely finished (all levels done AND all sanity checks passed).
  */
 export function isKingdomCompleted(player, kingdomId) {
-  const levelsDone = areAllKingdomLevelsCompleted(player, kingdomId);
-  const sanityDone = areAllKingdomSanityChecksPassed(player, kingdomId);
-  return levelsDone && sanityDone;
+  return (
+    areAllKingdomLevelsCompleted(player, kingdomId) &&
+    areAllKingdomSanityChecksPassed(player, kingdomId)
+  );
 }
 
 /**
- * Get the status of a kingdom: 'locked' | 'available' | 'completed'
+ * Get overall kingdom status: 'locked' | 'available' | 'completed'
  */
 export function getKingdomStatus(player, kingdomId) {
   if (!isKingdomUnlocked(player, kingdomId)) return 'locked';
@@ -250,16 +301,16 @@ export function applyLevelCompletion(player, kingdomId, level, score) {
       completed: true,
       stars: Math.max(stars, existingProgress?.stars ?? 0),
       xpEarned: Math.max(xpEarned, previousXP),
+      verified: true,
+      completedAt: new Date().toISOString(),
     },
   };
 
   const updatedTotalXP = player.totalXP + xpDelta;
 
-  // Check if all levels in kingdom are completed
-  const allLevelsCompleted = kingdom.levels.every(
+  const allLevelsCompleted = (kingdom?.levels || []).every(
     (l) => updatedLevelProgress[l.id]?.completed
   );
-
   const allSanityPassed = areAllKingdomSanityChecksPassed(
     { ...player, levelProgress: updatedLevelProgress },
     kingdomId
@@ -344,56 +395,28 @@ export function applySanityCheckCompletion(player, kingdomId, check, score = 25)
 }
 
 /**
- * Check all achievement conditions and return full list of earned achievement IDs.
+ * Check which achievements the player has unlocked.
  */
 export function checkAchievements(player) {
-  const earned = new Set(player.achievements || []);
-  ACHIEVEMENTS.forEach((ach) => {
-    if (!earned.has(ach.id) && ach.condition(player)) {
-      earned.add(ach.id);
+  const current = player.achievements || [];
+  const newlyUnlocked = [];
+
+  for (const ach of ACHIEVEMENTS) {
+    if (current.includes(ach.id)) continue;
+
+    let earned = false;
+    if (typeof ach.condition === 'function') {
+      try {
+        earned = Boolean(ach.condition(player));
+      } catch (e) {
+        earned = false;
+      }
     }
-  });
-  return Array.from(earned);
-}
 
-/**
- * Compute overall platform progress percentage.
- */
-export function computeOverallProgress(player) {
-  const totalLevels = KINGDOMS.reduce((sum, k) => sum + k.levels.length, 0);
-  const totalChecks = countTotalSanityChecks();
-  const totalItems = totalLevels + totalChecks;
+    if (earned) {
+      newlyUnlocked.push(ach.id);
+    }
+  }
 
-  const completedLevels = Object.values(player.levelProgress || {}).filter((lp) => lp.completed).length;
-  const completedChecks = Object.values(player.sanityCheckProgress || {}).filter((sc) => sc.passed).length;
-
-  return totalItems === 0 ? 0 : Math.round(((completedLevels + completedChecks) / totalItems) * 100);
-}
-
-/**
- * Count kingdoms unlocked for the player.
- */
-export function countKingdomsUnlocked(player) {
-  return KINGDOMS.filter((k) => isKingdomUnlocked(player, k.id)).length;
-}
-
-/**
- * Count total levels completed.
- */
-export function countLevelsCompleted(player) {
-  return Object.values(player.levelProgress || {}).filter((lp) => lp.completed).length;
-}
-
-/**
- * Count total sanity checks defined across all kingdoms.
- */
-export function countTotalSanityChecks() {
-  return KINGDOMS.reduce((sum, k) => sum + (k.sanityChecks?.length || 0), 0);
-}
-
-/**
- * Count total sanity checks passed by player.
- */
-export function countTotalSanityChecksPassed(player) {
-  return Object.values(player.sanityCheckProgress || {}).filter((c) => c.passed).length;
+  return [...current, ...newlyUnlocked];
 }

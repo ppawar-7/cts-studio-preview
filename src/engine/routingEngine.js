@@ -9,15 +9,16 @@
  * 3. Short & Open Circuit Detection: DRC verification of interconnect integrity.
  * 4. Signal Integrity (SI): Coupling capacitance (Cc = k * L_parallel / Spacing) and crosstalk noise bump (dV = Vdd * Cc / Ctotal).
  * 5. Grid Graph Maze Routing (Lee / BFS shortest path on routing track grid).
+ * 6. Interconnect Wire Resistance and Distributed Elmore Delay model.
  */
 
 export const METAL_LAYERS = {
-  M1: { name: 'M1', direction: 'H', pitchUm: 0.14, rSheetOhm: 0.18, cUnitFf: 0.20 },
-  M2: { name: 'M2', direction: 'V', pitchUm: 0.14, rSheetOhm: 0.15, cUnitFf: 0.18 },
-  M3: { name: 'M3', direction: 'H', pitchUm: 0.28, rSheetOhm: 0.08, cUnitFf: 0.15 },
-  M4: { name: 'M4', direction: 'V', pitchUm: 0.28, rSheetOhm: 0.05, cUnitFf: 0.12 },
-  M5: { name: 'M5', direction: 'H', pitchUm: 0.56, rSheetOhm: 0.02, cUnitFf: 0.08 },
-  M6: { name: 'M6', direction: 'V', pitchUm: 0.56, rSheetOhm: 0.01, cUnitFf: 0.05 },
+  M1: { name: 'M1', direction: 'H', pitchUm: 0.14, widthUm: 0.07, rSheetOhm: 0.18, cUnitFf: 0.20 },
+  M2: { name: 'M2', direction: 'V', pitchUm: 0.14, widthUm: 0.07, rSheetOhm: 0.15, cUnitFf: 0.18 },
+  M3: { name: 'M3', direction: 'H', pitchUm: 0.28, widthUm: 0.14, rSheetOhm: 0.08, cUnitFf: 0.15 },
+  M4: { name: 'M4', direction: 'V', pitchUm: 0.28, widthUm: 0.14, rSheetOhm: 0.05, cUnitFf: 0.12 },
+  M5: { name: 'M5', direction: 'H', pitchUm: 0.56, widthUm: 0.28, rSheetOhm: 0.02, cUnitFf: 0.08 },
+  M6: { name: 'M6', direction: 'V', pitchUm: 0.56, widthUm: 0.28, rSheetOhm: 0.01, cUnitFf: 0.05 },
 };
 
 export const VIA_RESISTANCE_OHM = {
@@ -27,6 +28,40 @@ export const VIA_RESISTANCE_OHM = {
   VIA4: 2.0, // M4-M5
   VIA5: 1.0, // M5-M6
 };
+
+/**
+ * Compute wire resistance from sheet resistance and wire dimensions.
+ * Formula: R = R_sheet * (Length / Width)
+ *
+ * @param {string} layer - Key in METAL_LAYERS
+ * @param {number} lengthUm - Length of wire in µm
+ * @param {number} [widthUm] - Optional override for default layer width
+ * @returns {number} Resistance in Ohms
+ */
+export function computeWireResistance(layer, lengthUm, widthUm) {
+  const metal = METAL_LAYERS[layer] || METAL_LAYERS.M1;
+  const w = Math.max(0.01, Number(widthUm) || metal.widthUm || 0.07);
+  const l = Math.max(0, Number(lengthUm) || 0);
+  const r = metal.rSheetOhm * (l / w);
+  return Number(r.toFixed(2));
+}
+
+/**
+ * Compute distributed Elmore delay for an interconnect wire.
+ * Formula: T_elmore = R_wire * (0.5 * C_wire + C_load)
+ *
+ * @param {number} rWireOhm
+ * @param {number} cWirePf
+ * @param {number} cLoadPf
+ * @returns {number} Delay in picoseconds (ps)
+ */
+export function computeElmoreWireDelay(rWireOhm, cWirePf, cLoadPf = 0.005) {
+  const totalCapPf = (0.5 * cWirePf) + cLoadPf;
+  // Delay in seconds = R * C = Ohm * (pF * 1e-12)
+  // In picoseconds = delay * 1e12 = R * C_pf
+  const delayPs = rWireOhm * totalCapPf;
+  return Number(delayPs.toFixed(2));
+}
 
 /**
  * Compute coupling capacitance between two parallel routing wires.
@@ -39,7 +74,9 @@ export const VIA_RESISTANCE_OHM = {
  */
 export function computeCouplingCapacitance(parallelLengthUm, spacingUm, kCoeff = 0.04) {
   if (spacingUm <= 0) return 0;
-  const cc = (kCoeff * parallelLengthUm) / spacingUm;
+  const l = Math.max(0, Number(parallelLengthUm) || 0);
+  const s = Math.max(0.01, Number(spacingUm) || 0.1);
+  const cc = (kCoeff * l) / s;
   return Number(cc.toFixed(3));
 }
 
@@ -53,11 +90,13 @@ export function computeCouplingCapacitance(parallelLengthUm, spacingUm, kCoeff =
  * @returns {{ noiseGlitchV: number, noiseRatio: number, isGlitchCritical: boolean }}
  */
 export function computeCrosstalkGlitch(ccFf, cGroundFf, vSupply = 1.0) {
-  const cTotal = ccFf + cGroundFf;
+  const safeCc = Math.max(0, Number(ccFf) || 0);
+  const safeCg = Math.max(0, Number(cGroundFf) || 0);
+  const cTotal = safeCc + safeCg;
   if (cTotal <= 0) {
     return { noiseGlitchV: 0, noiseRatio: 0, isGlitchCritical: false };
   }
-  const noiseRatio = ccFf / cTotal;
+  const noiseRatio = safeCc / cTotal;
   const noiseGlitchV = Number((vSupply * noiseRatio).toFixed(3));
   // Critical if glitch exceeds 25% of Vdd (0.25 V)
   const isGlitchCritical = noiseGlitchV >= 0.25 * vSupply;
@@ -73,14 +112,16 @@ export function computeCrosstalkGlitch(ccFf, cGroundFf, vSupply = 1.0) {
  * Check a list of routed point-to-point wires for DRC shorts on the same metal layer.
  *
  * @param {Array<{netId: string, layer: string, x1: number, y1: number, x2: number, y2: number}>} segments
+ * @param {number} [minSpacing=0] - Minimum DRC spacing clearance (µm)
  * @returns {{ hasShort: boolean, shortPairs: Array<string> }}
  */
-export function checkRoutingShorts(segments) {
+export function checkRoutingShorts(segments, minSpacing = 0) {
   if (!Array.isArray(segments) || segments.length < 2) {
     return { hasShort: false, shortPairs: [] };
   }
 
   const shortPairs = [];
+  const sSpacing = Math.max(0, Number(minSpacing) || 0);
 
   for (let i = 0; i < segments.length; i++) {
     for (let j = i + 1; j < segments.length; j++) {
@@ -99,8 +140,9 @@ export function checkRoutingShorts(segments) {
         const minY2 = Math.min(s2.y1, s2.y2);
         const maxY2 = Math.max(s2.y1, s2.y2);
 
-        // Bounding boxes intersect
-        const isIntersecting = (minX1 <= maxX2 && maxX1 >= minX2) && (minY1 <= maxY2 && maxY1 >= minY2);
+        // Bounding boxes intersect or violate minSpacing
+        const isIntersecting = (minX1 - sSpacing <= maxX2 && maxX1 + sSpacing >= minX2) &&
+                               (minY1 - sSpacing <= maxY2 && maxY1 + sSpacing >= minY2);
         if (isIntersecting) {
           shortPairs.push(`${s1.netId} & ${s2.netId} on ${s1.layer}`);
         }

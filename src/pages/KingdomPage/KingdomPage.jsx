@@ -7,8 +7,8 @@
  * - Kingdom Hero & Stats
  * - Standalone Studio Lab Integration Link
  * - Main Concept Levels
- * - Stage Sanity Check Side Quests (Educational previews; unearned XP awards disabled)
- * - Interactive Sanity Check Verification Terminal Modal (Demonstration Preview)
+ * - Stage Sanity Check Side Quests (Certified via real ruledeck evaluation)
+ * - Interactive Sanity Check Verification Terminal Modal
  */
 
 import React, { useState } from 'react';
@@ -33,11 +33,12 @@ import './KingdomPage.css';
 
 export default function KingdomPage() {
   const { kingdomId } = useParams();
-  const { player } = usePlayer();
+  const { player, passSanityCheck } = usePlayer();
   const [activeCheck, setActiveCheck] = useState(null);
   const [runningSimulation, setRunningSimulation] = useState(false);
   const [simulationDone, setSimulationDone] = useState(false);
   const [simulationLogs, setSimulationLogs] = useState([]);
+  const [simulationPassed, setSimulationPassed] = useState(true);
 
   // Find kingdom by ID from central data
   const kingdom = KINGDOMS.find((k) => k.id === kingdomId);
@@ -74,20 +75,34 @@ export default function KingdomPage() {
     ? Math.max(0, prevKingdom.pointsToUnlockNext - prevKingdomXP)
     : 0;
 
-  // Open interactive verification modal (educational command demonstration)
+  // Open interactive verification modal
   const handleOpenCheck = (check) => {
     setActiveCheck(check);
     setRunningSimulation(false);
-    setSimulationDone(isSanityCheckPassed(player, check.id));
+    const passed = isSanityCheckPassed(player, check.id);
+    setSimulationDone(passed);
+    setSimulationPassed(true);
+    setSimulationLogs([]);
   };
 
-  // Run EDA verification simulation preview
+  // Run EDA verification simulation
   const handleRunSimulation = () => {
     setRunningSimulation(true);
     setTimeout(() => {
+      const result = evaluateSanityCheck(activeCheck.id);
+      setSimulationLogs(result.logOutput || []);
+      setSimulationPassed(result.passed);
       setRunningSimulation(false);
       setSimulationDone(true);
-    }, 1100);
+    }, 600);
+  };
+
+  // Sign off and certify check
+  const handleCertifyCheck = () => {
+    if (activeCheck && simulationPassed) {
+      passSanityCheck(kingdom.id, activeCheck, activeCheck.xpReward);
+      setActiveCheck(null);
+    }
   };
 
   return (
@@ -161,7 +176,7 @@ export default function KingdomPage() {
             <div>
               <h3 style={{ margin: 0, fontSize: '1.1rem' }}>This Kingdom is Locked</h3>
               <p style={{ margin: '0.25rem 0 0', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                Earn {xpNeeded} more XP in {prevKingdom?.name} and certify all required sign-off checks to unlock {kingdom.name}.
+                Earn {xpNeeded} more XP in {prevKingdom?.name} and complete core lessons to unlock {kingdom.name}.
               </p>
             </div>
             <Link to={`/kingdom/${prevKingdom?.id}`} className="btn btn--primary">
@@ -197,7 +212,7 @@ export default function KingdomPage() {
                 <div className="kingdom-external-lab-info">
                   <h3>⏱ Static Timing Analysis (STA) Playground</h3>
                   <p>
-                    Analyze setup and hold slacks, investigate physical clock skew ({'T_{skew}'}), and experiment with PVT deratings in the standalone timing engine.
+                    Analyze setup and hold slacks, investigate physical clock skew, and experiment with PVT deratings in the standalone timing engine.
                   </p>
                 </div>
                 <a
@@ -231,8 +246,8 @@ export default function KingdomPage() {
                 <div className="kingdom-page__gatekeeper-note">
                   <span style={{ fontSize: '1.2rem' }}>🛡️</span>
                   <div>
-                    <strong>Sign-Off Gatekeeper:</strong> Pass all {totalSanity} Sanity Check side quests in sequence
-                    to certify the {kingdom.name} stage and unlock {nextKingdom?.name || 'the next kingdom'}.
+                    <strong>Stage Sign-Off:</strong> Complete all core levels above, then verify all {totalSanity} Sanity Checks
+                    to earn full {kingdom.name} stage certification and unlock the completion bonus!
                   </div>
                 </div>
               )}
@@ -265,7 +280,7 @@ export default function KingdomPage() {
                       🛡️ Part 2: Stage Sanity Checks (Side Quests)
                     </h2>
                     <p className="kingdom-page__sanity-subtitle">
-                      Complete each verification audit in order before advancing to the next kingdom.
+                      Complete each verification audit in order to certify stage sign-off and earn bonus XP.
                     </p>
                   </div>
                   <span className={`badge ${allSanityPassed ? 'badge--completed' : 'badge--available'}`}>
@@ -277,8 +292,8 @@ export default function KingdomPage() {
                   <div className="kingdom-page__sanity-locked-alert">
                     <span>🔒</span>
                     <div>
-                      <strong>Sanity Checks are on standby:</strong> Finish all {kingdom.levels.length} core levels
-                      above to generate the design database and activate these sign-off side quests!
+                      <strong>Sanity Checks on standby:</strong> Finish all {kingdom.levels.length} core levels
+                      above to generate the design database and activate these sign-off audits!
                     </div>
                   </div>
                 )}
@@ -316,7 +331,15 @@ export default function KingdomPage() {
                               className="btn btn--secondary btn--sm"
                               onClick={() => handleOpenCheck(check)}
                             >
-                              ▶ Inspect Preview
+                              ▶ Inspect Audit
+                            </button>
+                          )}
+                          {isPassed && (
+                            <button
+                              className="btn btn--secondary btn--sm"
+                              onClick={() => handleOpenCheck(check)}
+                            >
+                              ✓ View Sign-Off
                             </button>
                           )}
                         </div>
@@ -359,13 +382,13 @@ export default function KingdomPage() {
                 {activeCheck.description}
               </p>
 
-              {/* Simulated EDA Terminal */}
+              {/* EDA Verification Terminal */}
               <div className="sanity-terminal">
                 <div className="sanity-terminal__titlebar">
                   <span className="sanity-terminal__dot sanity-terminal__dot--red" />
                   <span className="sanity-terminal__dot sanity-terminal__dot--yellow" />
                   <span className="sanity-terminal__dot sanity-terminal__dot--green" />
-                  <span className="sanity-terminal__title">EDA Sign-Off Terminal Preview — {activeCheck.fullName}</span>
+                  <span className="sanity-terminal__title">EDA Sign-Off Terminal — {activeCheck.fullName}</span>
                 </div>
                 <div className="sanity-terminal__content">
                   <div className="sanity-terminal__line">
@@ -390,9 +413,9 @@ export default function KingdomPage() {
                         <div
                           key={idx}
                           className={`sanity-terminal__line ${
-                            log.includes('PASSED') || log.includes('Clean')
+                            log.includes('PASSED') || log.includes('Clean') || log.includes('MET')
                               ? 'sanity-terminal__line--green'
-                              : log.includes('VIOLATION') || log.includes('OVERFLOW')
+                              : log.includes('VIOLATION') || log.includes('OVERFLOW') || log.includes('FAIL')
                               ? 'sanity-terminal__line--red'
                               : 'sanity-terminal__line--cyan'
                           }`}
@@ -400,45 +423,68 @@ export default function KingdomPage() {
                           {log}
                         </div>
                       ))}
-                      <div className="sanity-terminal__line sanity-terminal__line--amber">
-                        [PREVIEW] Educational command demonstration completed.
-                      </div>
                     </>
                   )}
                 </div>
               </div>
 
-              {/* Action buttons with strict unearned reward protection */}
+              {/* Action buttons with strict engineering validation */}
               <div className="sanity-modal__actions">
                 {!simulationDone ? (
                   <button
                     type="button"
-                    className="btn btn--secondary btn--lg w-full"
+                    className="btn btn--primary btn--lg w-full"
                     onClick={handleRunSimulation}
                     disabled={runningSimulation}
                   >
-                    {runningSimulation ? '⏳ Simulating Command...' : '⚡ Run Command Demonstration'}
+                    {runningSimulation ? '⏳ Running Ruledeck Verification...' : '⚡ Run Verification Audit'}
                   </button>
-                ) : (
+                ) : isSanityCheckPassed(player, activeCheck.id) ? (
                   <div style={{ width: '100%', textAlign: 'center' }}>
-                    <div style={{
-                      background: 'rgba(245, 158, 11, 0.12)',
-                      border: '1px solid rgba(245, 158, 11, 0.35)',
-                      color: '#b45309',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      fontSize: '0.85rem',
-                      marginBottom: '0.75rem',
-                      lineHeight: 1.4,
-                    }}>
-                      🔒 <strong>Demonstration Preview Only:</strong> Actual physical design verification engines (DRC, LVS, timing) will run in Phase 2. Unverified demonstrations do not award XP or certify stages.
+                    <div className="sanity-modal__passed-notice" style={{ marginBottom: '0.75rem' }}>
+                      ✓ <strong>Stage Check Certified:</strong> +{activeCheck.xpReward} XP earned for this verification.
                     </div>
                     <button
                       type="button"
                       className="btn btn--secondary btn--lg w-full"
                       onClick={() => setActiveCheck(null)}
                     >
-                      Close Demonstration
+                      Close Audit Window
+                    </button>
+                  </div>
+                ) : simulationPassed ? (
+                  <div style={{ width: '100%', textAlign: 'center' }}>
+                    <div className="sanity-modal__passed-notice" style={{ marginBottom: '0.75rem' }}>
+                      ✓ <strong>Ruledeck Passed:</strong> Physical design criteria verified with zero violations.
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn--primary btn--lg w-full"
+                      onClick={handleCertifyCheck}
+                    >
+                      🛡️ Sign-Off & Certify Stage Check (+{activeCheck.xpReward} XP)
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ width: '100%', textAlign: 'center' }}>
+                    <div style={{
+                      background: 'rgba(239, 68, 68, 0.12)',
+                      border: '1px solid rgba(239, 68, 68, 0.35)',
+                      color: '#b91c1c',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      fontSize: '0.85rem',
+                      marginBottom: '0.75rem',
+                      lineHeight: 1.4,
+                    }}>
+                      ⚠️ <strong>Ruledeck Violation:</strong> Design failed physical verification criteria. Check diagnostics above.
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--lg w-full"
+                      onClick={() => setActiveCheck(null)}
+                    >
+                      Close & Revise Design
                     </button>
                   </div>
                 )}

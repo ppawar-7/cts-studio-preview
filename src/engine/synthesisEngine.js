@@ -5,11 +5,11 @@
  * Powers Kingdom 2 (Synthesis: SYN-1 through SYN-5).
  *
  * Implements:
- * 1. Educational standard-cell library with area and delay metrics.
+ * 1. Educational standard-cell library with area and delay metrics (simplified linear delay model).
  * 2. Boolean logic optimization (constant folding, double inverter cancellation, De Morgan).
  * 3. Technology mapping from generic Boolean networks to cell library.
  * 4. SDC timing constraint and setup slack calculation.
- * 5. Exhaustive truth table equivalence checking.
+ * 5. Exhaustive truth table equivalence checking (3-input and N-input).
  */
 
 export const EDUCATIONAL_CELL_LIBRARY = {
@@ -31,6 +31,8 @@ export const EDUCATIONAL_CELL_LIBRARY = {
  * @returns {{ totalArea: number, maxDelay: number, cellCount: number }}
  */
 export function evaluateMappedNetwork(cells, pathIndices = []) {
+  if (!Array.isArray(cells)) return { totalArea: 0, maxDelay: 0, cellCount: 0 };
+
   let totalArea = 0;
   cells.forEach((cellName) => {
     const cell = EDUCATIONAL_CELL_LIBRARY[cellName];
@@ -38,7 +40,7 @@ export function evaluateMappedNetwork(cells, pathIndices = []) {
   });
 
   let maxDelay = 0;
-  if (pathIndices.length > 0) {
+  if (Array.isArray(pathIndices) && pathIndices.length > 0) {
     pathIndices.forEach((path) => {
       const pathDelay = path.reduce((sum, idx) => {
         const cell = EDUCATIONAL_CELL_LIBRARY[cells[idx]];
@@ -74,8 +76,14 @@ export function evaluateMappedNetwork(cells, pathIndices = []) {
  * @returns {{ arrival: number, required: number, slack: number, isMet: boolean }}
  */
 export function computeSetupSlack({ clockPeriod, combDelay, tCq = 0.15, tSetup = 0.08, tSkew = 0.0 }) {
-  const arrival = Number((tCq + combDelay).toFixed(3));
-  const required = Number((clockPeriod - tSetup + tSkew).toFixed(3));
+  const safePeriod = Math.max(0.001, Number(clockPeriod) || 1.0);
+  const safeComb = Math.max(0, Number(combDelay) || 0);
+  const safeCq = Math.max(0, Number(tCq) || 0);
+  const safeSetup = Math.max(0, Number(tSetup) || 0);
+  const safeSkew = Number(tSkew) || 0;
+
+  const arrival = Number((safeCq + safeComb).toFixed(3));
+  const required = Number((safePeriod - safeSetup + safeSkew).toFixed(3));
   const slack = Number((required - arrival).toFixed(3));
   const isMet = slack >= 0;
 
@@ -98,15 +106,42 @@ export function verifyBooleanEquivalence3(fnOriginal, fnOptimized) {
   for (let a = 0; a <= 1; a++) {
     for (let b = 0; b <= 1; b++) {
       for (let c = 0; c <= 1; c++) {
-        const outOrig = fnOriginal(a, b, c);
-        const outOpt = fnOptimized(a, b, c);
-        if (outOrig !== outOpt) {
+        const out1 = fnOriginal(a, b, c) === 1 ? 1 : 0;
+        const out2 = fnOptimized(a, b, c) === 1 ? 1 : 0;
+        if (out1 !== out2) {
           return {
             isEquivalent: false,
-            mismatchRow: { a, b, c, expected: outOrig, actual: outOpt },
+            mismatchRow: { a, b, c, expected: out1, actual: out2 },
           };
         }
       }
+    }
+  }
+  return { isEquivalent: true, mismatchRow: null };
+}
+
+/**
+ * Generalized N-input exhaustive Boolean equivalence checker (N <= 6).
+ *
+ * @param {number} numInputs - Number of input variables
+ * @param {Function} fnOriginal - (...args) => 0 | 1
+ * @param {Function} fnOptimized - (...args) => 0 | 1
+ * @returns {{ isEquivalent: boolean, mismatchRow: Object|null }}
+ */
+export function verifyBooleanEquivalenceN(numInputs, fnOriginal, fnOptimized) {
+  const totalCombos = 1 << Math.min(6, numInputs);
+  for (let i = 0; i < totalCombos; i++) {
+    const inputs = [];
+    for (let bit = numInputs - 1; bit >= 0; bit--) {
+      inputs.push((i >> bit) & 1);
+    }
+    const out1 = fnOriginal(...inputs) === 1 ? 1 : 0;
+    const out2 = fnOptimized(...inputs) === 1 ? 1 : 0;
+    if (out1 !== out2) {
+      return {
+        isEquivalent: false,
+        mismatchRow: { inputs, expected: out1, actual: out2 },
+      };
     }
   }
   return { isEquivalent: true, mismatchRow: null };

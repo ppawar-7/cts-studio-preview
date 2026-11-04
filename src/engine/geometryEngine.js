@@ -34,15 +34,17 @@ export function computeCoreGeometry({
   marginLeft = margin,
   marginRight = margin,
 }) {
-  const coreWidth = Math.max(0, dieWidth - marginLeft - marginRight);
-  const coreHeight = Math.max(0, dieHeight - marginTop - marginBottom);
-  const dieArea = dieWidth * dieHeight;
-  const coreArea = coreWidth * coreHeight;
-  const aspectRatio = Number((coreHeight / (coreWidth || 1)).toFixed(3));
+  const safeDieW = Math.max(0, Number(dieWidth) || 0);
+  const safeDieH = Math.max(0, Number(dieHeight) || 0);
+  const coreWidth = Math.max(0, safeDieW - marginLeft - marginRight);
+  const coreHeight = Math.max(0, safeDieH - marginTop - marginBottom);
+  const dieArea = Number((safeDieW * safeDieH).toFixed(2));
+  const coreArea = Number((coreWidth * coreHeight).toFixed(2));
+  const aspectRatio = coreWidth > 0 ? Number((coreHeight / coreWidth).toFixed(3)) : 0;
 
   return {
-    dieWidth,
-    dieHeight,
+    dieWidth: safeDieW,
+    dieHeight: safeDieH,
     coreWidth,
     coreHeight,
     dieArea,
@@ -65,14 +67,19 @@ export function computeCoreGeometry({
  * @returns {{ nominalUtilization: number, effectiveUtilization: number, routableArea: number }}
  */
 export function computeUtilization({ stdCellArea, macroArea = 0, blockageArea = 0, coreArea }) {
-  if (!coreArea || coreArea <= 0) {
+  const safeCoreArea = Number(coreArea) || 0;
+  if (safeCoreArea <= 0) {
     return { nominalUtilization: 0, effectiveUtilization: 0, routableArea: 0 };
   }
 
-  const nominalUtilization = Number((((stdCellArea + macroArea) / coreArea) * 100).toFixed(1));
-  const routableArea = Math.max(0, coreArea - macroArea - blockageArea);
+  const safeStdCellArea = Math.max(0, Number(stdCellArea) || 0);
+  const safeMacroArea = Math.max(0, Number(macroArea) || 0);
+  const safeBlockageArea = Math.max(0, Number(blockageArea) || 0);
+
+  const nominalUtilization = Number((((safeStdCellArea + safeMacroArea) / safeCoreArea) * 100).toFixed(1));
+  const routableArea = Math.max(0, safeCoreArea - safeMacroArea - safeBlockageArea);
   const effectiveUtilization = routableArea > 0
-    ? Number(((stdCellArea / routableArea) * 100).toFixed(1))
+    ? Number(((safeStdCellArea / routableArea) * 100).toFixed(1))
     : 100;
 
   return {
@@ -92,17 +99,30 @@ export function computeUtilization({ stdCellArea, macroArea = 0, blockageArea = 
  * @returns {boolean} True if boxes overlap or violate halo clearance
  */
 export function checkRectCollision(box1, box2, halo = 0) {
-  const b1Left = box1.x - halo;
-  const b1Right = box1.x + box1.width + halo;
-  const b1Top = box1.y - halo;
-  const b1Bottom = box1.y + box1.height + halo;
+  if (!box1 || !box2) return false;
+  const w1 = Number(box1.width) || 0;
+  const h1 = Number(box1.height) || 0;
+  const w2 = Number(box2.width) || 0;
+  const h2 = Number(box2.height) || 0;
+
+  // Degenerate boxes do not collide
+  if (w1 <= 0 || h1 <= 0 || w2 <= 0 || h2 <= 0) {
+    return false;
+  }
+
+  const safeHalo = Math.max(0, Number(halo) || 0);
+
+  const b1Left = box1.x - safeHalo;
+  const b1Right = box1.x + w1 + safeHalo;
+  const b1Top = box1.y - safeHalo;
+  const b1Bottom = box1.y + h1 + safeHalo;
 
   const b2Left = box2.x;
-  const b2Right = box2.x + box2.width;
+  const b2Right = box2.x + w2;
   const b2Top = box2.y;
-  const b2Bottom = box2.y + box2.height;
+  const b2Bottom = box2.y + h2;
 
-  // Collision occurs when projections overlap on both X and Y axes
+  // Open-interval collision (strictly greater than / less than allows abutment without overlap)
   const overlapX = b1Left < b2Right && b1Right > b2Left;
   const overlapY = b1Top < b2Bottom && b1Bottom > b2Top;
 
@@ -117,11 +137,16 @@ export function checkRectCollision(box1, box2, halo = 0) {
  * @returns {boolean}
  */
 export function isContainedInCore(box, core) {
+  if (!box || !core) return false;
+  const w = Number(box.width) || 0;
+  const h = Number(box.height) || 0;
+  if (w <= 0 || h <= 0) return false;
+
   return (
     box.x >= 0 &&
     box.y >= 0 &&
-    box.x + box.width <= core.width &&
-    box.y + box.height <= core.height
+    box.x + w <= core.width &&
+    box.y + h <= core.height
   );
 }
 
@@ -136,9 +161,13 @@ export function isContainedInCore(box, core) {
  * @param {Object} core - { width, height }
  * @returns {{ isValid: boolean, violations: Array<string> }}
  */
-export function validatePinPlacements(pins, minPitch = 10, core) {
+export function validatePinPlacements(pins, minPitch = 10, core = { width: 400, height: 320 }) {
   const violations = [];
   const edgeGroups = { top: [], bottom: [], left: [], right: [] };
+
+  if (!Array.isArray(pins)) {
+    return { isValid: false, violations: ['Pin list is not an array'] };
+  }
 
   pins.forEach((pin) => {
     if (!edgeGroups[pin.edge]) {

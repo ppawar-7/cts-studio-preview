@@ -6,6 +6,7 @@ import {
   isKingdomCompleted,
   getKingdomXP,
   applyLevelCompletion,
+  applySanityCheckCompletion,
   computeStars,
 } from '../../logic/progressionEngine.js';
 import { KINGDOMS } from '../../data/kingdomsData.js';
@@ -58,7 +59,6 @@ describe('Curriculum Progression Mathematics & Unlock Gates', () => {
     let player = JSON.parse(JSON.stringify(DEFAULT_PLAYER));
 
     // Step 1: Pass RTL-1 with 25 XP (Truth table complete, concept question skipped or missed)
-    // 25 XP achieves 2 stars (starThresholds: [10, 20, 30])
     expect(computeStars(25, rtl1.starThresholds)).toBe(2);
     player = applyLevelCompletion(player, 'rtl-understanding', rtl1, 25);
 
@@ -103,8 +103,7 @@ describe('Curriculum Progression Mathematics & Unlock Gates', () => {
 
     // Cumulative XP = 25 + 30 + 35 + 40 + 40 = 170 XP from levels
     expect(getKingdomXP(player, 'rtl-understanding')).toBe(170);
-    // Upon completing all 5 levels and sanity checks, engine awards 50 bonus XP: 170 + 50 = 220
-    expect(player.totalXP).toBe(220);
+    expect(player.totalXP).toBe(220); // 170 + 50 bonus
 
     // Kingdom completion: 170 >= 150 pointsToUnlockNext, all 5 levels completed
     expect(isKingdomCompleted(player, 'rtl-understanding')).toBe(true);
@@ -143,5 +142,41 @@ describe('Curriculum Progression Mathematics & Unlock Gates', () => {
     // Student plays again and gets 30 XP (exact tie)
     player = applyLevelCompletion(player, 'rtl-understanding', rtl1, 30);
     expect(player.totalXP).toBe(30);
+  });
+
+  it('proves a fresh student playing normally from Kingdom 1 through Kingdom 8 unlocks all 8 kingdoms without progression deadlock', () => {
+    let player = JSON.parse(JSON.stringify(DEFAULT_PLAYER));
+
+    KINGDOMS.forEach((kingdom, kIdx) => {
+      // 1. Verify this kingdom is unlocked
+      expect(isKingdomUnlocked(player, kingdom.id)).toBe(true);
+
+      // 2. Play through all 5 levels in sequence
+      kingdom.levels.forEach((level) => {
+        expect(isLevelUnlocked(player, kingdom, level)).toBe(true);
+        // Complete with full level reward
+        player = applyLevelCompletion(player, kingdom.id, level, level.xpReward);
+        expect(player.levelProgress[level.id].completed).toBe(true);
+      });
+
+      // 3. Complete all stage sanity checks
+      (kingdom.sanityChecks || []).forEach((check) => {
+        player = applySanityCheckCompletion(player, kingdom.id, check, check.xpReward);
+        expect(player.sanityCheckProgress[check.id].passed).toBe(true);
+      });
+
+      // 4. Verify kingdom completion
+      expect(isKingdomCompleted(player, kingdom.id)).toBe(true);
+
+      // 5. Verify next kingdom is unlocked (if not last)
+      const nextK = KINGDOMS[kIdx + 1];
+      if (nextK) {
+        expect(isKingdomUnlocked(player, nextK.id)).toBe(true);
+      }
+    });
+
+    // Grand achievement: All 8 kingdoms completed!
+    expect(player.achievements).toContain('grandmaster');
+    expect(player.totalXP).toBeGreaterThan(1600);
   });
 });

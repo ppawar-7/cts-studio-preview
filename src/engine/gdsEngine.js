@@ -44,12 +44,15 @@ export const SIGNOFF_CHECKLIST = [
  *
  * @param {number} metalAreaUm2 - Total area of metal attached to gate during etch
  * @param {number} gateAreaUm2 - Area of the MOS transistor gate oxide
- * @param {number} maxAllowedRatio - Foundry rule limit (default 200)
+ * @param {number} [maxAllowedRatio=200] - Foundry rule limit (default 200)
  * @returns {{ ratio: number, isExceeded: boolean, diodeRequired: boolean }}
  */
 export function calculateAntennaRatio(metalAreaUm2, gateAreaUm2, maxAllowedRatio = 200) {
-  if (gateAreaUm2 <= 0) return { ratio: 0, isExceeded: false, diodeRequired: false };
-  const ratio = Number((metalAreaUm2 / gateAreaUm2).toFixed(1));
+  const safeGate = Number(gateAreaUm2) || 0;
+  if (safeGate <= 0) return { ratio: 0, isExceeded: false, diodeRequired: false };
+  const safeMetal = Math.max(0, Number(metalAreaUm2) || 0);
+
+  const ratio = Number((safeMetal / safeGate).toFixed(1));
   const isExceeded = ratio > maxAllowedRatio;
 
   return {

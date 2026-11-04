@@ -40,39 +40,58 @@ describe('Filler Cells Engine', () => {
     ]);
   });
 
-  it('calculates dynamic power supply droop suppression with decap capacitance', () => {
-    // I = 100 mA, dt = 200 ps. Decap = 500 pF -> Droop = (100 * 200) / 500 = 40 mV <= 50 mV (acceptable)
-    const resGood = calculateDecapDroop(100, 200, 500);
+  it('calculates dynamic power supply droop suppression with decap capacitance and leakage penalty', () => {
+    // I = 100 mA, dt = 200 ps. Decap = 500 pF, 40 decap sites -> Droop = (100 * 200) / 500 = 40 mV <= 50 mV (acceptable)
+    // Leakage = 40 * 0.25 µA = 10.0 µA
+    const resGood = calculateDecapDroop(100, 200, 500, 40);
     expect(resGood.droopMv).toBe(40.0);
     expect(resGood.isAcceptable).toBe(true);
+    expect(resGood.leakageCurrentUa).toBe(10.0);
 
     // If Decap is only 100 pF -> Droop = (100 * 200) / 100 = 200 mV > 50 mV (unacceptable violation)
-    const resBad = calculateDecapDroop(100, 200, 100);
+    const resBad = calculateDecapDroop(100, 200, 100, 8);
     expect(resBad.droopMv).toBe(200.0);
     expect(resBad.isAcceptable).toBe(false);
   });
 
-  it('verifies row continuity and N-well abutment', () => {
+  it('verifies row continuity via scalar sum when startSite is omitted', () => {
     const cells = [
       { widthSites: 40 },
       { widthSites: 35 },
       { widthSites: 25 },
     ];
-    const checkFull = checkRowContinuity(100, cells);
-    expect(checkFull.isContinuous).toBe(true);
-    expect(checkFull.gapRemaining).toBe(0);
-
-    const cellsWithGap = [{ widthSites: 40 }, { widthSites: 35 }];
-    const checkGap = checkRowContinuity(100, cellsWithGap);
-    expect(checkGap.isContinuous).toBe(false);
-    expect(checkGap.gapRemaining).toBe(25);
+    const continuity = checkRowContinuity(100, cells);
+    expect(continuity.isContinuous).toBe(true);
+    expect(continuity.gapRemaining).toBe(0);
+    expect(continuity.totalCellWidth).toBe(100);
   });
 
-  it('provides physical-only cell library metadata', () => {
-    expect(PHYSICAL_ONLY_CELLS.FILLER).toBeDefined();
-    expect(PHYSICAL_ONLY_CELLS.DECAP).toBeDefined();
-    expect(PHYSICAL_ONLY_CELLS.TAPCELL).toBeDefined();
-    expect(PHYSICAL_ONLY_CELLS.ENDCAP).toBeDefined();
-    expect(PHYSICAL_ONLY_CELLS.TIE_CELLS).toBeDefined();
+  it('verifies spatial row interval coverage when startSite is present', () => {
+    // Complete spatial coverage with no gaps
+    const continuousCells = [
+      { startSite: 0, widthSites: 40 },
+      { startSite: 40, widthSites: 30 },
+      { startSite: 70, widthSites: 30 },
+    ];
+    const passResult = checkRowContinuity(100, continuousCells);
+    expect(passResult.isContinuous).toBe(true);
+    expect(passResult.gapRemaining).toBe(0);
+
+    // Spatial gap: cell 1 covers 0..40, cell 2 starts at 50 (gap from 40 to 50!)
+    const gappedCells = [
+      { startSite: 0, widthSites: 40 },
+      { startSite: 50, widthSites: 50 },
+    ];
+    const failResult = checkRowContinuity(100, gappedCells);
+    expect(failResult.isContinuous).toBe(false);
+    expect(failResult.gapRemaining).toBe(60); // stops at 40
+  });
+
+  it('identifies distinct physical-only cell categories and their engineering roles', () => {
+    expect(PHYSICAL_ONLY_CELLS.FILLER.category).toBe('Filler');
+    expect(PHYSICAL_ONLY_CELLS.DECAP.category).toBe('Decap');
+    expect(PHYSICAL_ONLY_CELLS.TAPCELL.maxDistanceUm).toBe(30.0);
+    expect(PHYSICAL_ONLY_CELLS.ENDCAP.category).toBe('Boundary');
+    expect(PHYSICAL_ONLY_CELLS.TIE_CELLS.category).toBe('TieOff');
   });
 });
