@@ -19,6 +19,7 @@ import {
 } from '../../logic/progressionEngine.js';
 import { KINGDOMS } from '../../data/kingdomsData.js';
 import ActivityHost from '../../components/ActivityHost/ActivityHost.jsx';
+import { hasActivity } from '../../activities/activityRegistry.js';
 import './LevelPage.css';
 
 // ─── Stars display ────────────────────────────────────────────────────────────
@@ -111,25 +112,55 @@ export default function LevelPage() {
 
             <div className="level-page__complete-buttons">
               {nextLevel && (
-                <Link
-                  to={`/kingdom/${kingdom.id}/level/${nextLevel.id}`}
-                  className="btn btn--primary btn--lg"
-                  onClick={() => setCompletionData(null)}
-                >
-                  ▶ Next Level: {nextLevel.title}
-                </Link>
+                hasActivity(nextLevel.id) ? (
+                  <>
+                    <Link
+                      to={`/kingdom/${kingdom.id}/level/${nextLevel.id}`}
+                      className="btn btn--primary btn--lg"
+                      onClick={() => setCompletionData(null)}
+                    >
+                      ▶ Next Level: {nextLevel.title}
+                    </Link>
+                    <Link to={`/kingdom/${kingdom.id}`} className="btn btn--ghost">
+                      ← Back to {kingdom.name}
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to={`/kingdom/${kingdom.id}`}
+                      className="btn btn--primary btn--lg"
+                    >
+                      🏰 Return to {kingdom.name}
+                    </Link>
+                    <Link
+                      to={`/kingdom/${kingdom.id}/level/${nextLevel.id}`}
+                      className="btn btn--secondary btn--lg"
+                      onClick={() => setCompletionData(null)}
+                    >
+                      Preview Level {nextLevel.order} (Coming Soon) ›
+                    </Link>
+                  </>
+                )
               )}
               {!nextLevel && nextKingdom && (
-                <Link
-                  to={`/kingdom/${nextKingdom.id}`}
-                  className="btn btn--secondary btn--lg"
-                >
-                  🏰 Next Kingdom: {nextKingdom.name}
+                <>
+                  <Link
+                    to={`/kingdom/${nextKingdom.id}`}
+                    className="btn btn--secondary btn--lg"
+                  >
+                    🏰 Next Kingdom: {nextKingdom.name}
+                  </Link>
+                  <Link to={`/kingdom/${kingdom.id}`} className="btn btn--ghost">
+                    ← Back to {kingdom.name}
+                  </Link>
+                </>
+              )}
+              {!nextLevel && !nextKingdom && (
+                <Link to={`/kingdom/${kingdom.id}`} className="btn btn--ghost">
+                  ← Back to {kingdom.name}
                 </Link>
               )}
-              <Link to={`/kingdom/${kingdom.id}`} className="btn btn--ghost">
-                ← Back to {kingdom.name}
-              </Link>
             </div>
           </div>
         </div>

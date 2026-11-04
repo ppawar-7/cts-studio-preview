@@ -9,6 +9,7 @@
  */
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { getActivity } from '../../activities/activityRegistry.js';
 import './ActivityHost.css';
 
@@ -34,28 +35,39 @@ export default function ActivityHost({ level, kingdom, onVerify, alreadyComplete
   return (
     <div className="activity-host">
       <div className="activity-coming-soon">
-        <span className="activity-coming-soon__icon">🚧</span>
+        <div className="activity-coming-soon__badge-row">
+          <span className="badge badge--coming-soon">✨ Unlocked — Challenge Coming Soon</span>
+        </div>
+        <div className="activity-coming-soon__icon">🛠️</div>
         <h3 className="activity-coming-soon__title">
-          {level.title} — Laboratory In Development
+          Level {level.order} — {level.title}
         </h3>
         <p className="activity-coming-soon__desc">
-          The verified engineering challenge for <strong>{level.title}</strong> is currently
-          under development for this kingdom's upcoming milestone.
+          You have unlocked access to this stage! The dedicated interactive engineering challenge
+          for <strong>{level.title}</strong> is currently being authored for the upcoming milestone.
         </p>
 
+        <div className="activity-coming-soon__syllabus">
+          <h4 className="activity-coming-soon__syllabus-title">Curriculum Objectives for this Stage:</h4>
+          <p className="activity-coming-soon__syllabus-text">{level.description}</p>
+        </div>
+
         <div className="activity-coming-soon__notice">
-          🔒 Mastery validation required: This level will unlock XP and star rewards once its dedicated engineering simulator is published.
+          ℹ️ <strong>Mastery Verification Pending:</strong> XP (+{level.xpReward} XP) and star badges are awarded only upon completing the verified simulator challenge when published. No unearned credit is granted.
         </div>
 
         <div className="activity-coming-soon__links">
+          <Link to={`/kingdom/${kingdom.id}`} className="btn btn--primary">
+            ← Return to {kingdom.name}
+          </Link>
           {kingdom.id === 'rtl-understanding' && (
             <a
               href="https://ppawar-7.github.io/rtl-playground/"
               target="_blank"
               rel="noopener noreferrer"
-              className="btn btn--secondary btn--sm"
+              className="btn btn--secondary"
             >
-              Explore Full RTL Playground Lab ↗
+              Optional: Explore Standalone RTL Playground ↗
             </a>
           )}
           {(kingdom.id === 'cts' || kingdom.id === 'synthesis') && (
@@ -63,9 +75,9 @@ export default function ActivityHost({ level, kingdom, onVerify, alreadyComplete
               href="https://ppawar-7.github.io/sta-playground/"
               target="_blank"
               rel="noopener noreferrer"
-              className="btn btn--secondary btn--sm"
+              className="btn btn--secondary"
             >
-              Explore Timing in STA Playground ↗
+              Optional: Explore Standalone STA Playground ↗
             </a>
           )}
         </div>

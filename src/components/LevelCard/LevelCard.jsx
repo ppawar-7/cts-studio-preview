@@ -9,6 +9,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../../context/PlayerContext.jsx';
 import { getLevelStatus } from '../../logic/progressionEngine.js';
+import { hasActivity } from '../../activities/activityRegistry.js';
 import './LevelCard.css';
 
 function Stars({ count, earned }) {
@@ -28,6 +29,7 @@ export default function LevelCard({ kingdom, level }) {
   const status = getLevelStatus(player, kingdom, level);
   const progress = player.levelProgress[level.id];
   const earnedStars = progress?.stars ?? 0;
+  const isComingSoon = !hasActivity(level.id);
 
   const numberClass = `level-card__number level-card__number--${status}`;
   const cardClass = `level-card level-card--${status}`;
@@ -41,14 +43,22 @@ export default function LevelCard({ kingdom, level }) {
 
       {/* Title + description */}
       <div className="level-card__content">
-        <div className="level-card__title">Level {level.order} — {level.title}</div>
+        <div className="level-card__title">
+          Level {level.order} — {level.title}
+        </div>
         <div className="level-card__desc">{level.description}</div>
       </div>
 
       {/* Right: stars, XP, duration */}
       <div className="level-card__right">
         {status === 'completed' && <Stars count={3} earned={earnedStars} />}
-        <span className="level-card__xp">⭐ +{level.xpReward} XP</span>
+        {status === 'available' && isComingSoon ? (
+          <span className="level-card__coming-soon-badge">
+            Unlocked — Coming Soon
+          </span>
+        ) : (
+          <span className="level-card__xp">⭐ +{level.xpReward} XP</span>
+        )}
         {status === 'locked' && level.pointsRequired > 0 && (
           <span className="level-card__lock-hint">Needs {level.pointsRequired} XP</span>
         )}
