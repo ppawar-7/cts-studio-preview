@@ -519,3 +519,32 @@
   .kingdom-page__emoji-box { width: 60px; height: 60px; font-size: 2rem; }
   .kingdom-page__sanity-grid { grid-template-columns: 1fr; }
 }
+
+/* External Studio Lab Card */
+.kingdom-external-lab-card {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(124, 58, 237, 0.08));
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: var(--radius-lg, 12px);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.kingdom-external-lab-info h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0284c7;
+  margin: 0 0 0.35rem 0;
+}
+
+.kingdom-external-lab-info p {
+  color: var(--color-text-muted, #64748b);
+  margin: 0;
+  font-size: 0.9rem;
+  max-width: 650px;
+  line-height: 1.45;
+}

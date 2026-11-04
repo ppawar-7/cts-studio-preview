@@ -1,0 +1,52 @@
+/* ActivityHost.css */
+.activity-host {
+  width: 100%;
+}
+
+.activity-coming-soon {
+  background: #0f172a;
+  border: 1px dashed #475569;
+  border-radius: var(--radius-md, 8px);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.activity-coming-soon__icon {
+  font-size: 3rem;
+  margin-bottom: 0.75rem;
+  display: block;
+}
+
+.activity-coming-soon__title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #38bdf8;
+  margin-bottom: 0.5rem;
+}
+
+.activity-coming-soon__desc {
+  color: var(--color-text-muted, #94a3b8);
+  max-width: 500px;
+  margin: 0 auto 1.5rem auto;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.activity-coming-soon__notice {
+  display: inline-block;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}
+
+.activity-coming-soon__links {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}

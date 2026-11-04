@@ -2,10 +2,11 @@
  * LevelPage.jsx
  * ==============
  * Reusable level learning template.
- * Streamlined single-view structure without sub-section tabs for Phase 1.
+ * Streamlined single-view structure with registered activity hosting.
  *
  * Data-driven: reads kingdom + level from URL params and kingdomsData.js.
- * Actual educational content will be injected in Phase 2.
+ * Level activities are loaded dynamically via ActivityHost and validated
+ * deterministically before declaring completion.
  */
 
 import React, { useState } from 'react';
@@ -17,6 +18,7 @@ import {
   computeStars,
 } from '../../logic/progressionEngine.js';
 import { KINGDOMS } from '../../data/kingdomsData.js';
+import ActivityHost from '../../components/ActivityHost/ActivityHost.jsx';
 import './LevelPage.css';
 
 // ─── Stars display ────────────────────────────────────────────────────────────
@@ -40,9 +42,6 @@ export default function LevelPage() {
   const level = kingdom?.levels.find((l) => l.id === levelId);
 
   // States
-  const [score, setScore] = useState(level ? level.xpReward : 30);
-  const [submitted, setSubmitted] = useState(false);
-  const [feedback, setFeedback] = useState('');
   const [showHint, setShowHint] = useState(false);
   const [completionData, setCompletionData] = useState(null);
 
@@ -50,7 +49,8 @@ export default function LevelPage() {
 
   const levelStatus = getLevelStatus(player, kingdom, level);
   const alreadyCompleted = player.levelProgress[level.id]?.completed ?? false;
-  const stars = computeStars(score, level.starThresholds);
+  const currentLevelStars = player.levelProgress[level.id]?.stars ?? 0;
+  const currentLevelXP = player.levelProgress[level.id]?.xpEarned ?? 0;
 
   // Block access to locked levels
   if (levelStatus === 'locked') {
@@ -72,13 +72,20 @@ export default function LevelPage() {
     );
   }
 
-  const handleSubmit = () => {
-    if (submitted) return;
-    setSubmitted(true);
-    completeLevel(kingdom.id, level, score);
-    const earnedStars = computeStars(score, level.starThresholds);
-    const xpEarned = Math.min(score, level.xpReward);
-    setCompletionData({ score, stars: earnedStars, xpEarned });
+  // Handle verified activity completion (strictly deterministic)
+  const handleActivityVerify = (result) => {
+    if (!result || !result.passed) {
+      return;
+    }
+
+    const verifiedScore = Math.min(result.score, level.xpReward);
+    completeLevel(kingdom.id, level, verifiedScore);
+    setCompletionData({
+      score: verifiedScore,
+      stars: result.stars,
+      xpEarned: verifiedScore,
+      feedback: result.feedback,
+    });
   };
 
   // Find next level & next kingdom for navigation
@@ -94,19 +101,20 @@ export default function LevelPage() {
             <span className="level-page__complete-emoji">🎉</span>
             <h2 className="level-page__complete-title">Level Complete!</h2>
             <p className="level-page__complete-xp">
-              +{completionData.xpEarned} XP Earned
+              +{completionData.xpEarned} XP Verified &amp; Earned
             </p>
             <StarDisplay stars={completionData.stars} />
+
+            <p style={{ color: 'var(--color-text-muted)', maxWidth: 500, margin: '1rem auto' }}>
+              {completionData.feedback}
+            </p>
 
             <div className="level-page__complete-buttons">
               {nextLevel && (
                 <Link
                   to={`/kingdom/${kingdom.id}/level/${nextLevel.id}`}
                   className="btn btn--primary btn--lg"
-                  onClick={() => {
-                    setCompletionData(null);
-                    setSubmitted(false);
-                  }}
+                  onClick={() => setCompletionData(null)}
                 >
                   ▶ Next Level: {nextLevel.title}
                 </Link>
@@ -153,7 +161,9 @@ export default function LevelPage() {
                 <span>⏱ {level.duration}</span>
                 <span>⭐ Up to {level.xpReward} XP</span>
                 {alreadyCompleted && (
-                  <span style={{ color: 'var(--color-accent)', fontWeight: 700 }}>✓ Completed</span>
+                  <span style={{ color: 'var(--color-accent)', fontWeight: 700 }}>
+                    ✓ Completed ({currentLevelXP} XP)
+                  </span>
                 )}
               </div>
             </div>
@@ -164,7 +174,7 @@ export default function LevelPage() {
                 {[1, 2, 3].map((i) => (
                   <span
                     key={i}
-                    className={`star ${i <= (player.levelProgress[level.id]?.stars ?? 0) ? 'star--filled' : ''}`}
+                    className={`star ${i <= currentLevelStars ? 'star--filled' : ''}`}
                     style={{ fontSize: '1.5rem' }}
                   >★</span>
                 ))}
@@ -177,7 +187,7 @@ export default function LevelPage() {
       <div className="container">
         {alreadyCompleted && (
           <div className="level-page__feedback level-page__feedback--info" style={{ marginBottom: '1.5rem' }}>
-            ✅ You have already completed this level! You can practice again to improve your score.
+            ✅ You have certified completion on this level ({currentLevelXP} XP, {currentLevelStars} Stars)! You can practice again to improve your score.
           </div>
         )}
 
@@ -193,82 +203,30 @@ export default function LevelPage() {
                 {level.description}
               </p>
             </div>
-            <button
-              className="level-page__audio-btn"
-              onClick={() => alert('🎧 Audio narration will be available in Phase 2!')}
-            >
-              🎧 Audio Narration
-            </button>
           </div>
         </div>
 
         {/* Interactive Challenge & Learning Activity Area */}
         <div className="card level-page__activity-card">
           <div className="level-page__activity-header">
-            <span className="level-page__activity-badge">⚔️ Interactive Challenge</span>
+            <span className="level-page__activity-badge">⚔️ Verified Engineering Challenge</span>
             <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-              Complete the activity to earn up to <strong>{level.xpReward} XP</strong>
+              Demonstrate mastery to earn up to <strong>{level.xpReward} XP</strong>
             </span>
           </div>
 
-          <div className="level-page__placeholder">
-            <span className="level-page__placeholder-icon">🧩</span>
-            <h3 className="level-page__placeholder-title">
-              {level.title} Activity Area
-            </h3>
-            <p className="level-page__placeholder-desc">
-              Interactive learning challenges, diagrams, and problem-solving puzzles
-              for <strong>{level.title}</strong> will be implemented here in Phase 2.
-            </p>
-          </div>
-
-          {/* Performance Score Slider (Simulator for Phase 1) */}
-          <div className="level-page__score-input">
-            <div className="level-page__score-label">
-              <span>🎯 Performance Score:</span>
-              <span style={{ color: '#b45309', fontWeight: 800, fontSize: '1.1rem' }}>
-                {score} / {level.xpReward} XP
-              </span>
-            </div>
-            <input
-              type="range"
-              className="level-page__slider"
-              min={1}
-              max={level.xpReward}
-              value={score}
-              onChange={(e) => setScore(Number(e.target.value))}
-              disabled={submitted}
-            />
-            <div className="level-page__thresholds">
-              <span>⭐ 1 Star ({level.starThresholds[0]}+ XP)</span>
-              <span>⭐⭐ 2 Stars ({level.starThresholds[1]}+ XP)</span>
-              <span>⭐⭐⭐ 3 Stars ({level.starThresholds[2]}+ XP)</span>
-            </div>
-          </div>
-
-          {/* Star Rating Preview */}
-          <div className="level-page__preview-stars">
-            <span style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', marginRight: '0.5rem' }}>
-              Rating:
-            </span>
-            {[1, 2, 3].map((i) => (
-              <span key={i} style={{ fontSize: '1.6rem', opacity: i <= stars ? 1 : 0.25 }}>⭐</span>
-            ))}
-          </div>
-
-          {/* Submit Action */}
-          <button
-            className="btn btn--primary btn--lg w-full"
-            onClick={handleSubmit}
-            disabled={submitted}
-          >
-            {submitted ? '✓ Completed!' : '✅ Complete Challenge'}
-          </button>
+          <ActivityHost
+            level={level}
+            kingdom={kingdom}
+            onVerify={handleActivityVerify}
+            alreadyCompleted={alreadyCompleted}
+          />
         </div>
 
         {/* Quick Assistance / Hint */}
         <div className="level-page__hint-box">
           <button
+            type="button"
             className="btn btn--ghost btn--sm"
             onClick={() => setShowHint(!showHint)}
           >
@@ -281,8 +239,7 @@ export default function LevelPage() {
                 💡 Key Hint for {level.title}:
               </p>
               <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                Focus on the core concept: <em>{level.description}</em>. In {kingdom.name},
-                this step ensures correct ASIC physical design flow progression.
+                Remember that when <strong>SEL = 0</strong>, the multiplexer transmits input <strong>A</strong>. When <strong>SEL = 1</strong>, it transmits input <strong>B</strong>. You must test every state in the circuit to understand how logic signals steer data between register stages!
               </p>
             </div>
           )}

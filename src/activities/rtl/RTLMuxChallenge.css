@@ -1,0 +1,277 @@
+/* RTLMuxChallenge.css */
+.mux-challenge {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.mux-challenge__intro {
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  border-radius: var(--radius-md, 8px);
+  padding: 1rem 1.25rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.mux-challenge__intro p {
+  margin: 0.35rem 0;
+  color: var(--color-text, #e2e8f0);
+}
+
+.mux-challenge__schematic-card {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: var(--radius-md, 8px);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mux-challenge__schematic-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #1e293b;
+  padding-bottom: 0.5rem;
+}
+
+.mux-challenge__schematic-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mux-challenge__controls {
+  display: flex;
+  gap: 1.25rem;
+  background: #1e293b;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #334155;
+}
+
+.mux-challenge__control-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.mux-btn-toggle {
+  background: #0f172a;
+  border: 1px solid #475569;
+  color: #94a3b8;
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.mux-btn-toggle.active-1 {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #059669;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+.mux-btn-toggle.active-0 {
+  background: #334155;
+  color: #cbd5e1;
+  border-color: #64748b;
+}
+
+.mux-svg-schematic {
+  width: 100%;
+  max-width: 620px;
+  height: 220px;
+  margin: 0.5rem 0;
+}
+
+.mux-challenge__table-section {
+  background: var(--color-surface, #1e293b);
+  border: 1px solid #334155;
+  border-radius: var(--radius-md, 8px);
+  padding: 1.25rem;
+}
+
+.mux-challenge__section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: #f8fafc;
+}
+
+.mux-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.mux-table th, .mux-table td {
+  padding: 8px 12px;
+  text-align: center;
+  border-bottom: 1px solid #334155;
+}
+
+.mux-table th {
+  background: #0f172a;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.mux-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.mux-val-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-family: monospace;
+}
+.mux-val-pill.val-1 { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.mux-val-pill.val-0 { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+
+.mux-output-select {
+  background: #0f172a;
+  color: #f8fafc;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mux-output-select.correct {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.mux-output-select.incorrect {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.mux-btn-apply-row {
+  background: transparent;
+  border: 1px solid #475569;
+  color: #38bdf8;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.mux-btn-apply-row:hover {
+  background: rgba(56, 189, 248, 0.15);
+}
+
+.mux-challenge__concept-section {
+  background: var(--color-surface, #1e293b);
+  border: 1px solid #334155;
+  border-radius: var(--radius-md, 8px);
+  padding: 1.25rem;
+}
+
+.mux-quiz-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  border-radius: 6px;
+  background: #0f172a;
+  border: 1px solid #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mux-quiz-option:hover {
+  border-color: #38bdf8;
+  background: #1e293b;
+}
+
+.mux-quiz-option.selected {
+  border-color: #7c3aed;
+  background: rgba(124, 58, 237, 0.15);
+}
+
+.mux-quiz-option input[type="radio"] {
+  margin-top: 3px;
+}
+
+.mux-challenge__feedback-panel {
+  border-radius: var(--radius-md, 8px);
+  padding: 1rem 1.25rem;
+  border: 1px solid;
+  margin-top: 0.5rem;
+}
+
+.mux-challenge__feedback-panel.success {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: #10b981;
+  color: #34d399;
+}
+
+.mux-challenge__feedback-panel.warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: #f59e0b;
+  color: #fbbf24;
+}
+
+.mux-breakdown-list {
+  margin: 0.75rem 0 0.25rem 0;
+  padding-left: 1.25rem;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+
+.mux-breakdown-list li {
+  margin-bottom: 0.35rem;
+}
+
+.mux-challenge__actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.mux-external-lab-card {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(99, 102, 241, 0.12));
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: var(--radius-md, 8px);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+  gap: 1rem;
+}
+
+.mux-external-lab-card h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.95rem;
+  color: #38bdf8;
+}
+
+.mux-external-lab-card p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.mux-external-lab-card a {
+  white-space: nowrap;
+}
