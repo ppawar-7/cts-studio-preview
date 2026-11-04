@@ -6,27 +6,33 @@ import {
 
 describe('Player Storage Migration (v1 -> v2)', () => {
   it('creates clean baseline state when given null or empty object', () => {
-    const res = migratePlayerState(null);
-    expect(res.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(res.name).toBe('Student Explorer');
-    expect(res.totalXP).toBe(0);
-    expect(res.levelProgress).toEqual({});
+    const resNull = migratePlayerState(null);
+    expect(resNull.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(resNull.name).toBe('Student Explorer');
+    expect(resNull.totalXP).toBe(0);
+    expect(resNull.levelProgress).toEqual({});
+    expect(resNull.legacyArchive || null).toBeNull();
+
+    const resEmpty = migratePlayerState({});
+    expect(resEmpty.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(resEmpty.name).toBe('Student Explorer');
   });
 
   it('preserves user identity and verified rtl-1 completion', () => {
     const v1State = {
-      name: 'Elena',
-      avatarEmoji: '🔬',
+      name: 'Alice VLSI',
+      avatarEmoji: '⚡',
       createdAt: '2026-10-20T12:00:00.000Z',
+      totalXP: 30,
       levelProgress: {
         'rtl-1': { completed: true, stars: 3, xpEarned: 30 },
       },
     };
 
     const res = migratePlayerState(v1State);
-    expect(res.schemaVersion).toBe(2);
-    expect(res.name).toBe('Elena');
-    expect(res.avatarEmoji).toBe('🔬');
+    expect(res.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(res.name).toBe('Alice VLSI');
+    expect(res.avatarEmoji).toBe('⚡');
     expect(res.createdAt).toBe('2026-10-20T12:00:00.000Z');
     expect(res.levelProgress['rtl-1'].completed).toBe(true);
     expect(res.levelProgress['rtl-1'].xpEarned).toBe(30);
@@ -42,8 +48,8 @@ describe('Player Storage Migration (v1 -> v2)', () => {
       totalXP: 100, // inflated total
       levelProgress: {
         'rtl-1': { completed: true, stars: 3, xpEarned: 30 },
-        'fp-1': { completed: true, stars: 3, xpEarned: 35 }, // unimplemented level
-        'fp-2': { completed: true, stars: 3, xpEarned: 35 }, // unimplemented level
+        'pl-1': { completed: true, stars: 3, xpEarned: 35 }, // unimplemented level
+        'cts-1': { completed: true, stars: 3, xpEarned: 35 }, // unimplemented level
       },
     };
 
@@ -52,13 +58,13 @@ describe('Player Storage Migration (v1 -> v2)', () => {
     // rtl-1 verified is kept
     expect(res.levelProgress['rtl-1']).toBeDefined();
     expect(res.levelProgress['rtl-1'].completed).toBe(true);
-    // fp-1 and fp-2 are not in active levelProgress because no validator exists yet
-    expect(res.levelProgress['fp-1']).toBeUndefined();
-    expect(res.levelProgress['fp-2']).toBeUndefined();
+    // pl-1 and cts-1 are not in active levelProgress because no validator exists yet
+    expect(res.levelProgress['pl-1']).toBeUndefined();
+    expect(res.levelProgress['cts-1']).toBeUndefined();
     // They are safely stored in legacyArchive
     expect(res.legacyArchive).not.toBeNull();
-    expect(res.legacyArchive.unverifiedLevels['fp-1'].xpEarned).toBe(35);
-    expect(res.legacyArchive.unverifiedLevels['fp-2'].xpEarned).toBe(35);
+    expect(res.legacyArchive.unverifiedLevels['pl-1'].xpEarned).toBe(35);
+    expect(res.legacyArchive.unverifiedLevels['cts-1'].xpEarned).toBe(35);
     // Derived totalXP is corrected to verified only (30 XP)
     expect(res.totalXP).toBe(30);
   });
@@ -71,12 +77,12 @@ describe('Player Storage Migration (v1 -> v2)', () => {
       },
     };
 
-    const pass1 = migratePlayerState(initial);
-    const pass2 = migratePlayerState(pass1);
+    const firstPass = migratePlayerState(initial);
+    const secondPass = migratePlayerState(firstPass);
 
-    expect(pass2.schemaVersion).toBe(pass1.schemaVersion);
-    expect(pass2.name).toBe(pass1.name);
-    expect(pass2.totalXP).toBe(pass1.totalXP);
-    expect(pass2.levelProgress).toEqual(pass1.levelProgress);
+    expect(secondPass.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(secondPass.name).toBe('Bob');
+    expect(secondPass.totalXP).toBe(25);
+    expect(secondPass.levelProgress['rtl-1'].xpEarned).toBe(25);
   });
 });
