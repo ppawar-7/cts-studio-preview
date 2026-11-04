@@ -45,6 +45,18 @@ import { validateFPMacroPlacement } from './floorplanning/validators/validateFPM
 import FPKingdomChallenge from './floorplanning/FPKingdomChallenge.jsx';
 import { validateFPKingdom } from './floorplanning/validators/validateFPKingdom.js';
 
+// Kingdom 4: Placement
+import PLIntroChallenge from './placement/PLIntroChallenge.jsx';
+import { validatePLIntro } from './placement/validators/validatePLIntro.js';
+import PLGlobalDetailedChallenge from './placement/PLGlobalDetailedChallenge.jsx';
+import { validatePLGlobalDetailed } from './placement/validators/validatePLGlobalDetailed.js';
+import PLTimingDrivenChallenge from './placement/PLTimingDrivenChallenge.jsx';
+import { validatePLTimingDriven } from './placement/validators/validatePLTimingDriven.js';
+import PLCongestionChallenge from './placement/PLCongestionChallenge.jsx';
+import { validatePLCongestion } from './placement/validators/validatePLCongestion.js';
+import PLKingdomChallenge from './placement/PLKingdomChallenge.jsx';
+import { validatePLKingdom } from './placement/validators/validatePLKingdom.js';
+
 const ACTIVITY_REGISTRY = {
   // ─── Kingdom 1: RTL Understanding ──────────────────────────────────────────
   'rtl-1': {
@@ -183,6 +195,53 @@ const ACTIVITY_REGISTRY = {
     title: 'Floorplan Kingdom Challenge — Complete Chip Floorplan Signoff',
     component: FPKingdomChallenge,
     validator: validateFPKingdom,
+    maxScore: 50,
+    starThresholds: [20, 38, 50],
+  },
+
+  // ─── Kingdom 4: Placement ──────────────────────────────────────────────────
+  'pl-1': {
+    levelId: 'pl-1',
+    kingdomId: 'placement',
+    title: 'What is Placement? — Row Sites, Legalization & Wirelength',
+    component: PLIntroChallenge,
+    validator: validatePLIntro,
+    maxScore: 30,
+    starThresholds: [10, 20, 30],
+  },
+  'pl-2': {
+    levelId: 'pl-2',
+    kingdomId: 'placement',
+    title: 'Global vs Detailed Placement — Abutment, Grid Snapping & Legalization',
+    component: PLGlobalDetailedChallenge,
+    validator: validatePLGlobalDetailed,
+    maxScore: 35,
+    starThresholds: [12, 24, 35],
+  },
+  'pl-3': {
+    levelId: 'pl-3',
+    kingdomId: 'placement',
+    title: 'Timing-Driven Placement — Critical Paths, Weights & Net Slack',
+    component: PLTimingDrivenChallenge,
+    validator: validatePLTimingDriven,
+    maxScore: 40,
+    starThresholds: [15, 28, 40],
+  },
+  'pl-4': {
+    levelId: 'pl-4',
+    kingdomId: 'placement',
+    title: 'Congestion & Placement — Routing Track Capacity & Density Heatmap',
+    component: PLCongestionChallenge,
+    validator: validatePLCongestion,
+    maxScore: 45,
+    starThresholds: [18, 32, 45],
+  },
+  'pl-5': {
+    levelId: 'pl-5',
+    kingdomId: 'placement',
+    title: 'Placement Kingdom Challenge — Standard Cell Layout & HPWL Minimization',
+    component: PLKingdomChallenge,
+    validator: validatePLKingdom,
     maxScore: 50,
     starThresholds: [20, 38, 50],
   },

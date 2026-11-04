@@ -1,0 +1,53 @@
+/* PLCongestionChallenge.css */
+.pl-congest-challenge {
+  width: 100%;
+}
+
+.pl-heatmap-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  margin: 1rem 0;
+}
+
+.pl-heatmap-row {
+  display: flex;
+  gap: 8px;
+}
+
+.pl-heatmap-cell {
+  width: 90px;
+  height: 70px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #0f172a;
+}
+
+.pl-heatmap-cell.ok {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.pl-heatmap-cell.warn {
+  background: #fef3c7;
+  border-color: #fde68a;
+}
+
+.pl-heatmap-cell.hot {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.pl-heatmap-cell.selected {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
+  transform: scale(1.05);
+}

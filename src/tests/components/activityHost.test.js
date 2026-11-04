@@ -36,8 +36,19 @@ describe('Activity Registry & Unimplemented Level Fallback', () => {
     }
   });
 
+  it('registers all 5 Placement Kingdom levels with valid components and validators', () => {
+    const plLevels = ['pl-1', 'pl-2', 'pl-3', 'pl-4', 'pl-5'];
+    for (const lvlId of plLevels) {
+      expect(hasActivity(lvlId)).toBe(true);
+      const desc = getActivity(lvlId);
+      expect(desc).not.toBeNull();
+      expect(desc.levelId).toBe(lvlId);
+      expect(desc.kingdomId).toBe('placement');
+    }
+  });
+
   it('correctly reports unimplemented status for levels in upcoming kingdoms', () => {
-    const unimplementedLevels = ['pl-1', 'cts-1', 'rt-1', 'fc-1', 'gds-5'];
+    const unimplementedLevels = ['cts-1', 'rt-1', 'fc-1', 'gds-5'];
     for (const lvlId of unimplementedLevels) {
       expect(hasActivity(lvlId)).toBe(false);
       expect(getActivity(lvlId)).toBeNull();
@@ -58,7 +69,8 @@ describe('Activity Registry & Unimplemented Level Fallback', () => {
     ];
     expect(KINGDOMS.map((k) => k.id)).toEqual(expectedKingdomIds);
     for (const k of KINGDOMS) {
-      expect(k.levels).toHaveLength(5);
+      expect(k.levels).toBeDefined();
+      expect(k.levels.length).toBe(5);
     }
   });
 });

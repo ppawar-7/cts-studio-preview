@@ -48,8 +48,8 @@ describe('Player Storage Migration (v1 -> v2)', () => {
       totalXP: 100, // inflated total
       levelProgress: {
         'rtl-1': { completed: true, stars: 3, xpEarned: 30 },
-        'pl-1': { completed: true, stars: 3, xpEarned: 35 }, // unimplemented level
-        'cts-1': { completed: true, stars: 3, xpEarned: 35 }, // unimplemented level
+        'unimpl-mock-1': { completed: true, stars: 3, xpEarned: 35 }, // unimplemented mock
+        'unimpl-mock-2': { completed: true, stars: 3, xpEarned: 35 }, // unimplemented mock
       },
     };
 
@@ -58,13 +58,13 @@ describe('Player Storage Migration (v1 -> v2)', () => {
     // rtl-1 verified is kept
     expect(res.levelProgress['rtl-1']).toBeDefined();
     expect(res.levelProgress['rtl-1'].completed).toBe(true);
-    // pl-1 and cts-1 are not in active levelProgress because no validator exists yet
-    expect(res.levelProgress['pl-1']).toBeUndefined();
-    expect(res.levelProgress['cts-1']).toBeUndefined();
+    // unimpl-mock-1 and unimpl-mock-2 are not in active levelProgress because no validator exists
+    expect(res.levelProgress['unimpl-mock-1']).toBeUndefined();
+    expect(res.levelProgress['unimpl-mock-2']).toBeUndefined();
     // They are safely stored in legacyArchive
     expect(res.legacyArchive).not.toBeNull();
-    expect(res.legacyArchive.unverifiedLevels['pl-1'].xpEarned).toBe(35);
-    expect(res.legacyArchive.unverifiedLevels['cts-1'].xpEarned).toBe(35);
+    expect(res.legacyArchive.unverifiedLevels['unimpl-mock-1'].xpEarned).toBe(35);
+    expect(res.legacyArchive.unverifiedLevels['unimpl-mock-2'].xpEarned).toBe(35);
     // Derived totalXP is corrected to verified only (30 XP)
     expect(res.totalXP).toBe(30);
   });
