@@ -1,0 +1,22 @@
+.gds-layers-challenge {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.gds-layer-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.gds-layer-table th, .gds-layer-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #334155;
+}
+
+.gds-layer-table th {
+  color: #38bdf8;
+  font-weight: 700;
+}

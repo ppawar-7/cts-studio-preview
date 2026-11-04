@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { getActivity, hasActivity } from '../../activities/activityRegistry.js';
 import { KINGDOMS } from '../../data/kingdomsData.js';
 
-describe('Activity Registry & Unimplemented Level Fallback', () => {
+describe('Activity Registry & Full-Platform 40-Level Integration', () => {
   it('registers all 5 RTL Kingdom levels with valid components and validators', () => {
     const rtlLevels = ['rtl-1', 'rtl-2', 'rtl-3', 'rtl-4', 'rtl-5'];
     for (const lvlId of rtlLevels) {
@@ -80,15 +80,26 @@ describe('Activity Registry & Unimplemented Level Fallback', () => {
     }
   });
 
-  it('correctly reports unimplemented status for levels in upcoming kingdoms', () => {
-    const unimplementedLevels = ['gds-1', 'gds-2', 'gds-5'];
-    for (const lvlId of unimplementedLevels) {
+  it('registers all 5 GDS & Tape-Out Kingdom levels with valid components and validators', () => {
+    const gdsLevels = ['gds-1', 'gds-2', 'gds-3', 'gds-4', 'gds-5'];
+    for (const lvlId of gdsLevels) {
+      expect(hasActivity(lvlId)).toBe(true);
+      const desc = getActivity(lvlId);
+      expect(desc).not.toBeNull();
+      expect(desc.levelId).toBe(lvlId);
+      expect(desc.kingdomId).toBe('gds');
+    }
+  });
+
+  it('correctly reports unimplemented/null status for non-existent invalid level IDs', () => {
+    const invalidLevels = ['non-existent-level', 'fake-level-99', 'unknown'];
+    for (const lvlId of invalidLevels) {
       expect(hasActivity(lvlId)).toBe(false);
       expect(getActivity(lvlId)).toBeNull();
     }
   });
 
-  it('preserves all 8 canonical kingdoms and their 5 levels each', () => {
+  it('preserves all 8 canonical kingdoms with 5 levels each (total 40 levels)', () => {
     expect(KINGDOMS).toHaveLength(8);
     const expectedKingdomIds = [
       'rtl-understanding',
@@ -101,9 +112,15 @@ describe('Activity Registry & Unimplemented Level Fallback', () => {
       'gds',
     ];
     expect(KINGDOMS.map((k) => k.id)).toEqual(expectedKingdomIds);
+    let totalLevels = 0;
     for (const k of KINGDOMS) {
       expect(k.levels).toBeDefined();
       expect(k.levels.length).toBe(5);
+      totalLevels += k.levels.length;
+      for (const lvl of k.levels) {
+        expect(hasActivity(lvl.id)).toBe(true);
+      }
     }
+    expect(totalLevels).toBe(40);
   });
 });

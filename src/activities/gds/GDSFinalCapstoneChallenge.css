@@ -1,0 +1,13 @@
+.gds-capstone-challenge {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.gds-trophy-banner {
+  background: linear-gradient(135deg, #1e1b4b 0%, #1e293b 100%);
+  border: 1px solid #6366f1;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+}
