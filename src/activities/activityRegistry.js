@@ -57,6 +57,18 @@ import { validatePLCongestion } from './placement/validators/validatePLCongestio
 import PLKingdomChallenge from './placement/PLKingdomChallenge.jsx';
 import { validatePLKingdom } from './placement/validators/validatePLKingdom.js';
 
+// Kingdom 5: Clock Tree Synthesis (CTS)
+import CTSIntroChallenge from './cts/CTSIntroChallenge.jsx';
+import { validateCTSIntro } from './cts/validators/validateCTSIntro.js';
+import CTSSkewLatencyChallenge from './cts/CTSSkewLatencyChallenge.jsx';
+import { validateCTSSkewLatency } from './cts/validators/validateCTSSkewLatency.js';
+import CTSBufferInsertionChallenge from './cts/CTSBufferInsertionChallenge.jsx';
+import { validateCTSBufferInsertion } from './cts/validators/validateCTSBufferInsertion.js';
+import CTSTopologiesChallenge from './cts/CTSTopologiesChallenge.jsx';
+import { validateCTSTopologies } from './cts/validators/validateCTSTopologies.js';
+import CTSKingdomChallenge from './cts/CTSKingdomChallenge.jsx';
+import { validateCTSKingdom } from './cts/validators/validateCTSKingdom.js';
+
 const ACTIVITY_REGISTRY = {
   // ─── Kingdom 1: RTL Understanding ──────────────────────────────────────────
   'rtl-1': {
@@ -242,6 +254,53 @@ const ACTIVITY_REGISTRY = {
     title: 'Placement Kingdom Challenge — Standard Cell Layout & HPWL Minimization',
     component: PLKingdomChallenge,
     validator: validatePLKingdom,
+    maxScore: 50,
+    starThresholds: [20, 38, 50],
+  },
+
+  // ─── Kingdom 5: Clock Tree Synthesis (CTS) ─────────────────────────────────
+  'cts-1': {
+    levelId: 'cts-1',
+    kingdomId: 'cts',
+    title: 'What is CTS? — Physical Tree Synthesis vs Timing Analysis',
+    component: CTSIntroChallenge,
+    validator: validateCTSIntro,
+    maxScore: 30,
+    starThresholds: [10, 20, 30],
+  },
+  'cts-2': {
+    levelId: 'cts-2',
+    kingdomId: 'cts',
+    title: 'Clock Skew and Latency — Setup Slack Margins & Hold Race Hazards',
+    component: CTSSkewLatencyChallenge,
+    validator: validateCTSSkewLatency,
+    maxScore: 35,
+    starThresholds: [12, 24, 35],
+  },
+  'cts-3': {
+    levelId: 'cts-3',
+    kingdomId: 'cts',
+    title: 'Buffer Insertion — Delay Equalization & Clock Slew Control',
+    component: CTSBufferInsertionChallenge,
+    validator: validateCTSBufferInsertion,
+    maxScore: 40,
+    starThresholds: [15, 28, 40],
+  },
+  'cts-4': {
+    levelId: 'cts-4',
+    kingdomId: 'cts',
+    title: 'Clock Tree Topologies — H-Tree, Balanced Tree & Mesh Trade-offs',
+    component: CTSTopologiesChallenge,
+    validator: validateCTSTopologies,
+    maxScore: 45,
+    starThresholds: [18, 32, 45],
+  },
+  'cts-5': {
+    levelId: 'cts-5',
+    kingdomId: 'cts',
+    title: 'CTS Kingdom Challenge — Multi-Sink Balancing & ICG Signoff',
+    component: CTSKingdomChallenge,
+    validator: validateCTSKingdom,
     maxScore: 50,
     starThresholds: [20, 38, 50],
   },

@@ -47,8 +47,19 @@ describe('Activity Registry & Unimplemented Level Fallback', () => {
     }
   });
 
+  it('registers all 5 CTS Kingdom levels with valid components and validators', () => {
+    const ctsLevels = ['cts-1', 'cts-2', 'cts-3', 'cts-4', 'cts-5'];
+    for (const lvlId of ctsLevels) {
+      expect(hasActivity(lvlId)).toBe(true);
+      const desc = getActivity(lvlId);
+      expect(desc).not.toBeNull();
+      expect(desc.levelId).toBe(lvlId);
+      expect(desc.kingdomId).toBe('cts');
+    }
+  });
+
   it('correctly reports unimplemented status for levels in upcoming kingdoms', () => {
-    const unimplementedLevels = ['cts-1', 'rt-1', 'fc-1', 'gds-5'];
+    const unimplementedLevels = ['rt-1', 'fc-1', 'gds-5'];
     for (const lvlId of unimplementedLevels) {
       expect(hasActivity(lvlId)).toBe(false);
       expect(getActivity(lvlId)).toBeNull();
