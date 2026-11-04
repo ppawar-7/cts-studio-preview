@@ -33,6 +33,18 @@ import { validateSynTiming } from './synthesis/validators/validateSynTiming.js';
 import SynCapstoneChallenge from './synthesis/SynCapstoneChallenge.jsx';
 import { validateSynCapstone } from './synthesis/validators/validateSynCapstone.js';
 
+// Kingdom 3: Floorplanning
+import FPIntroChallenge from './floorplanning/FPIntroChallenge.jsx';
+import { validateFPIntro } from './floorplanning/validators/validateFPIntro.js';
+import FPGeometryChallenge from './floorplanning/FPGeometryChallenge.jsx';
+import { validateFPGeometry } from './floorplanning/validators/validateFPGeometry.js';
+import FPPinPlacementChallenge from './floorplanning/FPPinPlacementChallenge.jsx';
+import { validateFPPinPlacement } from './floorplanning/validators/validateFPPinPlacement.js';
+import FPMacroPlacementChallenge from './floorplanning/FPMacroPlacementChallenge.jsx';
+import { validateFPMacroPlacement } from './floorplanning/validators/validateFPMacroPlacement.js';
+import FPKingdomChallenge from './floorplanning/FPKingdomChallenge.jsx';
+import { validateFPKingdom } from './floorplanning/validators/validateFPKingdom.js';
+
 const ACTIVITY_REGISTRY = {
   // ─── Kingdom 1: RTL Understanding ──────────────────────────────────────────
   'rtl-1': {
@@ -124,6 +136,53 @@ const ACTIVITY_REGISTRY = {
     title: 'Synthesis Kingdom Challenge — ALU PPA Optimization & Signoff',
     component: SynCapstoneChallenge,
     validator: validateSynCapstone,
+    maxScore: 50,
+    starThresholds: [20, 38, 50],
+  },
+
+  // ─── Kingdom 3: Floorplanning ──────────────────────────────────────────────
+  'fp-1': {
+    levelId: 'fp-1',
+    kingdomId: 'floorplanning',
+    title: 'Introduction to Floorplanning — Die, Core, and Power Grid',
+    component: FPIntroChallenge,
+    validator: validateFPIntro,
+    maxScore: 30,
+    starThresholds: [10, 20, 30],
+  },
+  'fp-2': {
+    levelId: 'fp-2',
+    kingdomId: 'floorplanning',
+    title: 'Die Size and Aspect Ratio — Geometry & Utilization Formulas',
+    component: FPGeometryChallenge,
+    validator: validateFPGeometry,
+    maxScore: 35,
+    starThresholds: [12, 24, 35],
+  },
+  'fp-3': {
+    levelId: 'fp-3',
+    kingdomId: 'floorplanning',
+    title: 'I/O Placement — Boundary Pitch Spacing & Bus Grouping',
+    component: FPPinPlacementChallenge,
+    validator: validateFPPinPlacement,
+    maxScore: 40,
+    starThresholds: [15, 28, 40],
+  },
+  'fp-4': {
+    levelId: 'fp-4',
+    kingdomId: 'floorplanning',
+    title: 'Macro Placement Basics — SRAM Blocks, Keepout Halos & Overlaps',
+    component: FPMacroPlacementChallenge,
+    validator: validateFPMacroPlacement,
+    maxScore: 45,
+    starThresholds: [18, 32, 45],
+  },
+  'fp-5': {
+    levelId: 'fp-5',
+    kingdomId: 'floorplanning',
+    title: 'Floorplan Kingdom Challenge — Complete Chip Floorplan Signoff',
+    component: FPKingdomChallenge,
+    validator: validateFPKingdom,
     maxScore: 50,
     starThresholds: [20, 38, 50],
   },

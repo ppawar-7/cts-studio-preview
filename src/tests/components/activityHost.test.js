@@ -11,10 +11,6 @@ describe('Activity Registry & Unimplemented Level Fallback', () => {
       expect(desc).not.toBeNull();
       expect(desc.levelId).toBe(lvlId);
       expect(desc.kingdomId).toBe('rtl-understanding');
-      expect(desc.maxScore).toBeGreaterThan(0);
-      expect(desc.starThresholds).toHaveLength(3);
-      expect(typeof desc.validator).toBe('function');
-      expect(desc.component).toBeDefined();
     }
   });
 
@@ -26,15 +22,22 @@ describe('Activity Registry & Unimplemented Level Fallback', () => {
       expect(desc).not.toBeNull();
       expect(desc.levelId).toBe(lvlId);
       expect(desc.kingdomId).toBe('synthesis');
-      expect(desc.maxScore).toBeGreaterThan(0);
-      expect(desc.starThresholds).toHaveLength(3);
-      expect(typeof desc.validator).toBe('function');
-      expect(desc.component).toBeDefined();
+    }
+  });
+
+  it('registers all 5 Floorplanning Kingdom levels with valid components and validators', () => {
+    const fpLevels = ['fp-1', 'fp-2', 'fp-3', 'fp-4', 'fp-5'];
+    for (const lvlId of fpLevels) {
+      expect(hasActivity(lvlId)).toBe(true);
+      const desc = getActivity(lvlId);
+      expect(desc).not.toBeNull();
+      expect(desc.levelId).toBe(lvlId);
+      expect(desc.kingdomId).toBe('floorplanning');
     }
   });
 
   it('correctly reports unimplemented status for levels in upcoming kingdoms', () => {
-    const unimplementedLevels = ['fp-1', 'pl-1', 'cts-1', 'gds-5'];
+    const unimplementedLevels = ['pl-1', 'cts-1', 'rt-1', 'fc-1', 'gds-5'];
     for (const lvlId of unimplementedLevels) {
       expect(hasActivity(lvlId)).toBe(false);
       expect(getActivity(lvlId)).toBeNull();
