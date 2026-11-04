@@ -28,6 +28,7 @@ import {
   isSanityCheckPassed,
 } from '../../logic/progressionEngine.js';
 import { KINGDOMS } from '../../data/kingdomsData.js';
+import { evaluateSanityCheck } from '../../engine/sanityCheckEngine.js';
 import './KingdomPage.css';
 
 export default function KingdomPage() {
@@ -36,6 +37,7 @@ export default function KingdomPage() {
   const [activeCheck, setActiveCheck] = useState(null);
   const [runningSimulation, setRunningSimulation] = useState(false);
   const [simulationDone, setSimulationDone] = useState(false);
+  const [simulationLogs, setSimulationLogs] = useState([]);
 
   // Find kingdom by ID from central data
   const kingdom = KINGDOMS.find((k) => k.id === kingdomId);
@@ -384,6 +386,20 @@ export default function KingdomPage() {
                       <div className="sanity-terminal__line sanity-terminal__line--dim">
                         [SCOPE] Evaluating physical design ruledeck criteria: {activeCheck.criteria}
                       </div>
+                      {simulationLogs.map((log, idx) => (
+                        <div
+                          key={idx}
+                          className={`sanity-terminal__line ${
+                            log.includes('PASSED') || log.includes('Clean')
+                              ? 'sanity-terminal__line--green'
+                              : log.includes('VIOLATION') || log.includes('OVERFLOW')
+                              ? 'sanity-terminal__line--red'
+                              : 'sanity-terminal__line--cyan'
+                          }`}
+                        >
+                          {log}
+                        </div>
+                      ))}
                       <div className="sanity-terminal__line sanity-terminal__line--amber">
                         [PREVIEW] Educational command demonstration completed.
                       </div>
