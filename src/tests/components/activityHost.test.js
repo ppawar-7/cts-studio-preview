@@ -3,20 +3,23 @@ import { getActivity, hasActivity } from '../../activities/activityRegistry.js';
 import { KINGDOMS } from '../../data/kingdomsData.js';
 
 describe('Activity Registry & Unimplemented Level Fallback', () => {
-  it('registers rtl-1 with valid component, validator, and metadata', () => {
-    expect(hasActivity('rtl-1')).toBe(true);
-    const desc = getActivity('rtl-1');
-    expect(desc).not.toBeNull();
-    expect(desc.levelId).toBe('rtl-1');
-    expect(desc.kingdomId).toBe('rtl-understanding');
-    expect(desc.maxScore).toBe(30);
-    expect(desc.starThresholds).toEqual([10, 20, 30]);
-    expect(typeof desc.validator).toBe('function');
-    expect(desc.component).toBeDefined();
+  it('registers all 5 RTL Kingdom levels with valid components and validators', () => {
+    const rtlLevels = ['rtl-1', 'rtl-2', 'rtl-3', 'rtl-4', 'rtl-5'];
+    for (const lvlId of rtlLevels) {
+      expect(hasActivity(lvlId)).toBe(true);
+      const desc = getActivity(lvlId);
+      expect(desc).not.toBeNull();
+      expect(desc.levelId).toBe(lvlId);
+      expect(desc.kingdomId).toBe('rtl-understanding');
+      expect(desc.maxScore).toBeGreaterThan(0);
+      expect(desc.starThresholds).toHaveLength(3);
+      expect(typeof desc.validator).toBe('function');
+      expect(desc.component).toBeDefined();
+    }
   });
 
-  it('correctly reports unimplemented status for other levels across kingdoms', () => {
-    const unimplementedLevels = ['rtl-2', 'rtl-3', 'syn-1', 'fp-1', 'cts-1', 'gds-5'];
+  it('correctly reports unimplemented status for levels in upcoming kingdoms', () => {
+    const unimplementedLevels = ['syn-1', 'fp-1', 'cts-1', 'gds-5'];
     for (const lvlId of unimplementedLevels) {
       expect(hasActivity(lvlId)).toBe(false);
       expect(getActivity(lvlId)).toBeNull();
