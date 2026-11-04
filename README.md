@@ -80,16 +80,16 @@ npm run dev
 ```
 Open your browser at `http://localhost:5173`.
 
-### Running Tests
+### Running Tests & Verification
 ```bash
-# Run full Vitest test suite (303 unit, integration, and curriculum validator tests)
-npm test -- --run
+# 1. Run full Vitest test suite (303 unit, integration, and curriculum validator tests)
+npm test
 
-# Run curriculum audit suite covering all 40 interactive activities
-node tests/test_all_40_activities_e2e.cjs
+# 2. Run mathematical calibration proof (validates zero-deadlock 2-star progression across all 8 kingdoms)
+node tests/test_2star_progression_math.cjs
 
-# Run authentic fresh-student browser user-journey verification with CDP
-node tests/test_fresh_student_journey.cjs
+# 3. Run full 40-level authentic browser acceptance journey with CDP (verifies all 40 levels & sanity checks)
+node tests/test_full_40_browser_journey.cjs
 ```
 
 ### Production Build
@@ -103,13 +103,31 @@ npm run preview
 
 ---
 
-## 📚 Technical Documentation
+## 🔗 Standalone Companion Laboratories
 
-- [`ENGINEERING_EQUATIONS.md`](./ENGINEERING_EQUATIONS.md): Complete mathematical reference for every physical design formula and unit conversion.
-- [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md): Architecture diagrams, component hierarchy, pure validation pipeline, and state schema.
-- [`PROGRESSION_RULES.md`](./PROGRESSION_RULES.md): Unlock gates, star thresholds, XP caps, and achievement conditions.
-- [`KNOWN_LIMITATIONS.md`](./KNOWN_LIMITATIONS.md): Transparent disclosures of educational approximations vs foundry EDA sign-off.
-- [`HANDOFF.md`](./HANDOFF.md): Engineering handoff guide for adding new levels, sanity checks, and deploying.
+PD Playground acts as the central gamified educational frontend and bridges directly into two authoritative companion studios:
+
+- **[RTL Playground](https://ppawar-7.github.io/rtl-playground/)** (`ppawar-7/rtl-playground`): Full 24-lesson interactive digital logic simulator with dynamic schematics, waveforms, and Verilog generation.
+- **[STA Playground](https://ppawar-7.github.io/sta-playground/)** (`ppawar-7/sta-playground`): Static Timing Analysis laboratory with full timing graph traversal, multi-corner PVT analysis, and path slack histograms. (Note: CTS builds physical clock distribution trees; STA verifies the resulting setup and hold margins across synthesis, placement, CTS, and routing).
+
+---
+
+## 📚 Technical Documentation Index
+
+PD Playground maintains 12 comprehensive engineering and pedagogical documents in the repository root:
+
+1. **[`README.md`](./README.md)**: Platform overview, kingdoms breakdown, installation, and test commands.
+2. **[`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md)**: Architecture diagrams, React component hierarchy, state flow, and pure validation pipeline.
+3. **[`GAME_ENGINE_SPEC.md`](./GAME_ENGINE_SPEC.md)**: Algorithmic specifications and deterministic contracts for the 9 domain engines.
+4. **[`RTL_INTEGRATION.md`](./RTL_INTEGRATION.md)**: Architectural mapping between Game-Site's introductory RTL levels and the standalone 24-lesson RTL Playground.
+5. **[`STA_INTEGRATION.md`](./STA_INTEGRATION.md)**: Accurate positioning of STA across the flow and strict engineering distinction between STA and CTS.
+6. **[`ENGINEERING_MODELS.md`](./ENGINEERING_MODELS.md)**: Complete mathematical derivations, units, and boundary conditions for all physical design equations.
+7. **[`LEARNING_CURRICULUM.md`](./LEARNING_CURRICULUM.md)**: Pedagogical roadmap for all 40 levels, mirrored industry EDA tools, and mastery gates.
+8. **[`TEST_COVERAGE_MATRIX.md`](./TEST_COVERAGE_MATRIX.md)**: Complete test mapping across 23 Vitest suites (303 tests), browser E2E, and sanity check drills.
+9. **[`PROGRESSION_RULES.md`](./PROGRESSION_RULES.md)**: Mathematical proof of unlock gates, 2-star scoring thresholds, and zero-deadlock guarantees.
+10. **[`KNOWN_LIMITATIONS.md`](./KNOWN_LIMITATIONS.md)**: Transparent engineering disclosures of browser simulation approximations vs industrial EDA engines.
+11. **[`PROGRESS.md`](./PROGRESS.md)**: Chronological project milestones, hardening iterations, bug fixes, and verification history.
+12. **[`HANDOFF.md`](./HANDOFF.md)**: Developer handoff guide, directory map, and instructions for future AI assistants and engineers.
 
 ---
 

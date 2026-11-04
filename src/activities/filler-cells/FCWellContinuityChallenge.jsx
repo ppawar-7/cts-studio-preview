@@ -23,9 +23,13 @@ export default function FCWellContinuityChallenge({ level, kingdom, onVerify, al
 
   const handleAddFiller = (type) => {
     const size = SIZES[type];
-    if (totalFilled + size <= 12) {
-      setChosenFillers([...chosenFillers, type]);
-    }
+    setChosenFillers((prev) => {
+      const currentSum = prev.reduce((sum, f) => sum + (SIZES[f] || 0), 0);
+      if (currentSum + size <= 12) {
+        return [...prev, type];
+      }
+      return prev;
+    });
   };
 
   const handleClear = () => {

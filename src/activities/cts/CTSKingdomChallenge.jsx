@@ -20,9 +20,11 @@ export default function CTSKingdomChallenge({ level, kingdom, onVerify, alreadyC
   const [validationResult, setValidationResult] = useState(null);
 
   const handleStageChange = (idx, delta) => {
-    const updated = [...stages];
-    updated[idx] = Math.max(0, Math.min(5, updated[idx] + delta));
-    setStages(updated);
+    setStages((prev) => {
+      const updated = [...prev];
+      updated[idx] = Math.max(0, Math.min(5, updated[idx] + delta));
+      return updated;
+    });
   };
 
   const currentArrivals = BASE_DELAYS.map((b, i) => b + (stages[i] * 0.050));

@@ -270,10 +270,37 @@ export default function LevelPage() {
                 💡 Key Hint for {level.title}:
               </p>
               <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                Remember that when <strong>SEL = 0</strong>, the multiplexer transmits input <strong>A</strong>. When <strong>SEL = 1</strong>, it transmits input <strong>B</strong>. You must test every state in the circuit to understand how logic signals steer data between register stages!
+                Analyze the engineering specifications carefully. Verify all required parameters, pin assignments, or logic states before submitting to achieve full 3-star certification!
               </p>
             </div>
           )}
+        </div>
+
+        {/* Standalone Lab Studio Bridge */}
+        <div style={{ marginTop: '1.5rem', textAlign: 'center', padding: '0.85rem 1rem', background: '#0f172a', borderRadius: '8px', border: '1px solid #1e293b' }}>
+          <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+            {kingdom.id === 'rtl-understanding' && (
+              <>
+                Looking for open-ended circuit exploration with waveform viewers and Verilog export?{' '}
+                <a href="https://ppawar-7.github.io/rtl-playground/" target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', fontWeight: 600, textDecoration: 'underline' }}>
+                  Launch Standalone RTL Playground ↗
+                </a>
+              </>
+            )}
+            {(kingdom.id === 'synthesis' || kingdom.id === 'placement' || kingdom.id === 'cts' || kingdom.id === 'routing') && (
+              <>
+                Want to analyze full static timing graphs, path slacks, and PVT corners?{' '}
+                <a href="https://ppawar-7.github.io/sta-playground/" target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', fontWeight: 600, textDecoration: 'underline' }}>
+                  Launch Standalone STA Playground ↗
+                </a>
+              </>
+            )}
+            {(kingdom.id === 'floorplanning' || kingdom.id === 'filler-cells' || kingdom.id === 'gds') && (
+              <>
+                Explore real ASIC sign-off standards: Complete this level's interactive challenge and verify the physical design sanity checks!
+              </>
+            )}
+          </span>
         </div>
       </div>
     </div>

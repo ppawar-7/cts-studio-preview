@@ -64,14 +64,23 @@ Game-Site/
 │
 ├── tests/                          # Browser E2E verification scripts (Headless Chromium / CDP)
 │   ├── browser_resolver.cjs        # Cross-platform browser discovery (Chrome, Edge)
+│   ├── test_2star_progression_math.cjs # Zero-deadlock 2-star progression verification
+│   ├── test_full_40_browser_journey.cjs # Full 40-level authentic browser acceptance journey
 │   ├── test_all_40_activities_e2e.cjs # Complete 40-activity test suite
 │   ├── test_fresh_student_journey.cjs # Real fresh-student browser user-journey test
 │   └── test_full_platform_e2e.cjs  # Comprehensive 8-kingdom E2E test with screenshots
 │
-├── ENGINEERING_EQUATIONS.md        # Authoritative reference for all mathematical formulas
+├── README.md                       # Platform overview & quick start
 ├── SYSTEM_ARCHITECTURE.md          # Architecture, data flow, and engine interfaces
+├── GAME_ENGINE_SPEC.md             # Algorithmic specifications for all 9 domain engines
+├── RTL_INTEGRATION.md              # Architectural bridge to standalone RTL Playground
+├── STA_INTEGRATION.md              # STA positioning and strict CTS vs STA distinction
+├── ENGINEERING_MODELS.md           # Physical design formulas, derivations, and units
+├── LEARNING_CURRICULUM.md          # 40-level pedagogical roadmap & mirrored tools
+├── TEST_COVERAGE_MATRIX.md         # Mapping of 303 Vitest tests and browser E2E journeys
 ├── PROGRESSION_RULES.md            # Unlock gates, scoring rubrics, and achievement triggers
 ├── KNOWN_LIMITATIONS.md            # Transparent engineering disclosures & approximations
+├── PROGRESS.md                     # Chronological milestone log & hardening history
 └── HANDOFF.md                      # This handoff manual
 ```
 
@@ -89,9 +98,21 @@ Starts Vite dev server at `http://localhost:5173`.
 
 ### Run Automated Unit & Integration Tests (Vitest)
 ```powershell
-npm test -- --run
+npm test
 ```
 Executes all 23 test suites (303 tests) headlessly with zero interactive prompts.
+
+### Run Mathematical Progression Calibration Proof
+```powershell
+node tests/test_2star_progression_math.cjs
+```
+Verifies mathematically that 2-star scores ($score \ge 24\ \text{XP}$) continuously unlock all 40 levels and 8 kingdoms without deadlocks.
+
+### Run Full 40-Level Browser Acceptance Journey (CDP)
+```powershell
+node tests/test_full_40_browser_journey.cjs
+```
+Launches headless Chromium, plays through all 40 levels, executes defect injection drills on all 26 sanity checks, captures full-page kingdom screenshots, certifies the taped-out World Map, and confirms zero external network requests.
 
 ### Build Production Bundle
 ```powershell
@@ -104,12 +125,6 @@ Compiles and tree-shakes the entire application into `dist/` with zero build err
 npm run preview
 ```
 Serves the production build locally at `http://localhost:4173`.
-
-### Run Full Browser E2E Acceptance Test
-```powershell
-node tests/test_full_platform_e2e.cjs
-```
-Launches a headless Chromium browser, verifies all 8 kingdoms, runs sanity check ruledecks, completes levels, verifies zero sliders, and saves high-resolution verification screenshots.
 
 ---
 

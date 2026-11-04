@@ -209,12 +209,15 @@ export default function KingdomPage() {
               </div>
             )}
 
-            {(kingdom.id === 'cts' || kingdom.id === 'synthesis') && (
+            {(kingdom.id === 'synthesis' || kingdom.id === 'placement' || kingdom.id === 'cts' || kingdom.id === 'routing') && (
               <div className="kingdom-external-lab-card">
                 <div className="kingdom-external-lab-info">
                   <h3>⏱ Static Timing Analysis (STA) Playground</h3>
                   <p>
-                    Analyze setup and hold slacks, investigate physical clock skew, and experiment with PVT deratings in the standalone timing engine.
+                    {kingdom.id === 'synthesis' && 'Analyze pre-layout setup/hold slack against SDC clock definitions and standard-cell gate delays in the standalone timing engine.'}
+                    {kingdom.id === 'placement' && 'Evaluate estimated wire delays and setup margins following cell legalization in the standalone timing engine.'}
+                    {kingdom.id === 'cts' && 'Understand how clock skew and insertion latency impact timing slack. (Important: CTS builds the clock-distribution tree, while STA verifies the resulting timing margins).'}
+                    {kingdom.id === 'routing' && 'Perform post-route sign-off STA with extracted parasitic RC net delays and crosstalk derating in the standalone timing engine.'}
                   </p>
                 </div>
                 <a

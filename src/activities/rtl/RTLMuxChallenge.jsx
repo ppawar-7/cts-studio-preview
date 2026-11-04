@@ -43,9 +43,11 @@ export default function RTLMuxChallenge({ onVerify, alreadyCompleted, level }) {
 
   // Handle individual truth table cell change
   const handleTableCellChange = (idx, value) => {
-    const next = [...tableOutputs];
-    next[idx] = value === '' ? null : Number(value);
-    setTableOutputs(next);
+    setTableOutputs((prev) => {
+      const next = [...prev];
+      next[idx] = value === '' ? null : Number(value);
+      return next;
+    });
   };
 
   // Set circuit controls to a specific truth table row for live inspection

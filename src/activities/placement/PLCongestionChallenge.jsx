@@ -31,8 +31,10 @@ export default function PLCongestionChallenge({ level, kingdom, onVerify, alread
   const [mitigationConcept, setMitigationConcept] = useState('');
   const [validationResult, setValidationResult] = useState(null);
 
-  const heatmap = computeCongestionHeatmap(INITIAL_BINS, 3, 3);
-  const gcellMatrix = heatmap.grid;
+  const gcellMatrix = Array.from({ length: 3 }, () => Array(3).fill(0));
+  INITIAL_BINS.forEach((b) => {
+    gcellMatrix[b.row][b.col] = Number((b.demand / b.capacity).toFixed(2));
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();

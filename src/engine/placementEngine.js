@@ -216,6 +216,7 @@ export function computeCongestionHeatmap({
 
   return {
     binMatrix,
+    grid: binMatrix,
     maxCongestion,
     hasHotspots: maxCongestion > 1.0,
   };
