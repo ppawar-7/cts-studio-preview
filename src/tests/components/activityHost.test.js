@@ -58,8 +58,19 @@ describe('Activity Registry & Unimplemented Level Fallback', () => {
     }
   });
 
+  it('registers all 5 Routing Kingdom levels with valid components and validators', () => {
+    const rtLevels = ['rt-1', 'rt-2', 'rt-3', 'rt-4', 'rt-5'];
+    for (const lvlId of rtLevels) {
+      expect(hasActivity(lvlId)).toBe(true);
+      const desc = getActivity(lvlId);
+      expect(desc).not.toBeNull();
+      expect(desc.levelId).toBe(lvlId);
+      expect(desc.kingdomId).toBe('routing');
+    }
+  });
+
   it('correctly reports unimplemented status for levels in upcoming kingdoms', () => {
-    const unimplementedLevels = ['rt-1', 'fc-1', 'gds-5'];
+    const unimplementedLevels = ['fc-1', 'gds-5'];
     for (const lvlId of unimplementedLevels) {
       expect(hasActivity(lvlId)).toBe(false);
       expect(getActivity(lvlId)).toBeNull();

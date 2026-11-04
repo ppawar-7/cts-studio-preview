@@ -69,6 +69,18 @@ import { validateCTSTopologies } from './cts/validators/validateCTSTopologies.js
 import CTSKingdomChallenge from './cts/CTSKingdomChallenge.jsx';
 import { validateCTSKingdom } from './cts/validators/validateCTSKingdom.js';
 
+// Kingdom 6: Routing
+import RTIntroChallenge from './routing/RTIntroChallenge.jsx';
+import { validateRTIntro } from './routing/validators/validateRTIntro.js';
+import RTMetalLayersChallenge from './routing/RTMetalLayersChallenge.jsx';
+import { validateRTMetalLayers } from './routing/validators/validateRTMetalLayers.js';
+import RTViasContactsChallenge from './routing/RTViasContactsChallenge.jsx';
+import { validateRTViasContacts } from './routing/validators/validateRTViasContacts.js';
+import RTSignalIntegrityChallenge from './routing/RTSignalIntegrityChallenge.jsx';
+import { validateRTSignalIntegrity } from './routing/validators/validateRTSignalIntegrity.js';
+import RTKingdomChallenge from './routing/RTKingdomChallenge.jsx';
+import { validateRTKingdom } from './routing/validators/validateRTKingdom.js';
+
 const ACTIVITY_REGISTRY = {
   // ─── Kingdom 1: RTL Understanding ──────────────────────────────────────────
   'rtl-1': {
@@ -301,6 +313,53 @@ const ACTIVITY_REGISTRY = {
     title: 'CTS Kingdom Challenge — Multi-Sink Balancing & ICG Signoff',
     component: CTSKingdomChallenge,
     validator: validateCTSKingdom,
+    maxScore: 50,
+    starThresholds: [20, 38, 50],
+  },
+
+  // ─── Kingdom 6: Routing ────────────────────────────────────────────────────
+  'rt-1': {
+    levelId: 'rt-1',
+    kingdomId: 'routing',
+    title: 'Introduction to Routing — Global Corridors, Detailed Tracks & Manhattan Grid',
+    component: RTIntroChallenge,
+    validator: validateRTIntro,
+    maxScore: 30,
+    starThresholds: [10, 20, 30],
+  },
+  'rt-2': {
+    levelId: 'rt-2',
+    kingdomId: 'routing',
+    title: 'Metal Layers — Pitch, Sheet Resistance & Alternating Directions',
+    component: RTMetalLayersChallenge,
+    validator: validateRTMetalLayers,
+    maxScore: 35,
+    starThresholds: [12, 24, 35],
+  },
+  'rt-3': {
+    levelId: 'rt-3',
+    kingdomId: 'routing',
+    title: 'Vias and Contacts — Layer Transitions, Resistance & DRC Enclosure',
+    component: RTViasContactsChallenge,
+    validator: validateRTViasContacts,
+    maxScore: 40,
+    starThresholds: [15, 28, 40],
+  },
+  'rt-4': {
+    levelId: 'rt-4',
+    kingdomId: 'routing',
+    title: 'Signal Integrity — Sidewall Coupling Capacitance & Crosstalk Glitches',
+    component: RTSignalIntegrityChallenge,
+    validator: validateRTSignalIntegrity,
+    maxScore: 45,
+    starThresholds: [18, 32, 45],
+  },
+  'rt-5': {
+    levelId: 'rt-5',
+    kingdomId: 'routing',
+    title: 'Routing Kingdom Challenge — Multilayer Interconnect & DRC / LVS Signoff',
+    component: RTKingdomChallenge,
+    validator: validateRTKingdom,
     maxScore: 50,
     starThresholds: [20, 38, 50],
   },
