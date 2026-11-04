@@ -8,20 +8,30 @@
  */
 
 import React from 'react';
+
+// Kingdom 1: RTL Understanding
 import RTLMuxChallenge from './rtl/RTLMuxChallenge.jsx';
 import { validateMuxChallenge } from './rtl/validators/validateMuxChallenge.js';
-
 import RTLDFFChallenge from './rtl/RTLDFFChallenge.jsx';
 import { validateDFFChallenge } from './rtl/validators/validateDFFChallenge.js';
-
 import RTLCombSeqChallenge from './rtl/RTLCombSeqChallenge.jsx';
 import { validateCombSeqChallenge } from './rtl/validators/validateCombSeqChallenge.js';
-
 import RTLAccumulatorChallenge from './rtl/RTLAccumulatorChallenge.jsx';
 import { validateAccumulatorChallenge } from './rtl/validators/validateAccumulatorChallenge.js';
-
 import RTLFSMChallenge from './rtl/RTLFSMChallenge.jsx';
 import { validateFSMChallenge } from './rtl/validators/validateFSMChallenge.js';
+
+// Kingdom 2: Synthesis
+import SynIntroChallenge from './synthesis/SynIntroChallenge.jsx';
+import { validateSynIntro } from './synthesis/validators/validateSynIntro.js';
+import SynOptimizationChallenge from './synthesis/SynOptimizationChallenge.jsx';
+import { validateSynOptimization } from './synthesis/validators/validateSynOptimization.js';
+import SynTechMappingChallenge from './synthesis/SynTechMappingChallenge.jsx';
+import { validateSynTechMapping } from './synthesis/validators/validateSynTechMapping.js';
+import SynTimingChallenge from './synthesis/SynTimingChallenge.jsx';
+import { validateSynTiming } from './synthesis/validators/validateSynTiming.js';
+import SynCapstoneChallenge from './synthesis/SynCapstoneChallenge.jsx';
+import { validateSynCapstone } from './synthesis/validators/validateSynCapstone.js';
 
 const ACTIVITY_REGISTRY = {
   // ─── Kingdom 1: RTL Understanding ──────────────────────────────────────────
@@ -67,6 +77,53 @@ const ACTIVITY_REGISTRY = {
     title: 'RTL Kingdom Capstone — 1011 Sequence Detector FSM',
     component: RTLFSMChallenge,
     validator: validateFSMChallenge,
+    maxScore: 50,
+    starThresholds: [20, 38, 50],
+  },
+
+  // ─── Kingdom 2: Synthesis ──────────────────────────────────────────────────
+  'syn-1': {
+    levelId: 'syn-1',
+    kingdomId: 'synthesis',
+    title: 'What is Synthesis? — RTL to Gate Netlist Transformation',
+    component: SynIntroChallenge,
+    validator: validateSynIntro,
+    maxScore: 30,
+    starThresholds: [10, 20, 30],
+  },
+  'syn-2': {
+    levelId: 'syn-2',
+    kingdomId: 'synthesis',
+    title: 'Logic Optimization — Constant Folding & Boolean Minimization',
+    component: SynOptimizationChallenge,
+    validator: validateSynOptimization,
+    maxScore: 35,
+    starThresholds: [12, 24, 35],
+  },
+  'syn-3': {
+    levelId: 'syn-3',
+    kingdomId: 'synthesis',
+    title: 'Technology Mapping — Standard-Cell Library Binding',
+    component: SynTechMappingChallenge,
+    validator: validateSynTechMapping,
+    maxScore: 40,
+    starThresholds: [15, 28, 40],
+  },
+  'syn-4': {
+    levelId: 'syn-4',
+    kingdomId: 'synthesis',
+    title: 'Timing Constraints — SDC & Setup Slack Closure',
+    component: SynTimingChallenge,
+    validator: validateSynTiming,
+    maxScore: 45,
+    starThresholds: [18, 32, 45],
+  },
+  'syn-5': {
+    levelId: 'syn-5',
+    kingdomId: 'synthesis',
+    title: 'Synthesis Kingdom Challenge — ALU PPA Optimization & Signoff',
+    component: SynCapstoneChallenge,
+    validator: validateSynCapstone,
     maxScore: 50,
     starThresholds: [20, 38, 50],
   },

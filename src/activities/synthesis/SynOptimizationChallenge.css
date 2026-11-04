@@ -1,0 +1,34 @@
+/* SynOptimizationChallenge.css */
+.syn-opt-challenge {
+  width: 100%;
+}
+
+.syn-opt-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+
+.syn-opt-input {
+  width: 100%;
+  max-width: 140px;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: center;
+}
+
+.syn-opt-input.correct {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.syn-opt-input.incorrect {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
