@@ -1,0 +1,16 @@
+.cts-intro-challenge {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.cts-metric-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: #334155;
+  color: #38bdf8;
+}
