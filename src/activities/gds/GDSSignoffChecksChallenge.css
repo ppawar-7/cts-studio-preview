@@ -1,0 +1,25 @@
+.gds-signoff-challenge {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.gds-audit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.gds-audit-card {
+  padding: 1rem;
+  border-radius: 8px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gds-audit-card.clean {
+  border-color: #10b981;
+  background: #064e3b22;
+}

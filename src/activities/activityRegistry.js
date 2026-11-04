@@ -93,6 +93,18 @@ import { validateFCDecapStrategy } from './filler-cells/validators/validateFCDec
 import FCKingdomChallenge from './filler-cells/FCKingdomChallenge.jsx';
 import { validateFCKingdom } from './filler-cells/validators/validateFCKingdom.js';
 
+// Kingdom 8: GDS & Tape-Out
+import GDSIntroChallenge from './gds/GDSIntroChallenge.jsx';
+import { validateGDSIntro } from './gds/validators/validateGDSIntro.js';
+import GDSSignoffChecksChallenge from './gds/GDSSignoffChecksChallenge.jsx';
+import { validateGDSSignoffChecks } from './gds/validators/validateGDSSignoffChecks.js';
+import GDSLayerStackChallenge from './gds/GDSLayerStackChallenge.jsx';
+import { validateGDSLayerStack } from './gds/validators/validateGDSLayerStack.js';
+import GDSTapeoutPrepChallenge from './gds/GDSTapeoutPrepChallenge.jsx';
+import { validateGDSTapeoutPrep } from './gds/validators/validateGDSTapeoutPrep.js';
+import GDSFinalCapstoneChallenge from './gds/GDSFinalCapstoneChallenge.jsx';
+import { validateGDSFinalCapstone } from './gds/validators/validateGDSFinalCapstone.js';
+
 const ACTIVITY_REGISTRY = {
   // ─── Kingdom 1: RTL Understanding ──────────────────────────────────────────
   'rtl-1': {
@@ -419,6 +431,53 @@ const ACTIVITY_REGISTRY = {
     title: 'Filler Cells Kingdom Challenge — Multi-Void Physical Row Filling & CMP Signoff',
     component: FCKingdomChallenge,
     validator: validateFCKingdom,
+    maxScore: 50,
+    starThresholds: [20, 38, 50],
+  },
+
+  // ─── Kingdom 8: GDS & Tape-Out ─────────────────────────────────────────────
+  'gds-1': {
+    levelId: 'gds-1',
+    kingdomId: 'gds',
+    title: 'What is GDSII? — The Universal Tape-Out Mask Stream Format',
+    component: GDSIntroChallenge,
+    validator: validateGDSIntro,
+    maxScore: 30,
+    starThresholds: [10, 20, 30],
+  },
+  'gds-2': {
+    levelId: 'gds-2',
+    kingdomId: 'gds',
+    title: 'Final Sign-Off Checks — DRC, LVS, STA & ERC Verification Matrix',
+    component: GDSSignoffChecksChallenge,
+    validator: validateGDSSignoffChecks,
+    maxScore: 35,
+    starThresholds: [12, 24, 35],
+  },
+  'gds-3': {
+    levelId: 'gds-3',
+    kingdomId: 'gds',
+    title: 'Layer Stack in GDS — FEOL vs BEOL Hierarchy & Mask Datatypes',
+    component: GDSLayerStackChallenge,
+    validator: validateGDSLayerStack,
+    maxScore: 40,
+    starThresholds: [15, 28, 40],
+  },
+  'gds-4': {
+    levelId: 'gds-4',
+    kingdomId: 'gds',
+    title: 'Tape-Out Preparation — Antenna Diodes, Dummy Fill & OPC Mask Prep',
+    component: GDSTapeoutPrepChallenge,
+    validator: validateGDSTapeoutPrep,
+    maxScore: 45,
+    starThresholds: [18, 32, 45],
+  },
+  'gds-5': {
+    levelId: 'gds-5',
+    kingdomId: 'gds',
+    title: 'Final ASIC Kingdom Challenge — The Grand Tape-Out Signoff',
+    component: GDSFinalCapstoneChallenge,
+    validator: validateGDSFinalCapstone,
     maxScore: 50,
     starThresholds: [20, 38, 50],
   },
