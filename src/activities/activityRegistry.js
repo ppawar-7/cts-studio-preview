@@ -81,6 +81,18 @@ import { validateRTSignalIntegrity } from './routing/validators/validateRTSignal
 import RTKingdomChallenge from './routing/RTKingdomChallenge.jsx';
 import { validateRTKingdom } from './routing/validators/validateRTKingdom.js';
 
+// Kingdom 7: Filler Cells
+import FCIntroChallenge from './filler-cells/FCIntroChallenge.jsx';
+import { validateFCIntro } from './filler-cells/validators/validateFCIntro.js';
+import FCCellTypesChallenge from './filler-cells/FCCellTypesChallenge.jsx';
+import { validateFCCellTypes } from './filler-cells/validators/validateFCCellTypes.js';
+import FCWellContinuityChallenge from './filler-cells/FCWellContinuityChallenge.jsx';
+import { validateFCWellContinuity } from './filler-cells/validators/validateFCWellContinuity.js';
+import FCDecapStrategyChallenge from './filler-cells/FCDecapStrategyChallenge.jsx';
+import { validateFCDecapStrategy } from './filler-cells/validators/validateFCDecapStrategy.js';
+import FCKingdomChallenge from './filler-cells/FCKingdomChallenge.jsx';
+import { validateFCKingdom } from './filler-cells/validators/validateFCKingdom.js';
+
 const ACTIVITY_REGISTRY = {
   // ─── Kingdom 1: RTL Understanding ──────────────────────────────────────────
   'rtl-1': {
@@ -360,6 +372,53 @@ const ACTIVITY_REGISTRY = {
     title: 'Routing Kingdom Challenge — Multilayer Interconnect & DRC / LVS Signoff',
     component: RTKingdomChallenge,
     validator: validateRTKingdom,
+    maxScore: 50,
+    starThresholds: [20, 38, 50],
+  },
+
+  // ─── Kingdom 7: Filler Cells ───────────────────────────────────────────────
+  'fc-1': {
+    levelId: 'fc-1',
+    kingdomId: 'filler-cells',
+    title: 'Why Filler Cells? — N-Well Continuity, Power Rails & CMP Density',
+    component: FCIntroChallenge,
+    validator: validateFCIntro,
+    maxScore: 30,
+    starThresholds: [10, 20, 30],
+  },
+  'fc-2': {
+    levelId: 'fc-2',
+    kingdomId: 'filler-cells',
+    title: 'Types of Physical-Only Cells — Tap Cells, Endcaps, Decap & Tie Cells',
+    component: FCCellTypesChallenge,
+    validator: validateFCCellTypes,
+    maxScore: 35,
+    starThresholds: [12, 24, 35],
+  },
+  'fc-3': {
+    levelId: 'fc-3',
+    kingdomId: 'filler-cells',
+    title: 'N-Well Continuity — Bridging Standard Cell Gaps & DRC Spacing',
+    component: FCWellContinuityChallenge,
+    validator: validateFCWellContinuity,
+    maxScore: 40,
+    starThresholds: [15, 28, 40],
+  },
+  'fc-4': {
+    levelId: 'fc-4',
+    kingdomId: 'filler-cells',
+    title: 'Decap Cell Strategy — Power Supply Droop Mitigation & Leakage Trade-off',
+    component: FCDecapStrategyChallenge,
+    validator: validateFCDecapStrategy,
+    maxScore: 45,
+    starThresholds: [18, 32, 45],
+  },
+  'fc-5': {
+    levelId: 'fc-5',
+    kingdomId: 'filler-cells',
+    title: 'Filler Cells Kingdom Challenge — Multi-Void Physical Row Filling & CMP Signoff',
+    component: FCKingdomChallenge,
+    validator: validateFCKingdom,
     maxScore: 50,
     starThresholds: [20, 38, 50],
   },

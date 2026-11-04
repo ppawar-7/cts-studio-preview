@@ -1,0 +1,18 @@
+.fc-types-challenge {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.fc-type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.fc-type-card {
+  padding: 1rem;
+  border-radius: 8px;
+  background: #1e293b;
+  border: 1px solid #334155;
+}

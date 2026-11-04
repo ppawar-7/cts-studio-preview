@@ -69,8 +69,19 @@ describe('Activity Registry & Unimplemented Level Fallback', () => {
     }
   });
 
+  it('registers all 5 Filler Cells Kingdom levels with valid components and validators', () => {
+    const fcLevels = ['fc-1', 'fc-2', 'fc-3', 'fc-4', 'fc-5'];
+    for (const lvlId of fcLevels) {
+      expect(hasActivity(lvlId)).toBe(true);
+      const desc = getActivity(lvlId);
+      expect(desc).not.toBeNull();
+      expect(desc.levelId).toBe(lvlId);
+      expect(desc.kingdomId).toBe('filler-cells');
+    }
+  });
+
   it('correctly reports unimplemented status for levels in upcoming kingdoms', () => {
-    const unimplementedLevels = ['fc-1', 'gds-5'];
+    const unimplementedLevels = ['gds-1', 'gds-2', 'gds-5'];
     for (const lvlId of unimplementedLevels) {
       expect(hasActivity(lvlId)).toBe(false);
       expect(getActivity(lvlId)).toBeNull();
