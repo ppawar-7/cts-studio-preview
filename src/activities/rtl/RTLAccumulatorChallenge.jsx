@@ -43,12 +43,14 @@ export default function RTLAccumulatorChallenge({ level, kingdom, onVerify, alre
   };
 
   const handleVectorChange = (idx, field, value) => {
-    const updated = [...vectorOutputs];
-    updated[idx] = {
-      ...updated[idx],
-      [field]: field === 'acc' ? (value === '' ? null : parseInt(value, 10)) : Boolean(value),
-    };
-    setVectorOutputs(updated);
+    setVectorOutputs((prev) => {
+      const updated = [...prev];
+      updated[idx] = {
+        ...updated[idx],
+        [field]: field === 'acc' ? (value === '' ? null : parseInt(value, 10)) : Boolean(value),
+      };
+      return updated;
+    });
   };
 
   const handleSubmit = (e) => {
@@ -269,7 +271,7 @@ export default function RTLAccumulatorChallenge({ level, kingdom, onVerify, alre
           🧠 Step 3: Bit-Width Growth &amp; Carry Architecture
         </h4>
         <div className="mux-quiz-prompt">
-          When adding two $N$-bit numbers in digital hardware ($A[N-1:0] + B[N-1:0]$), what bit-width is required for the sum to guarantee no arithmetic overflow without information loss?
+          When adding two N-bit numbers in digital hardware (A[N-1:0] + B[N-1:0]), what bit-width is required for the sum to guarantee no arithmetic overflow without information loss?
         </div>
 
         <div className="mux-quiz-options-group" role="radiogroup" aria-label="Bit width growth question">
@@ -283,7 +285,7 @@ export default function RTLAccumulatorChallenge({ level, kingdom, onVerify, alre
             />
             <span className="mux-quiz-letter">A</span>
             <span className="mux-quiz-text">
-              <strong>$N + 1$ bits:</strong> Adding two $N$-bit operands produces a maximum sum of $(2^N - 1) + (2^N - 1) = 2^{N+1} - 2$, requiring exactly one carry bit ($N+1$ bits total) to avoid saturation or modulo wrap-around.
+              <strong>N + 1 bits:</strong> Adding two N-bit operands produces a maximum sum of (2^N - 1) + (2^N - 1) = 2^(N+1) - 2, requiring exactly one carry bit (N+1 bits total) to avoid saturation or modulo wrap-around.
             </span>
           </label>
 
@@ -297,7 +299,7 @@ export default function RTLAccumulatorChallenge({ level, kingdom, onVerify, alre
             />
             <span className="mux-quiz-letter">B</span>
             <span className="mux-quiz-text">
-              <strong>Exactly $N$ bits:</strong> Arithmetic addition never produces a number larger than the original operand bit width.
+              <strong>Exactly N bits:</strong> Arithmetic addition never produces a number larger than the original operand bit width.
             </span>
           </label>
         </div>

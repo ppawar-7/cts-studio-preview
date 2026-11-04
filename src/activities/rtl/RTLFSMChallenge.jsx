@@ -31,18 +31,22 @@ export default function RTLFSMChallenge({ level, kingdom, onVerify, alreadyCompl
   const [validationResult, setValidationResult] = useState(null);
 
   const handleTransitionChange = (idx, field, value) => {
-    const updated = [...transitions];
-    updated[idx] = {
-      ...updated[idx],
-      [field]: field === 'match' ? Boolean(value) : value,
-    };
-    setTransitions(updated);
+    setTransitions((prev) => {
+      const updated = [...prev];
+      updated[idx] = {
+        ...updated[idx],
+        [field]: field === 'match' ? Boolean(value) : value,
+      };
+      return updated;
+    });
   };
 
   const handleStreamToggle = (idx) => {
-    const updated = [...streamMatches];
-    updated[idx] = !updated[idx];
-    setStreamMatches(updated);
+    setStreamMatches((prev) => {
+      const updated = [...prev];
+      updated[idx] = !updated[idx];
+      return updated;
+    });
   };
 
   const handleSubmit = (e) => {

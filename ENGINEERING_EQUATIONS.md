@@ -99,6 +99,13 @@ $$P_{\text{total}} = P_{\text{dynamic}} + P_{\text{static}}$$
 $$P_{\text{dynamic}} = \alpha \cdot C_{\text{eff}} \cdot V_{\text{dd}}^2 \cdot f_{\text{clk}}$$
 $$P_{\text{static}} = V_{\text{dd}} \cdot \sum_{i=1}^{N_{\text{cells}}} I_{\text{leak}, i}$$
 
+- **Dimensional Derivation**:
+  - $P_{\text{dynamic}} (\text{W}) = \alpha \times (C_{\text{eff}} \times 10^{-12}\ \text{F}) \times V_{\text{dd}}^2\ \text{V}^2 \times (f_{\text{clk}} \times 10^6\ \text{s}^{-1}) = \alpha \cdot C_{\text{eff}} \cdot V_{\text{dd}}^2 \cdot f_{\text{clk}} \times 10^{-6}\ \text{W}$
+  - In microwatts ($\mu\text{W}$):
+    $$P_{\text{dynamic}} (\mu\text{W}) = \alpha \cdot C_{\text{eff}} (\text{pF}) \cdot V_{\text{dd}}^2 (\text{V}^2) \cdot f_{\text{clk}} (\text{MHz})$$
+  - Static leakage power in microwatts:
+    $$P_{\text{static}} (\mu\text{W}) = I_{\text{leak}} (\mu\text{A}) \cdot V_{\text{dd}} (\text{V})$$
+
 - **Variables**:
   - $\alpha$: Switching activity factor ($0.0 \le \alpha \le 1.0$, typically $0.1$ for random logic).
   - $C_{\text{eff}}$: Total effective switching capacitance ($\text{pF}$).
@@ -189,6 +196,15 @@ $$C_{\text{wire}} = C_{\text{area}} \cdot (L \times W_{\text{wire}}) + 2 \cdot C
 ### 6.3 Distributed RC (Elmore Delay)
 For a uniform distributed RC wire driving lumped capacitive load $C_{\text{load}}$:
 $$T_{\text{Elmore}} = R_{\text{wire}} \cdot \left( \frac{1}{2} C_{\text{wire}} + C_{\text{load}} \right)$$
+
+- **Dimensional Derivation & Units**:
+  - Resistance $R_{\text{wire}}$ in $\Omega$.
+  - When capacitance is in picofarads ($\text{pF} = 10^{-12}\ \text{F}$):
+    $$T_{\text{Elmore}} (\text{ps}) = R_{\text{wire}} (\Omega) \cdot \left( \frac{1}{2} C_{\text{wire}} (\text{pF}) + C_{\text{load}} (\text{pF}) \right)$$
+    Since $1\ \Omega \times 1\ \text{pF} = 1\ \Omega \times 10^{-12}\ \text{F} = 10^{-12}\ \text{s} = 1\ \text{ps}$.
+  - When capacitance is provided in femtofarads ($\text{fF} = 10^{-15}\ \text{F}$):
+    $$T_{\text{Elmore}} (\text{ps}) = \frac{R_{\text{wire}} (\Omega) \cdot \left( \frac{1}{2} C_{\text{wire}} (\text{fF}) + C_{\text{load}} (\text{fF}) \right)}{1000}$$
+    Since $1\ \Omega \times 1\ \text{fF} = 10^{-15}\ \text{s} = 10^{-3}\ \text{ps}$. Both forms are implemented in `routingEngine.js` (`computeElmoreWireDelay` and `computeElmoreDelayFromFf`).
 
 ### 6.4 Minimum Routing Track Pitch & Preferred Directions
 $$\text{Pitch} = W_{\text{wire, min}} + S_{\text{wire, min}}$$

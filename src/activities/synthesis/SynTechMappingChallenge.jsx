@@ -57,7 +57,7 @@ export default function SynTechMappingChallenge({ level, kingdom, onVerify, alre
                 <th>Cell Name</th>
                 <th>Logic Function</th>
                 <th>Cell Area</th>
-                <th>Intrinsic Delay ($t_{pd}$)</th>
+                <th>Intrinsic Delay (t_pd)</th>
                 <th>Dynamic Power</th>
               </tr>
             </thead>
@@ -187,7 +187,7 @@ export default function SynTechMappingChallenge({ level, kingdom, onVerify, alre
             />
             <span className="mux-quiz-letter">A</span>
             <span className="mux-quiz-text">
-              <strong>Delay depends on Input Transition (Slew) and Output Load Capacitance ($C_{load}$):</strong> Slower input edge rates increase internal switching time, and heavier capacitive wire/fanout loads take longer for transistors to charge and discharge ($t \propto R_{on} \cdot C_{load}$).
+              <strong>Delay depends on Input Transition (Slew) and Output Load Capacitance (C_load):</strong> Slower input edge rates increase internal switching time, and heavier capacitive wire/fanout loads take longer for transistors to charge and discharge (t &prop; R_on &middot; C_load).
             </span>
           </label>
 

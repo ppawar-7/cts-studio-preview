@@ -44,7 +44,7 @@ export default function SynCapstoneChallenge({ level, kingdom, onVerify, already
         <p className="combseq-desc">
           Design problem: Synthesize a 1-bit dual-operation ALU slice computing:
           <code>assign Y = OP ? (A ^ B) : (A &amp; B);</code>
-          Target constraints: <strong>Combinational Delay $T_{comb} \le 0.40\text{ ns}$</strong>, <strong>Total Area $\le 10.0\text{ GE}$</strong>, Clock Period $T_{clk} = 0.70\text{ ns}$ ($T_{cq} = 0.15\text{ ns}$, $T_{setup} = 0.08\text{ ns}$).
+          Target constraints: <strong>Combinational Delay T_comb &le; 0.40 ns</strong>, <strong>Total Area &le; 10.0 GE</strong>, Clock Period T_clk = 0.70 ns (T_cq = 0.15 ns, T_setup = 0.08 ns).
         </p>
       </div>
 
@@ -54,7 +54,7 @@ export default function SynCapstoneChallenge({ level, kingdom, onVerify, already
           🧩 Step 1: Select Technology Mapping
         </h4>
         <p className="dff-challenge__subtext">
-          Choose the mapping configuration that achieves minimum area while satisfying $T_{comb} \le 0.40\text{ ns}$:
+          Choose the mapping configuration that achieves minimum area while satisfying T_comb &le; 0.40 ns:
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -68,7 +68,7 @@ export default function SynCapstoneChallenge({ level, kingdom, onVerify, already
             />
             <span className="mux-quiz-letter">A</span>
             <span className="mux-quiz-text">
-              <strong>AND2_X1 + XOR2_X1 + MUX2_X1:</strong> Parallel AND (0.12 ns) and XOR (0.20 ns) feeding dedicated multiplexer (0.18 ns). Area = 2.0 + 3.0 + 3.5 = 8.5 GE. Critical delay = $\max(0.12, 0.20) + 0.18 = 0.38\text{ ns}$ (Meets $T_{comb} \le 0.40\text{ ns}$).
+              <strong>AND2_X1 + XOR2_X1 + MUX2_X1:</strong> Parallel AND (0.12 ns) and XOR (0.20 ns) feeding dedicated multiplexer (0.18 ns). Area = 2.0 + 3.0 + 3.5 = 8.5 GE. Critical delay = max(0.12, 0.20) + 0.18 = 0.38 ns (Meets T_comb &le; 0.40 ns).
             </span>
           </label>
 
@@ -135,7 +135,7 @@ export default function SynCapstoneChallenge({ level, kingdom, onVerify, already
           </div>
         </div>
         <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.5rem' }}>
-          💡 Slack formula: $T_{required} (0.70 - 0.08 = 0.62) - T_{arrival} (0.15 + 0.38 = 0.53) = +0.09\text{ ns}$.
+          💡 Slack formula: T_required (0.70 - 0.08 = 0.62) - T_arrival (0.15 + 0.38 = 0.53) = +0.09 ns.
         </p>
       </div>
 

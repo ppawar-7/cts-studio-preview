@@ -1,9 +1,10 @@
 # ⚡ ASIC Physical Design (PD) Playground
 
-[![Tests](https://img.shields.io/badge/Vitest-182%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Vitest-303%20passed-brightgreen.svg)]()
 [![Build](https://img.shields.io/badge/Vite-production%20ready-blue.svg)]()
 [![Kingdoms](https://img.shields.io/badge/ASIC%20Kingdoms-8%20of%208%20Complete-gold.svg)]()
 [![Validation](https://img.shields.io/badge/Engineering%20Validation-Zero%20Sliders-purple.svg)]()
+[![Offline](https://img.shields.io/badge/Privacy-100%25%20Offline%20Ready-success.svg)]()
 
 **PD Playground** is an interactive, gamified educational platform that teaches the complete application-specific integrated circuit (ASIC) digital physical design flow — from Register-Transfer Level (RTL) to GDSII tape-out.
 
@@ -81,11 +82,14 @@ Open your browser at `http://localhost:5173`.
 
 ### Running Tests
 ```bash
-# Run full Vitest test suite (182 unit/integration tests)
+# Run full Vitest test suite (303 unit, integration, and curriculum validator tests)
 npm test -- --run
 
-# Run full headless browser E2E acceptance test
-node tests/test_full_platform_e2e.cjs
+# Run curriculum audit suite covering all 40 interactive activities
+node tests/test_all_40_activities_e2e.cjs
+
+# Run authentic fresh-student browser user-journey verification with CDP
+node tests/test_fresh_student_journey.cjs
 ```
 
 ### Production Build

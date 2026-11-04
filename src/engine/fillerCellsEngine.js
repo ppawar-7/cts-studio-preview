@@ -125,16 +125,19 @@ export function greedyFillGap(gapWidthSites, availableSizes = [32, 16, 8, 4, 2, 
  * @returns {{ droopMv: number, isAcceptable: boolean, leakageCurrentUa: number }}
  */
 export function calculateDecapDroop(transientCurrentMa = 100, deltaTimePs = 200, decapCapPf = 50, decapSites = 0) {
-  if (decapCapPf <= 0) {
+  const cap = Number(decapCapPf);
+  if (!Number.isFinite(cap) || cap <= 0) {
     return { droopMv: Infinity, isAcceptable: false, leakageCurrentUa: 0 };
   }
   // Q = I * dt = (mA * 1e-3) * (ps * 1e-12) = C
   // V = Q / C = [ (mA * 1e-3) * (ps * 1e-12) ] / (pF * 1e-12) = (mA * 1e-3 * ps) / pF volts
   // In mV: V * 1000 = (mA * ps) / pF mV
-  const droopMv = Number(((transientCurrentMa * deltaTimePs) / decapCapPf).toFixed(2));
+  const safeI = Math.max(0, Number(transientCurrentMa) || 0);
+  const safeDt = Math.max(0, Number(deltaTimePs) || 0);
+  const droopMv = Number(((safeI * safeDt) / cap).toFixed(2));
   // Acceptable if droop is <= 50 mV (5% of 1.0V supply)
   const isAcceptable = droopMv <= 50.0;
-  const leakageCurrentUa = Number((decapSites * PHYSICAL_ONLY_CELLS.DECAP.leakagePerSiteUa).toFixed(2));
+  const leakageCurrentUa = Number((Math.max(0, Number(decapSites) || 0) * PHYSICAL_ONLY_CELLS.DECAP.leakagePerSiteUa).toFixed(2));
 
   return {
     droopMv,

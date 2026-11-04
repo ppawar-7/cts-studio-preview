@@ -146,3 +146,51 @@ export function verifyBooleanEquivalenceN(numInputs, fnOriginal, fnOptimized) {
   }
   return { isEquivalent: true, mismatchRow: null };
 }
+
+/**
+ * Calculate dynamic switching power, static leakage power, and total power.
+ *
+ * Formulas:
+ *   P_dyn = alpha * C_eff * Vdd^2 * f_clk
+ *   P_leak = I_leak * Vdd
+ *   P_total = P_dyn + P_leak
+ *
+ * Unit conventions:
+ *   alpha: switching activity factor [0.0 - 1.0]
+ *   cEffPf: effective switching capacitance in picofarads (pF, 1e-12 F)
+ *   vSupply: supply voltage in Volts (V)
+ *   fClkMhz: clock frequency in Megahertz (MHz, 1e6 Hz)
+ *   iLeakUa: static leakage current in microamperes (µA, 1e-6 A)
+ *
+ * Returns power components in microwatts (µW).
+ *
+ * @param {Object} params
+ * @param {number} params.alpha - Activity factor (default 0.1)
+ * @param {number} params.cEffPf - Effective capacitance (pF)
+ * @param {number} params.vSupply - Supply voltage (V, default 1.0)
+ * @param {number} params.fClkMhz - Clock frequency (MHz)
+ * @param {number} [params.iLeakUa=0] - Leakage current (µA)
+ * @returns {{ dynamicPowerUw: number, leakagePowerUw: number, totalPowerUw: number }}
+ */
+export function calculatePowerEstimate({ alpha = 0.1, cEffPf, vSupply = 1.0, fClkMhz, iLeakUa = 0 }) {
+  const safeAlpha = Math.max(0, Math.min(1.0, Number(alpha) || 0));
+  const safeC = Math.max(0, Number(cEffPf) || 0);
+  const safeV = Math.max(0, Number(vSupply) || 0);
+  const safeF = Math.max(0, Number(fClkMhz) || 0);
+  const safeLeak = Math.max(0, Number(iLeakUa) || 0);
+
+  // P_dyn (W) = alpha * (C * 1e-12) * V^2 * (F * 1e6) = alpha * C * V^2 * F * 1e-6 W
+  // In µW (1e-6 W): P_dyn = alpha * C_eff_pF * Vdd^2 * f_clk_MHz
+  const dynamicPowerUw = Number((safeAlpha * safeC * Math.pow(safeV, 2) * safeF).toFixed(3));
+
+  // P_leak (W) = (I * 1e-6) * V = I * V * 1e-6 W -> in µW: I_leak_uA * Vdd
+  const leakagePowerUw = Number((safeLeak * safeV).toFixed(3));
+
+  const totalPowerUw = Number((dynamicPowerUw + leakagePowerUw).toFixed(3));
+
+  return {
+    dynamicPowerUw,
+    leakagePowerUw,
+    totalPowerUw,
+  };
+}

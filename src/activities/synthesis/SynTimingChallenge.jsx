@@ -48,9 +48,9 @@ export default function SynTimingChallenge({ level, kingdom, onVerify, alreadyCo
         </p>
         <div className="dff-challenge__callout" style={{ background: '#e0f2fe', borderColor: '#0ea5e9', color: '#0369a1' }}>
           <strong>Setup Slack Equation:</strong><br />
-          $T_{arrival} = T_{cq} + T_{comb}$<br />
-          $T_{required} = T_{period} - T_{setup} + T_{skew}$<br />
-          $\text{Slack} = T_{required} - T_{arrival}$ (Must be $\ge 0$ for timing closure).
+          T_arrival = T_cq + T_comb<br />
+          T_required = T_period - T_setup + T_skew<br />
+          Slack = T_required - T_arrival (Must be &ge; 0 for timing closure).
         </div>
       </div>
 
@@ -95,7 +95,7 @@ export default function SynTimingChallenge({ level, kingdom, onVerify, alreadyCo
           📊 Scenario 1: Calculate Slack for Normal Path
         </h4>
         <p className="dff-challenge__subtext">
-          Parameters: $T_{period} = 1.00\text{ ns}$, $T_{cq} = 0.15\text{ ns}$, $T_{setup} = 0.08\text{ ns}$, $T_{skew} = 0.00\text{ ns}$, $T_{comb} = 0.52\text{ ns}$.
+          Parameters: T_period = 1.00 ns, T_cq = 0.15 ns, T_setup = 0.08 ns, T_skew = 0.00 ns, T_comb = 0.52 ns.
         </p>
 
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '1rem' }}>
@@ -143,7 +143,7 @@ export default function SynTimingChallenge({ level, kingdom, onVerify, alreadyCo
           ⚠️ Scenario 2: Deep Combinational Path Violation
         </h4>
         <p className="dff-challenge__subtext">
-          A deeply cascaded combinational path has $T_{comb} = 0.85\text{ ns}$ under the same 1.00 ns clock ($T_{cq} = 0.15\text{ ns}$, $T_{setup} = 0.08\text{ ns}$).
+          A deeply cascaded combinational path has T_comb = 0.85 ns under the same 1.00 ns clock (T_cq = 0.15 ns, T_setup = 0.08 ns).
         </p>
 
         <div style={{ maxWidth: '240px', marginTop: '0.75rem' }}>
@@ -179,7 +179,7 @@ export default function SynTimingChallenge({ level, kingdom, onVerify, alreadyCo
             />
             <span className="mux-quiz-letter">A</span>
             <span className="mux-quiz-text">
-              <strong>Pipelining and Register Retiming:</strong> Insert an intermediate register stage to split the 0.85 ns combinational cloud into two balanced 0.42 ns stages, or use high-drive cell sizing to increase drive strength ($R_{on}$ reduction).
+              <strong>Pipelining and Register Retiming:</strong> Insert an intermediate register stage to split the 0.85 ns combinational cloud into two balanced 0.42 ns stages, or use high-drive cell sizing to increase drive strength (R_on reduction).
             </span>
           </label>
 

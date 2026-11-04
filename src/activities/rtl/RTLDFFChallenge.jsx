@@ -56,9 +56,11 @@ export default function RTLDFFChallenge({ level, kingdom, onVerify, alreadyCompl
   };
 
   const handleCellChange = (idx, val) => {
-    const newAnswers = [...cycleAnswers];
-    newAnswers[idx] = val === '' ? null : parseInt(val, 10);
-    setCycleAnswers(newAnswers);
+    setCycleAnswers((prev) => {
+      const newAnswers = [...prev];
+      newAnswers[idx] = val === '' ? null : parseInt(val, 10);
+      return newAnswers;
+    });
   };
 
   const loadCycleStimulus = (stim) => {

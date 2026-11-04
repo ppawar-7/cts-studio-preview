@@ -39,6 +39,7 @@ export default function KingdomPage() {
   const [simulationDone, setSimulationDone] = useState(false);
   const [simulationLogs, setSimulationLogs] = useState([]);
   const [simulationPassed, setSimulationPassed] = useState(true);
+  const [isDefectMode, setIsDefectMode] = useState(false);
 
   // Find kingdom by ID from central data
   const kingdom = KINGDOMS.find((k) => k.id === kingdomId);
@@ -77,6 +78,7 @@ export default function KingdomPage() {
 
   // Open interactive verification modal
   const handleOpenCheck = (check) => {
+    setIsDefectMode(false);
     setActiveCheck(check);
     setRunningSimulation(false);
     const passed = isSanityCheckPassed(player, check.id);
@@ -89,7 +91,7 @@ export default function KingdomPage() {
   const handleRunSimulation = () => {
     setRunningSimulation(true);
     setTimeout(() => {
-      const result = evaluateSanityCheck(activeCheck.id);
+      const result = evaluateSanityCheck(activeCheck.id, { injectDefect: isDefectMode });
       setSimulationLogs(result.logOutput || []);
       setSimulationPassed(result.passed);
       setRunningSimulation(false);
@@ -382,13 +384,66 @@ export default function KingdomPage() {
                 {activeCheck.description}
               </p>
 
+              {/* Educational Disclosure */}
+              <div style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                marginBottom: '1rem',
+                fontSize: '0.82rem',
+                color: '#64748b',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+              }}>
+                <span style={{ fontSize: '1.1rem' }}>ℹ️</span>
+                <span>
+                  <strong>Educational Rule Check:</strong> Evaluates closed-form physical equations and boundary rules for educational pedagogy. Not a commercial foundry sign-off tool.
+                </span>
+              </div>
+
+              {/* Defect Injection Audit Controls */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem',
+                marginBottom: '1rem',
+                padding: '8px 14px',
+                background: isDefectMode ? '#fef2f2' : '#f1f5f9',
+                border: isDefectMode ? '1px solid #fecaca' : '1px solid #e2e8f0',
+                borderRadius: '8px',
+                fontSize: '0.86rem',
+                transition: 'all 0.2s ease',
+              }}>
+                <span style={{ fontWeight: 600, color: '#334155' }}>Audit Input Mode:</span>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: !isDefectMode ? 600 : 400, color: !isDefectMode ? '#1e293b' : '#64748b' }}>
+                  <input
+                    type="radio"
+                    name="sanity-defect-toggle"
+                    checked={!isDefectMode}
+                    onChange={() => { setIsDefectMode(false); setSimulationDone(false); }}
+                  />
+                  <span>✓ Nominal Clean Design</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: isDefectMode ? 600 : 400, color: isDefectMode ? '#b91c1c' : '#64748b' }}>
+                  <input
+                    type="radio"
+                    name="sanity-defect-toggle"
+                    checked={isDefectMode}
+                    onChange={() => { setIsDefectMode(true); setSimulationDone(false); }}
+                  />
+                  <span>⚠️ Inject Physical Defect (DRC Audit Drill)</span>
+                </label>
+              </div>
+
               {/* EDA Verification Terminal */}
               <div className="sanity-terminal">
                 <div className="sanity-terminal__titlebar">
                   <span className="sanity-terminal__dot sanity-terminal__dot--red" />
                   <span className="sanity-terminal__dot sanity-terminal__dot--yellow" />
                   <span className="sanity-terminal__dot sanity-terminal__dot--green" />
-                  <span className="sanity-terminal__title">EDA Sign-Off Terminal — {activeCheck.fullName}</span>
+                  <span className="sanity-terminal__title">Educational Rule Check Terminal — {activeCheck.fullName}</span>
                 </div>
                 <div className="sanity-terminal__content">
                   <div className="sanity-terminal__line">

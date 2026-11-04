@@ -56,7 +56,7 @@ Game-Site/
 │   │   ├── LevelPage/              # Level header, breadcrumb navigation, and ActivityHost mount
 │   │   └── WorldMapPage/           # The 8 ASIC kingdoms journey road
 │   │
-│   └── tests/                      # 22 Vitest test suites (182+ unit & integration tests)
+│   └── tests/                      # 23 Vitest test suites (303+ unit & integration tests)
 │       ├── activities/             # Unit tests for level validators across all 8 kingdoms
 │       ├── components/             # ActivityHost tests
 │       ├── engine/                 # Domain engine mathematical unit tests
@@ -64,6 +64,8 @@ Game-Site/
 │
 ├── tests/                          # Browser E2E verification scripts (Headless Chromium / CDP)
 │   ├── browser_resolver.cjs        # Cross-platform browser discovery (Chrome, Edge)
+│   ├── test_all_40_activities_e2e.cjs # Complete 40-activity test suite
+│   ├── test_fresh_student_journey.cjs # Real fresh-student browser user-journey test
 │   └── test_full_platform_e2e.cjs  # Comprehensive 8-kingdom E2E test with screenshots
 │
 ├── ENGINEERING_EQUATIONS.md        # Authoritative reference for all mathematical formulas
@@ -89,7 +91,7 @@ Starts Vite dev server at `http://localhost:5173`.
 ```powershell
 npm test -- --run
 ```
-Executes all 22 test suites (182 tests) headlessly with zero interactive prompts.
+Executes all 23 test suites (303 tests) headlessly with zero interactive prompts.
 
 ### Build Production Bundle
 ```powershell

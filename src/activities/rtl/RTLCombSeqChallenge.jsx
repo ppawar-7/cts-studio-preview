@@ -31,12 +31,14 @@ export default function RTLCombSeqChallenge({ level, kingdom, onVerify, alreadyC
   const [validationResult, setValidationResult] = useState(null);
 
   const handlePredictionChange = (idx, field, val) => {
-    const updated = [...cyclePredictions];
-    updated[idx] = {
-      ...updated[idx],
-      [field]: val === '' ? null : parseInt(val, 10),
-    };
-    setCyclePredictions(updated);
+    setCyclePredictions((prev) => {
+      const updated = [...prev];
+      updated[idx] = {
+        ...updated[idx],
+        [field]: val === '' ? null : parseInt(val, 10),
+      };
+      return updated;
+    });
   };
 
   const handleSubmit = (e) => {
@@ -74,7 +76,7 @@ export default function RTLCombSeqChallenge({ level, kingdom, onVerify, alreadyC
           <div className="combseq-compare-card">
             <h4 style={{ color: '#d97706', marginBottom: '0.25rem' }}>🔀 Combinational Logic</h4>
             <p style={{ fontSize: '0.88rem', margin: 0, color: '#475569' }}>
-              Outputs depend <em>only</em> on present inputs. Signals propagate through gates with continuous electrical delay ($t_{pd}$). Memoryless and susceptible to dynamic glitches.
+              Outputs depend <em>only</em> on present inputs. Signals propagate through gates with continuous electrical delay (t_pd). Memoryless and susceptible to dynamic glitches.
             </p>
           </div>
           <div className="combseq-compare-card">
@@ -103,7 +105,7 @@ export default function RTLCombSeqChallenge({ level, kingdom, onVerify, alreadyC
           📋 Step 1: Predict Combinational vs Sequential Outputs
         </h4>
         <p className="dff-challenge__subtext">
-          For inputs $A$ and $B$, predict both the immediate combinational output $Y_{comb} = A \cdot B$ and the registered sequential output $Y_{seq} \Leftarrow A \cdot B$.
+          For inputs A and B, predict both the immediate combinational output Y_comb = A &amp; B and the registered sequential output Y_seq &lt;= A &amp; B.
         </p>
 
         <div className="table-responsive">

@@ -64,6 +64,21 @@ export function computeElmoreWireDelay(rWireOhm, cWirePf, cLoadPf = 0.005) {
 }
 
 /**
+ * Compute distributed Elmore delay when capacitances are provided in femtofarads (fF).
+ * Formula: T_elmore = R_wire * (0.5 * C_wire_fF + C_load_fF) / 1000 [ps]
+ *
+ * @param {number} rWireOhm - Wire resistance in Ohms
+ * @param {number} cWireFf - Distributed wire capacitance in fF
+ * @param {number} cLoadFf - Receiver input gate load in fF
+ * @returns {number} Delay in picoseconds (ps)
+ */
+export function computeElmoreDelayFromFf(rWireOhm, cWireFf, cLoadFf = 5.0) {
+  const totalCapFf = (0.5 * Math.max(0, Number(cWireFf) || 0)) + Math.max(0, Number(cLoadFf) || 0);
+  const delayPs = (Math.max(0, Number(rWireOhm) || 0) * totalCapFf) / 1000.0;
+  return Number(delayPs.toFixed(3));
+}
+
+/**
  * Compute coupling capacitance between two parallel routing wires.
  * Cc = k * (L_parallel / Spacing)
  *

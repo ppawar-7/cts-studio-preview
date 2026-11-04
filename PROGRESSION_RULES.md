@@ -48,14 +48,14 @@ flowchart TD
 
 | Order | Kingdom ID | Name | Core Levels | `pointsToUnlockNext` | Max Level XP | Sanity Checks | Sanity XP | Kingdom Bonus | Max Total Kingdom XP |
 | :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| 1 | `rtl-understanding` | RTL Understanding | 5 | 150 | 200 | 0 | 0 | +50 | 250 |
-| 2 | `synthesis` | Logic Synthesis | 5 | 150 | 200 | 0 | 0 | +50 | 250 |
-| 3 | `floorplanning` | Floorplanning | 5 | 150 | 200 | 3 | 60 | +50 | 310 |
-| 4 | `placement` | Placement | 5 | 150 | 200 | 5 | 100 | +50 | 350 |
-| 5 | `cts` | Clock Tree Synthesis | 5 | 150 | 200 | 4 | 80 | +50 | 330 |
-| 6 | `routing` | Routing | 5 | 150 | 200 | 5 | 100 | +50 | 350 |
-| 7 | `filler-cells` | Filler Cells | 5 | 150 | 200 | 9 | 180 | +50 | 430 |
-| 8 | `gds` | GDSII & Tape-Out | 5 | 150 | 200 | 0 | 0 | +50 | 250 |
+| 1 | `rtl-understanding` | RTL Understanding | 5 | 140 | 200 | 0 | 0 | +50 | 250 |
+| 2 | `synthesis` | Logic Synthesis | 5 | 140 | 200 | 0 | 0 | +50 | 250 |
+| 3 | `floorplanning` | Floorplanning | 5 | 140 | 200 | 3 | 60 | +50 | 310 |
+| 4 | `placement` | Placement | 5 | 140 | 200 | 5 | 100 | +50 | 350 |
+| 5 | `cts` | Clock Tree Synthesis | 5 | 140 | 200 | 4 | 80 | +50 | 330 |
+| 6 | `routing` | Routing | 5 | 140 | 200 | 5 | 100 | +50 | 350 |
+| 7 | `filler-cells` | Filler Cells | 5 | 140 | 200 | 9 | 180 | +50 | 430 |
+| 8 | `gds` | GDSII & Tape-Out | 5 | 0 | 200 | 0 | 0 | +50 | 250 |
 | **Total** | — | **All 8 Kingdoms** | **40** | — | **1600** | **26** | **520** | **+400** | **2520 XP** |
 
 ---
@@ -70,15 +70,25 @@ Each kingdom contains exactly 5 core concept levels.
   1. Level $M - 1$ is completed (`player.levelProgress[prevLevelId].completed === true`).
   2. Total XP earned within Kingdom $K$ meets or exceeds Level $M$'s `pointsRequired`.
 
-### 3.2 Canonical Level Reward Structure
+### 3.2 Calibrated Level Reward Structure & 2-Star Progression Proof
 
-| Level | Role / Concept Focus | `pointsRequired` | Max `xpReward` | 1-Star Threshold | 2-Star Threshold | 3-Star Threshold |
-| :---: | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Level 1** | Conceptual Foundation & Core Primitive | 0 XP | 30 XP | 15 XP | 24 XP | 30 XP |
-| **Level 2** | Architecture, Formats, & Syntax | 25 XP | 35 XP | 18 XP | 28 XP | 35 XP |
-| **Level 3** | Quantitative Analysis & Trade-Offs | 55 XP | 40 XP | 20 XP | 32 XP | 40 XP |
-| **Level 4** | Advanced Algorithms & DRC Rules | 90 XP | 45 XP | 23 XP | 36 XP | 45 XP |
-| **Level 5** | Capstone Design & Sign-Off Integration | 130 XP | 50 XP | 25 XP | 40 XP | 50 XP |
+The curriculum uses calibrated score gates to ensure mathematical progression continuity: **any student who earns the lowest acceptable passing score (2 stars) is mathematically guaranteed to unlock the next level and next kingdom without deadlocks or manual replay grinding**.
+
+| Level | Role / Concept Focus | `pointsRequired` | Max `xpReward` | 1-Star Threshold | 2-Star Threshold | 3-Star Threshold | Cumulative 2-Star XP | Next Gate Requirement |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Level 1** | Conceptual Foundation & Core Primitive | 0 XP | 30 XP | 10 XP | **20 XP** | 30 XP | 20 XP | 20 XP (Level 2 Unlocks) |
+| **Level 2** | Architecture, Formats, & Syntax | 20 XP | 35 XP | 12 XP | **24 XP** | 35 XP | 44 XP | 44 XP (Level 3 Unlocks) |
+| **Level 3** | Quantitative Analysis & Trade-Offs | 44 XP | 40 XP | 15 XP | **28 XP** | 40 XP | 72 XP | 72 XP (Level 4 Unlocks) |
+| **Level 4** | Advanced Algorithms & DRC Rules | 72 XP | 45 XP | 18 XP | **32 XP** | 45 XP | 104 XP | 104 XP (Level 5 Unlocks) |
+| **Level 5** | Capstone Design & Sign-Off Integration | 104 XP | 50 XP | 20 XP | **38 XP** | 50 XP | 142 XP | 140 XP (Kingdom N+1 Unlocks) |
+
+**Mathematical Proof of Progression Continuity:**
+1. Completing Level 1 at 2 stars awards $20\ \text{XP} \ge 20\ \text{XP}$ (`pointsRequired` for Level 2). Level 2 unlocks.
+2. Completing Level 2 at 2 stars awards $+24\ \text{XP}$, bringing Kingdom XP to $44\ \text{XP} \ge 44\ \text{XP}$ (`pointsRequired` for Level 3). Level 3 unlocks.
+3. Completing Level 3 at 2 stars awards $+28\ \text{XP}$, bringing Kingdom XP to $72\ \text{XP} \ge 72\ \text{XP}$ (`pointsRequired` for Level 4). Level 4 unlocks.
+4. Completing Level 4 at 2 stars awards $+32\ \text{XP}$, bringing Kingdom XP to $104\ \text{XP} \ge 104\ \text{XP}$ (`pointsRequired` for Level 5). Level 5 unlocks.
+5. Completing Level 5 at 2 stars awards $+38\ \text{XP}$, bringing Kingdom XP to $142\ \text{XP} \ge 140\ \text{XP}$ (`pointsToUnlockNext`). The next kingdom unlocks immediately.
+6. A student earning maximum mastery (3 stars) accumulates $30 + 35 + 40 + 45 + 50 = 200\ \text{XP}$, exceeding the kingdom unlock threshold by $60\ \text{XP}$. No deadlock is possible under any passing path.
 
 ### 3.3 Star Computation Function
 ```javascript

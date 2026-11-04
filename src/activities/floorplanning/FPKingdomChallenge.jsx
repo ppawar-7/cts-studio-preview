@@ -66,8 +66,8 @@ export default function FPKingdomChallenge({ level, kingdom, onVerify, alreadyCo
         </h3>
         <p className="combseq-desc">
           Combine all floorplanning disciplines into a single verified floorplan:
-          1. <strong>Macro Legalization:</strong> Position SRAM1 and SRAM2 inside core with zero overlaps and $\ge 15\text{ µm}$ halos.
-          2. <strong>I/O Pin Assignment:</strong> Place DATA[3:0] on Top edge and CLK/RST on Bottom edge with $\ge 20\text{ µm}$ pitch.
+          1. <strong>Macro Legalization:</strong> Position SRAM1 and SRAM2 inside core with zero overlaps and &ge; 15 µm halos.
+          2. <strong>I/O Pin Assignment:</strong> Place DATA[3:0] on Top edge and CLK/RST on Bottom edge with &ge; 20 µm pitch.
           3. <strong>Power Grid Strategy:</strong> Ensure dual-ring low-impedance power mesh routing.
         </p>
       </div>

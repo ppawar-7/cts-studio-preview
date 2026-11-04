@@ -151,7 +151,7 @@ export default function FPPinPlacementChallenge({ level, kingdom, onVerify, alre
             />
             <span className="mux-quiz-letter">A</span>
             <span className="mux-quiz-text">
-              <strong>Prevents dielectric gate breakdown:</strong> External human touch or handling induces thousands of electrostatic volts ($&gt; 2000\text{ V}$). ESD diodes clamp and safely shunt high-voltage transients to power rails before the spike can puncture delicate nanometer transistor gate oxides.
+              <strong>Prevents dielectric gate breakdown:</strong> External human touch or handling induces thousands of electrostatic volts (&gt; 2000 V). ESD diodes clamp and safely shunt high-voltage transients to power rails before the spike can puncture delicate nanometer transistor gate oxides.
             </span>
           </label>
 

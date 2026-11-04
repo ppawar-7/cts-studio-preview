@@ -152,7 +152,7 @@ export default function PLGlobalDetailedChallenge({ level, kingdom, onVerify, al
           📏 Step 2: Total Manhattan Legalization Displacement
         </h4>
         <p className="dff-challenge__subtext">
-          Compute $\sum (|x_{legal} - x_{rough}| + |y_{legal} - y_{rough}|)$ across both cells.
+          Compute &Sigma; (|x_legal - x_rough| + |y_legal - y_rough|) across both cells.
         </p>
 
         <div style={{ maxWidth: '240px', marginTop: '0.75rem' }}>
