@@ -18,7 +18,7 @@ const { resolveBrowserExecutable } = require('./browser_resolver.cjs');
 const PORT = 4205;
 const BASE_URL = `http://localhost:${PORT}`;
 const CDP_PORT = 9335;
-const SCREENSHOT_DIR = path.resolve(__dirname, '..', '..', 'brain', '6bc66831-7a8f-4043-a9e4-425498e75a65', 'screenshots');
+const SCREENSHOT_DIR = path.resolve(__dirname, '..', '..', '..', 'brain', '6bc66831-7a8f-4043-a9e4-425498e75a65', 'screenshots');
 
 if (!fs.existsSync(SCREENSHOT_DIR)) {
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
