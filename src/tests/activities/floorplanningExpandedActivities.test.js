@@ -63,10 +63,11 @@ describe('Floorplanning 2.0 Expanded Activities (fp-6 through fp-24)', () => {
     expect(validRes.stars).toBeGreaterThanOrEqual(2);
   });
 
-  it('fp-24 validates master capstone requirements', () => {
+  // Review change: the capstone previously passed on three self-attested checkboxes.
+  // It now grades the student's saved Studio project (see src/tests/review/floorplanCurriculumReview.test.js).
+  it('fp-24 rejects self-attested checkboxes without a Studio project', () => {
     const act = getActivity('fp-24');
-    const validRes = act.validator({ macrosPlaced: 4, powerStrapsConnected: true, drcPassed: true });
-    expect(validRes.passed).toBe(true);
-    expect(validRes.stars).toBe(3);
+    const res = act.validator({ macrosPlaced: 4, powerStrapsConnected: true, drcPassed: true });
+    expect(res.passed).toBe(false);
   });
 });

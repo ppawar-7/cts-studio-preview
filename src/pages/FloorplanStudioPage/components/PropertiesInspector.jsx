@@ -96,7 +96,6 @@ export default function PropertiesInspector({
                         className="fp-prop-input"
                         value={macro.x}
                         onChange={(e) => onUpdateMacro(macro.id, { x: Number(e.target.value) || 0 })}
-                        onInput={(e) => onUpdateMacro(macro.id, { x: Number(e.target.value) || 0 })}
                         data-testid="input-macro-x"
                       />
                     </div>
@@ -107,7 +106,6 @@ export default function PropertiesInspector({
                         className="fp-prop-input"
                         value={macro.y}
                         onChange={(e) => onUpdateMacro(macro.id, { y: Number(e.target.value) || 0 })}
-                        onInput={(e) => onUpdateMacro(macro.id, { y: Number(e.target.value) || 0 })}
                         data-testid="input-macro-y"
                       />
                     </div>
@@ -210,7 +208,6 @@ export default function PropertiesInspector({
                         className="fp-prop-input"
                         value={pin.coord || 0}
                         onChange={(e) => onUpdatePin(pin.id, { coord: Number(e.target.value) || 0 })}
-                        onInput={(e) => onUpdatePin(pin.id, { coord: Number(e.target.value) || 0 })}
                         data-testid="input-pin-coord"
                       />
                     </div>

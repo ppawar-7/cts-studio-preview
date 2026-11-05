@@ -10,8 +10,10 @@
 .fp-studio {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  min-height: 600px;
+  /* Fill only the space below the app navbar (top offset measured in JS). */
+  height: calc(100vh - var(--fp-studio-top, 59px));
+  height: calc(100dvh - var(--fp-studio-top, 59px));
+  min-height: 520px;
   background: #0a0f1e;
   color: #e2e8f0;
   font-family: 'Inter', system-ui, sans-serif;
@@ -206,8 +208,16 @@
   flex-direction: column;
 }
 
+.fp-studio-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .fp-studio-canvas {
   flex: 1;
+  min-height: 0;
   position: relative;
   overflow: hidden;
   cursor: grab;
@@ -222,40 +232,41 @@
 }
 
 .fp-studio-canvas__svg {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   display: block;
-  /* No maxWidth — fills container */
+  touch-action: none; /* let pointer events drive drag/pan on touch screens */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.fp-canvas-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  padding: 0.3rem 0.6rem;
+  border-top: 1px solid #1e293b;
+  background: #0a0f1e;
+  flex-shrink: 0;
 }
 
 .fp-canvas-status {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
   font-size: 0.72rem;
-  color: #475569;
-  background: rgba(10, 15, 30, 0.8);
-  padding: 3px 8px;
-  border-radius: 4px;
-  pointer-events: none;
+  color: #64748b;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
 /* SVG layer legend */
 .fp-canvas-legend {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(10, 15, 30, 0.88);
-  border: 1px solid #1e293b;
-  border-radius: 6px;
-  padding: 6px 10px;
   font-size: 0.7rem;
   color: #94a3b8;
-  pointer-events: none;
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  flex-wrap: wrap;
+  gap: 3px 12px;
 }
 
 .fp-legend-item {
@@ -498,5 +509,78 @@
 
   .fp-studio__bottom {
     min-height: 80px;
+  }
+}
+
+/* ─── Inspector tabs ───────────────────────────────────────────────────────── */
+.fp-inspector__tabs {
+  display: flex;
+  border-bottom: 1px solid #1e293b;
+  flex-shrink: 0;
+}
+
+.fp-tab-btn {
+  flex: 1;
+  padding: 0.55rem 0.5rem;
+  background: #0f172a;
+  color: #94a3b8;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fp-tab-btn:hover { color: #e2e8f0; background: #111c33; }
+
+.fp-tab-btn--active {
+  color: #38bdf8;
+  border-bottom-color: #38bdf8;
+  background: #111c33;
+}
+
+.fp-tab-btn:focus-visible { outline: 2px solid #38bdf8; outline-offset: -2px; }
+
+.fp-metric__hint { color: #64748b; font-weight: 400; }
+
+/* ─── Narrow screens: stack panels below the canvas instead of hiding them ── */
+@media (max-width: 768px) {
+  .fp-studio {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .fp-studio__body {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .fp-studio__canvas-area {
+    order: 0;
+    height: min(62vh, 125vw);
+    min-height: 340px;
+  }
+
+  .fp-studio__right {
+    display: flex;
+    order: 1;
+    border-left: none;
+    border-top: 1px solid #1e293b;
+    max-height: none;
+  }
+
+  .fp-studio__left {
+    display: flex;
+    order: 2;
+    border-right: none;
+    border-top: 1px solid #1e293b;
+    max-height: 50vh;
+  }
+
+  .fp-studio__bottom {
+    max-height: none;
   }
 }

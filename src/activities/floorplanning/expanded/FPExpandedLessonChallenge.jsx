@@ -5,14 +5,76 @@
  * Driven by fpExpandedCurriculumData.js.
  */
 
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useMemo } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import PhysicalCanvas from '../../../components/engineering/PhysicalCanvas.jsx';
 import { EXPANDED_LESSONS } from './fpExpandedCurriculumData.js';
+import { deserializeProject } from '../../../engine/floorplanProjectModel.js';
+import { evaluateFloorplanSignoff } from '../../../engine/floorplanSignoff.js';
+
+// Keys shared with FloorplanStudioPage (Normal Game: localStorage; Explore: this session only).
+const STUDIO_KEY = 'pdplayground_floorplan_v1';
+const STUDIO_EXPLORE_KEY = 'pdplayground_floorplan_explore_v1';
+
+function loadStudioProject(isExplore) {
+  try {
+    const raw = isExplore
+      ? window.sessionStorage.getItem(STUDIO_EXPLORE_KEY)
+      : window.localStorage.getItem(STUDIO_KEY);
+    return raw ? deserializeProject(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Deterministic option order so the correct answer is not always option A.
+function stableShuffle(options, salt) {
+  const hash = (str) => {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  };
+  return [...options].sort((a, b) => hash(salt + a.value) - hash(salt + b.value));
+}
+
+function LessonQuestion({ lessonId, question, value, onChange }) {
+  const options = useMemo(() => stableShuffle(question.options, lessonId + question.field), [lessonId, question]);
+  return (
+    <div style={{ marginTop: '1rem' }}>
+      <div className="mux-quiz-prompt">{question.prompt}</div>
+      <div className="mux-quiz-options-group">
+        {options.map((opt, i) => (
+          <label key={opt.value} className={`mux-quiz-option ${value === opt.value ? 'selected' : ''}`}>
+            <input
+              type="radio"
+              name={`${lessonId}-${question.field}`}
+              value={opt.value}
+              checked={value === opt.value}
+              onChange={() => onChange(question.field, opt.value)}
+            />
+            <span className="mux-quiz-letter">{String.fromCharCode(65 + i)}</span>
+            <span className="mux-quiz-text">{opt.label}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, alreadyCompleted }) {
   const lessonId = level?.id || 'fp-6';
   const lesson = EXPANDED_LESSONS[lessonId] || EXPANDED_LESSONS['fp-6'];
+  const location = useLocation();
+  const isExplore = location.pathname.startsWith('/explore');
+  const studioPath = isExplore ? '/explore/studio/floorplanning' : '/studio/floorplanning';
+  const [studioProject, setStudioProject] = useState(() => (lesson.requiresStudioProject ? loadStudioProject(isExplore) : null));
+  const capstoneReport = useMemo(
+    () => (lesson.requiresStudioProject && studioProject ? evaluateFloorplanSignoff(studioProject) : null),
+    [lesson.requiresStudioProject, studioProject],
+  );
 
   // Universal state store for inputs
   const [formData, setFormData] = useState({});
@@ -25,7 +87,13 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
   const handleSubmit = (e) => {
     e.preventDefault();
     if (lesson.validate) {
-      const result = lesson.validate(formData);
+      let inputs = formData;
+      if (lesson.requiresStudioProject) {
+        const fresh = loadStudioProject(isExplore);
+        setStudioProject(fresh);
+        inputs = { ...formData, project: fresh };
+      }
+      const result = lesson.validate(inputs);
       setValidationResult(result);
       if (result.passed && onVerify) {
         onVerify(result);
@@ -58,9 +126,9 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
       {/* Interactive Silicon Canvas Preview */}
       <div className="card combseq-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <span className="badge badge--available">Interactive Layout Visualizer</span>
+          <span className="badge badge--available">Reference Layout</span>
           <Link
-            to="/studio/floorplanning"
+            to={studioPath}
             className="btn btn--secondary btn--sm"
             style={{ fontSize: '0.75rem' }}
           >
@@ -94,39 +162,10 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
                   className="syn-opt-input"
                   value={formData.aspectRatio || ''}
                   onChange={(e) => handleFieldChange('aspectRatio', e.target.value)}
-                  onInput={(e) => handleFieldChange('aspectRatio', e.target.value)}
                 />
               </div>
             </div>
 
-            <h4 className="dff-challenge__section-title" style={{ marginTop: '1.25rem' }}>Step 2: Interconnect Physics</h4>
-            <div className="mux-quiz-prompt">Which aspect ratio minimizes average wirelength across random flip-flops?</div>
-            <div className="mux-quiz-options-group">
-              <label className={`mux-quiz-option ${formData.bestRatioQuiz === 'ar-square' ? 'selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="bestRatio"
-                  value="ar-square"
-                  checked={formData.bestRatioQuiz === 'ar-square'}
-                  onChange={(e) => handleFieldChange('bestRatioQuiz', e.target.value)}
-                  onClick={(e) => handleFieldChange('bestRatioQuiz', e.target.value)}
-                />
-                <span className="mux-quiz-letter">A</span>
-                <span className="mux-quiz-text"><strong>Square Core (AR = 1.0):</strong> Equal Manhattan bounding box in X and Y minimizes worst-case diagonal flight time.</span>
-              </label>
-              <label className={`mux-quiz-option ${formData.bestRatioQuiz === 'ar-extreme' ? 'selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="bestRatio"
-                  value="ar-extreme"
-                  checked={formData.bestRatioQuiz === 'ar-extreme'}
-                  onChange={(e) => handleFieldChange('bestRatioQuiz', e.target.value)}
-                  onClick={(e) => handleFieldChange('bestRatioQuiz', e.target.value)}
-                />
-                <span className="mux-quiz-letter">B</span>
-                <span className="mux-quiz-text">Extreme Rectangular Core (AR = 4.0): Wirelength does not depend on die geometry.</span>
-              </label>
-            </div>
           </div>
         )}
 
@@ -173,20 +212,6 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
                 onChange={(e) => handleFieldChange('rowCount', e.target.value)}
               />
             </div>
-            <h4 className="dff-challenge__section-title" style={{ marginTop: '1.25rem' }}>Step 2: Why Alternate Row Flipping (R0 / MX)?</h4>
-            <div className="mux-quiz-options-group">
-              <label className={`mux-quiz-option ${formData.flipQuiz === 'flip-share-rails' ? 'selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="flipQuiz"
-                  value="flip-share-rails"
-                  checked={formData.flipQuiz === 'flip-share-rails'}
-                  onChange={(e) => handleFieldChange('flipQuiz', e.target.value)}
-                />
-                <span className="mux-quiz-letter">A</span>
-                <span className="mux-quiz-text"><strong>Shares common VDD and VSS rails:</strong> Like power rails abut seamlessly between adjacent rows, halving power track overhead.</span>
-              </label>
-            </div>
           </div>
         )}
 
@@ -203,20 +228,6 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
                 value={formData.requiredSeparation || ''}
                 onChange={(e) => handleFieldChange('requiredSeparation', e.target.value)}
               />
-            </div>
-            <h4 className="dff-challenge__section-title" style={{ marginTop: '1.25rem' }}>Step 2: Why Avoid Narrow Routing Corridors?</h4>
-            <div className="mux-quiz-options-group">
-              <label className={`mux-quiz-option ${formData.corridorQuiz === 'corridor-congestion' ? 'selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="corridorQuiz"
-                  value="corridor-congestion"
-                  checked={formData.corridorQuiz === 'corridor-congestion'}
-                  onChange={(e) => handleFieldChange('corridorQuiz', e.target.value)}
-                />
-                <span className="mux-quiz-letter">A</span>
-                <span className="mux-quiz-text"><strong>Pin escape congestion:</strong> Narrow channels between macros lack enough routing tracks for pin breakouts, causing DRC shorts during detailed routing.</span>
-              </label>
             </div>
           </div>
         )}
@@ -235,128 +246,78 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
                 onChange={(e) => handleFieldChange('calculatedDrop', e.target.value)}
               />
             </div>
-            <h4 className="dff-challenge__section-title" style={{ marginTop: '1.25rem' }}>Step 2: How to Remediate Severe IR-Drop Hotspots?</h4>
-            <div className="mux-quiz-options-group">
-              <label className={`mux-quiz-option ${formData.irFixQuiz === 'add-more-straps' ? 'selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="irFix"
-                  value="add-more-straps"
-                  checked={formData.irFixQuiz === 'add-more-straps'}
-                  onChange={(e) => handleFieldChange('irFixQuiz', e.target.value)}
-                />
-                <span className="mux-quiz-letter">A</span>
-                <span className="mux-quiz-text"><strong>Synthesize a denser power strap mesh:</strong> Parallel straps reduce effective network impedance and eliminate voltage droop.</span>
-              </label>
+          </div>
+        )}
+
+        {/* FP-14 Pin pitch: real coordinates checked by the Studio's pin-spacing rule */}
+        {lesson.id === 'fp-14' && (
+          <div className="card combseq-card">
+            <h4 className="dff-challenge__section-title">Place two I/O pins on the top edge (core width 500 µm, minimum pitch 10 µm)</h4>
+            <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+              {['pinCoord1', 'pinCoord2'].map((f, i) => (
+                <div key={f}>
+                  <label className="accum-port-label">Pin {i + 1} coordinate along the edge (µm):</label>
+                  <input
+                    type="number"
+                    className="syn-opt-input"
+                    value={formData[f] ?? ''}
+                    onChange={(e) => handleFieldChange(f, e.target.value)}
+                    data-testid={`input-${f}`}
+                  />
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* FP-24 Master Capstone */}
+        {/* FP-24 Master Capstone: graded on the saved Studio project */}
         {lesson.id === 'fp-24' && (
-          <div className="card combseq-card">
-            <h4 className="dff-challenge__section-title">🏆 Full Chip Signoff Verification Gate</h4>
-            <p className="dff-challenge__subtext">
-              Verify your complete floorplan assembly before final sign-off:
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.75rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(formData.macrosPlaced)}
-                  onChange={(e) => handleFieldChange('macrosPlaced', e.target.checked ? 4 : 0)}
-                />
-                <span>Hard Macros positioned in corners with independent keepout halos (&ge; 2 macros)</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(formData.powerStrapsConnected)}
-                  onChange={(e) => handleFieldChange('powerStrapsConnected', e.target.checked)}
-                />
-                <span>Power rings and straps synthesized with continuous via connections</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(formData.drcPassed)}
-                  onChange={(e) => handleFieldChange('drcPassed', e.target.checked)}
-                />
-                <span>Clean DRC signoff (0 boundary clearance violations, 0 macro overlaps)</span>
-              </label>
-            </div>
+          <div className="card combseq-card" data-testid="capstone-panel">
+            <h4 className="dff-challenge__section-title">🏆 Sign-off of your saved Studio project</h4>
+            {!studioProject ? (
+              <p className="dff-challenge__subtext">
+                No saved project found {isExplore ? 'in this Explore session' : 'for your Normal Game Studio'}.
+                Open the <Link to={studioPath}>Floorplan Studio</Link>, load a 4-macro benchmark, repair it, press <strong>Save</strong>, then return here.
+              </p>
+            ) : (
+              <>
+                <p className="dff-challenge__subtext">
+                  Project <strong>{studioProject.name}</strong>: {capstoneReport.metrics.macroCount} macros,
+                  utilization {capstoneReport.metrics.nominalUtilization}%, worst IR drop {capstoneReport.metrics.maxIRDropMv} mV.
+                </p>
+                <ul className="fp-capstone-checklist" style={{ listStyle: 'none', padding: 0, margin: '0.75rem 0 0', display: 'grid', gap: '0.35rem' }}>
+                  <li>{capstoneReport.metrics.macroCount >= (lesson.minMacros || 4) ? '✅' : '❌'} At least {lesson.minMacros || 4} hard macros</li>
+                  <li>{capstoneReport.errorCount === 0 ? '✅' : '❌'} 0 errors (DRC, pin pitch, PDN continuity, shorts, utilization)</li>
+                  <li>{capstoneReport.warningCount === 0 ? '✅' : '❌'} 0 warnings (halo conflicts, missing vias)</li>
+                </ul>
+                {capstoneReport.violations.length > 0 && (
+                  <ul style={{ marginTop: '0.6rem', fontSize: '0.85rem', color: '#b45309' }}>
+                    {capstoneReport.violations.slice(0, 6).map((v, i) => (
+                      <li key={i}><strong>{v.rule}:</strong> {v.message}</li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+            <button type="button" className="btn btn--secondary btn--sm" style={{ marginTop: '0.75rem' }} onClick={() => setStudioProject(loadStudioProject(isExplore))}>
+              ↻ Reload saved project
+            </button>
           </div>
         )}
 
-        {/* Default Concept Quiz for other lessons */}
-        {!['fp-6', 'fp-7', 'fp-8', 'fp-11', 'fp-18', 'fp-24'].includes(lesson.id) && (
+        {/* Lesson-specific concept checks (each lesson has its own questions and distractors) */}
+        {Array.isArray(lesson.questions) && lesson.questions.length > 0 && (
           <div className="card combseq-card">
-            <h4 className="dff-challenge__section-title">EDA Engineering Analysis: {lesson.title}</h4>
-            <div className="mux-quiz-options-group" style={{ marginTop: '0.75rem' }}>
-              <label className={`mux-quiz-option ${formData.primaryOption === 'opt-correct' ? 'selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="genQuiz"
-                  value="opt-correct"
-                  checked={formData.primaryOption === 'opt-correct'}
-                  onChange={() => {
-                    handleFieldChange('primaryOption', 'opt-correct');
-                    // Automatically map corresponding validator fields
-                    if (lesson.id === 'fp-9') {
-                      handleFieldChange('hardBlockQuiz', 'hard-zero-cells');
-                      handleFieldChange('softBlockQuiz', 'soft-coarse-allow');
-                    } else if (lesson.id === 'fp-10') {
-                      handleFieldChange('chosenOrientation', 'MY');
-                      handleFieldChange('pinFacingQuiz', 'face-inward');
-                    } else if (lesson.id === 'fp-12') {
-                      handleFieldChange('fixedConcept', 'lock-prevent-drift');
-                    } else if (lesson.id === 'fp-13') {
-                      handleFieldChange('flylineQuiz', 'flyline-cluster-bus');
-                    } else if (lesson.id === 'fp-14') {
-                      handleFieldChange('pinCoord1', 20);
-                      handleFieldChange('pinCoord2', 45);
-                      handleFieldChange('pinPitchQuiz', 'prevent-shorts');
-                    } else if (lesson.id === 'fp-15') {
-                      handleFieldChange('alignQuiz', 'align-adjacent-edge');
-                    } else if (lesson.id === 'fp-16') {
-                      handleFieldChange('layerQuiz', 'upper-thick-metal');
-                      handleFieldChange('emQuiz', 'em-current-density');
-                    } else if (lesson.id === 'fp-17') {
-                      handleFieldChange('viaQuiz', 'via-electrical-connection');
-                      handleFieldChange('meshQuiz', 'mesh-low-resistance');
-                    } else if (lesson.id === 'fp-19') {
-                      handleFieldChange('congestionQuiz', 'congestion-spread-macros');
-                    } else if (lesson.id === 'fp-20') {
-                      handleFieldChange('drcQuiz', 'drc-zero-tolerances');
-                    } else if (lesson.id === 'fp-21') {
-                      handleFieldChange('ppaQuiz', 'ppa-balance-65-75');
-                    } else if (lesson.id === 'fp-22') {
-                      handleFieldChange('candidateChoice', 'candidate-corner-placement');
-                    } else if (lesson.id === 'fp-23') {
-                      handleFieldChange('signoffChecklist', 'all-three-gates-pass');
-                    }
-                  }}
-                />
-                <span className="mux-quiz-letter">A</span>
-                <span className="mux-quiz-text">
-                  <strong>Recommended Physical Design Methodology:</strong> Apply standard industry best practices to achieve deterministic PPA sign-off without DRC or connectivity violations.
-                </span>
-              </label>
-
-              <label className={`mux-quiz-option ${formData.primaryOption === 'opt-incorrect' ? 'selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="genQuiz"
-                  value="opt-incorrect"
-                  checked={formData.primaryOption === 'opt-incorrect'}
-                  onChange={() => handleFieldChange('primaryOption', 'opt-incorrect')}
-                />
-                <span className="mux-quiz-letter">B</span>
-                <span className="mux-quiz-text">
-                  <strong>Random Placement Approach:</strong> Ignore keepouts and pitch constraints and rely on downstream routers to fix shorts.
-                </span>
-              </label>
-            </div>
+            <h4 className="dff-challenge__section-title">Concept Check: {lesson.title}</h4>
+            {lesson.questions.map((q) => (
+              <LessonQuestion
+                key={q.field}
+                lessonId={lesson.id}
+                question={q}
+                value={formData[q.field]}
+                onChange={handleFieldChange}
+              />
+            ))}
           </div>
         )}
 

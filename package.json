@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:studio-browser": "node tests/review_floorplan_studio_browser.cjs"
   },
   "dependencies": {
     "react": "^18.3.1",

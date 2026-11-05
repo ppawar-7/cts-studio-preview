@@ -44,17 +44,25 @@ export default function LevelPage({ isExploreMode = false }) {
   let level = kingdom?.levels.find((l) => l.id === levelId);
 
   // Fallback for Floorplanning 2.0 expanded lessons (fp-6 to fp-24)
-  if (!level && kingdomId === 'floorplanning' && EXPANDED_LESSONS[levelId]) {
-    const exp = EXPANDED_LESSONS[levelId];
-    level = {
+  const expandedIds = Object.keys(EXPANDED_LESSONS);
+  const coreLevelCount = kingdom?.levels.length || 0;
+  const toExpandedLevel = (id) => {
+    const exp = EXPANDED_LESSONS[id];
+    return {
       id: exp.id,
       name: exp.title,
       title: exp.title,
       description: exp.description,
       xpReward: exp.xpReward || 35,
+      starThresholds: exp.starThresholds,
       duration: exp.duration || '~10 min',
+      module: exp.module,
+      order: coreLevelCount + expandedIds.indexOf(id) + 1,
       isExpanded: true,
     };
+  };
+  if (!level && kingdomId === 'floorplanning' && EXPANDED_LESSONS[levelId]) {
+    level = toExpandedLevel(levelId);
   }
 
   // States
@@ -128,8 +136,15 @@ export default function LevelPage({ isExploreMode = false }) {
   };
 
   // Find adjacent levels for navigation
-  const prevLevel = kingdom.levels.find((l) => l.order === level.order - 1);
-  const nextLevel = kingdom.levels.find((l) => l.order === level.order + 1);
+  // Expanded Floorplanning lessons (fp-6 … fp-24) continue the sequence after the core levels.
+  let prevLevel = kingdom.levels.find((l) => l.order === level.order - 1);
+  let nextLevel = kingdom.levels.find((l) => l.order === level.order + 1);
+  if (level.isExpanded) {
+    const idx = expandedIds.indexOf(level.id);
+    prevLevel = idx > 0 ? toExpandedLevel(expandedIds[idx - 1]) : kingdom.levels[kingdom.levels.length - 1];
+    nextLevel = idx < expandedIds.length - 1 ? toExpandedLevel(expandedIds[idx + 1]) : null;
+  }
+  const totalLessons = kingdom.id === 'floorplanning' ? coreLevelCount + expandedIds.length : coreLevelCount;
   const nextKingdom = KINGDOMS.find((k) => k.order === kingdom.order + 1);
 
   // Show full completion overlay when completed
@@ -219,7 +234,11 @@ export default function LevelPage({ isExploreMode = false }) {
             {/* Level badge */}
             <div className="level-page__badge">
               <span style={{ fontSize: '1.25rem' }}>{kingdom.emoji}</span>
-              <span>Level {level.order} of {kingdom.levels.length}</span>
+              <span>
+                {level.isExpanded
+                  ? `Lesson ${level.order} of ${totalLessons} · Module ${level.module}`
+                  : `Level ${level.order} of ${kingdom.levels.length}`}
+              </span>
             </div>
 
             {/* Stars if completed in normal mode */}

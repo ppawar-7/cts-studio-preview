@@ -670,3 +670,120 @@
   padding-top: 0.5rem;
   border-top: 1px solid #f1f5f9;
 }
+
+/* ─── Review fix: hero stats card (markup existed, styles did not) ────────── */
+.kingdom-page__stats-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.75rem;
+  align-items: flex-start;
+}
+
+.kingdom-page__stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 96px;
+}
+
+/* ─── Review fix: sanity cards on the Kingdom page ───────────────────────── */
+.kingdom-page__sanity-grid .sanity-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  min-width: 0;
+}
+
+.kingdom-page__sanity-grid .sanity-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+}
+
+.kingdom-page__sanity-grid .sanity-card__icon {
+  font-size: 1.4rem;
+  margin: 0;
+  display: inline-block;
+  line-height: 1;
+}
+
+.kingdom-page__sanity-grid .sanity-card__category {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.kingdom-page__sanity-grid [class^='sanity-card__badge-'] {
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+}
+
+.kingdom-page__sanity-grid .sanity-card__badge-pass { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.kingdom-page__sanity-grid .sanity-card__badge-practice { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
+.kingdom-page__sanity-grid .sanity-card__badge-stale { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+.kingdom-page__sanity-grid .sanity-card__badge-lock { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+
+.kingdom-page__sanity-grid .sanity-card__title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  margin: 0.15rem 0 0;
+  color: var(--color-text);
+}
+
+.kingdom-page__sanity-grid .sanity-card__full-name {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.kingdom-page__sanity-grid .sanity-card__description {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.kingdom-page__sanity-grid .sanity-card__command-details summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.kingdom-page__sanity-grid .sanity-card__command-details code,
+.kingdom-page__sanity-grid .sanity-card__command-full code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.kingdom-page__sanity-grid .sanity-card__command-full {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+}
+
+.kingdom-page__sanity-grid .sanity-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.kingdom-page__sanity-grid .sanity-card__reward {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+}

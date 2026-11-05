@@ -15,7 +15,7 @@
  * - Benchmark presets (Small Controller, Dual SRAM, Small SoC)
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import StudioToolbar from './components/StudioToolbar.jsx';
 import DesignExplorer from './components/DesignExplorer.jsx';
@@ -34,30 +34,27 @@ import {
   EXAMPLE_SMALL_SOC_SUBSYSTEM,
 } from '../../engine/floorplanProjectModel.js';
 
-import {
-  computeUtilization,
-  checkMacroOverlap,
-  checkMacroCoreContainment,
-  checkPinSpacing,
-  checkPinContainment,
-  computeHPWL,
-  transformMacroOrientation,
-} from '../../engine/floorplanGeometry.js';
-
-import {
-  detectOpenConnections,
-  detectVDDVSSShort,
-  detectMissingVias,
-  computeIRDropEstimate,
-  addVia,
-  removeVia,
-} from '../../engine/floorplanPDN.js';
-
-import { computeCongestionMap } from '../../engine/floorplanCongestion.js';
+import { transformMacroOrientation } from '../../engine/floorplanGeometry.js';
+import { addVia, removeVia } from '../../engine/floorplanPDN.js';
+import { evaluateFloorplanSignoff } from '../../engine/floorplanSignoff.js';
 
 import './FloorplanStudioPage.css';
 
-const STORAGE_KEY = 'pdplayground_floorplan_v1';
+export const STORAGE_KEY = 'pdplayground_floorplan_v1';
+// Explore mode keeps its own, session-scoped copy so practice never touches the Normal Game project.
+export const EXPLORE_STORAGE_KEY = 'pdplayground_floorplan_explore_v1';
+
+function readStoredProject(isExplore) {
+  try {
+    const saved = isExplore
+      ? window.sessionStorage.getItem(EXPLORE_STORAGE_KEY)
+      : window.localStorage.getItem(STORAGE_KEY);
+    return saved ? deserializeProject(saved) : null;
+  } catch (e) {
+    console.warn('Failed to load saved floorplan project, using default:', e);
+    return null;
+  }
+}
 
 export default function FloorplanStudioPage({ isExploreMode = false }) {
   const navigate = useNavigate();
@@ -65,17 +62,24 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
   const isExplore = Boolean(isExploreMode || location.pathname.startsWith('/explore'));
 
   // Initialize project state from localStorage or default
-  const [project, setProject] = useState(() => {
-    try {
-      if (!isExplore) {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) return deserializeProject(saved);
-      }
-    } catch (e) {
-      console.warn('Failed to load saved floorplan project, using default:', e);
-    }
-    return createDefaultProject('My ASIC Floorplan', 'beginner');
-  });
+  const [project, setProject] = useState(() => readStoredProject(isExplore) || createDefaultProject('My ASIC Floorplan', 'beginner'));
+
+  const projectRef = useRef(project);
+  projectRef.current = project;
+
+  // Size the studio to the space below the app navbar so the analysis panel is never clipped.
+  const studioRef = useRef(null);
+  useLayoutEffect(() => {
+    const fit = () => {
+      const el = studioRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      el.style.setProperty('--fp-studio-top', `${Math.max(0, Math.round(top))}px`);
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, []);
 
   // History stack for Undo/Redo
   const [history, setHistory] = useState([]);
@@ -87,6 +91,11 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
 
   // View & Tool options
   const [zoom, setZoom] = useState(1);
+  const [fitToken, setFitToken] = useState(0);
+  const requestFit = useCallback(() => {
+    setZoom(1);
+    setFitToken((t) => t + 1);
+  }, []);
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [gridSize, setGridSize] = useState(5);
   const [showPowerNetwork, setShowPowerNetwork] = useState(true);
@@ -119,13 +128,16 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     setProject(next);
   }, [redoStack, project]);
 
-  // Save to persistent storage
+  // Save: Normal Game → localStorage; Explore → this browser session only.
   const handleSave = useCallback(() => {
     try {
-      if (!isExplore) {
-        localStorage.setItem(STORAGE_KEY, serializeProject(project));
+      if (isExplore) {
+        window.sessionStorage.setItem(EXPLORE_STORAGE_KEY, serializeProject(project));
+        alert('Saved to this Explore session only. Your Normal Game floorplan is unchanged.');
+      } else {
+        window.localStorage.setItem(STORAGE_KEY, serializeProject(project));
+        alert('Floorplan project saved.');
       }
-      alert('Floorplan project saved successfully!');
     } catch (e) {
       alert('Failed to save project: ' + e.message);
     }
@@ -147,11 +159,12 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
       updateProject(parsed);
       setSelectedId(null);
       setSelectedType(null);
+      requestFit();
       alert('Floorplan loaded successfully!');
     } catch (e) {
       alert('Import failed: ' + e.message);
     }
-  }, [updateProject]);
+  }, [updateProject, requestFit]);
 
   // New Blank Project
   const handleNewProject = useCallback(() => {
@@ -159,8 +172,9 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
       updateProject(createDefaultProject('New Design', 'beginner'));
       setSelectedId(null);
       setSelectedType(null);
+      requestFit();
     }
-  }, [updateProject]);
+  }, [updateProject, requestFit]);
 
   // Load Preset
   const handleLoadPreset = useCallback((presetKey) => {
@@ -170,11 +184,12 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     else if (presetKey === 'small-soc') preset = EXAMPLE_SMALL_SOC_SUBSYSTEM;
 
     if (preset) {
-      updateProject(migrateProject(preset));
+      updateProject(migrateProject(JSON.parse(JSON.stringify(preset))));
       setSelectedId(null);
       setSelectedType(null);
+      requestFit();
     }
-  }, [updateProject]);
+  }, [updateProject, requestFit]);
 
   // Update Macro Position (during drag)
   const handleUpdateMacroPosition = useCallback((macroId, x, y) => {
@@ -184,17 +199,29 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     }));
   }, []);
 
+  // Commit a finished canvas drag as ONE undo step (snapshot = project before the drag).
+  const handleCommitMacroDrag = useCallback((macroId, from) => {
+    const current = projectRef.current;
+    const before = {
+      ...current,
+      macros: current.macros.map((m) => (m.id === macroId ? { ...m, x: from.x, y: from.y } : m)),
+    };
+    setHistory((h) => [...h.slice(-25), JSON.parse(JSON.stringify(before))]);
+    setRedoStack([]);
+  }, []);
+
   // Update Macro properties (Inspector)
   const handleUpdateMacro = useCallback((macroId, patch) => {
     updateProject((prev) => ({
       ...prev,
       macros: prev.macros.map((m) => {
         if (m.id !== macroId) return m;
-        let updated = { ...m, ...patch };
-        if (patch.orientation && patch.orientation !== m.orientation) {
-          updated = transformMacroOrientation(updated, patch.orientation);
-        }
-        return updated;
+        // Transform from the macro's CURRENT orientation, then apply the remaining fields.
+        const base = patch.orientation && patch.orientation !== (m.orientation || 'R0')
+          ? transformMacroOrientation(m, patch.orientation)
+          : m;
+        const { orientation, ...rest } = patch;
+        return { ...base, ...rest, orientation: orientation || base.orientation };
       }),
     }));
   }, [updateProject]);
@@ -234,142 +261,13 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     }));
   }, [updateProject]);
 
-  // ─── LIVE EDA ANALYTICAL CALCULATIONS ──────────────────────────────────────
-  const utilization = useMemo(() => {
-    return computeUtilization(
-      project.core.width * project.core.height,
-      project.standardCellAreaUm2,
-      project.macros,
-      project.blockages
-    );
-  }, [project]);
-
-  const hpwl = useMemo(() => {
-    return computeHPWL(project.nets, project.macros, project.pins, project.core);
-  }, [project]);
-
-  const pdnAnalysis = useMemo(() => {
-    const openNets = detectOpenConnections(project.powerNetwork);
-    const shorts = detectVDDVSSShort(project.powerNetwork);
-    const missingVias = detectMissingVias(project.powerNetwork);
-    const irDrop = computeIRDropEstimate(project.powerNetwork, project.powerNetwork?.loads);
-    return { openNets, shorts, missingVias, irDrop };
-  }, [project]);
-
-  const congestionMap = useMemo(() => {
-    return computeCongestionMap(project, 8, 8);
-  }, [project]);
-
-  // ─── COMPILE ACTIVE VIOLATIONS LIST ───────────────────────────────────────
-  const violations = useMemo(() => {
-    const list = [];
-    const macros = project.macros || [];
-
-    // Macro-to-Macro overlaps & keepouts
-    for (let i = 0; i < macros.length; i++) {
-      for (let j = i + 1; j < macros.length; j++) {
-        const m1 = macros[i];
-        const m2 = macros[j];
-        const overlapResult = checkMacroOverlap(m1, m2);
-
-        if (overlapResult.overlaps) {
-          list.push({
-            rule: 'Macro Overlap (DRC)',
-            severity: 'error',
-            targetId: m1.id,
-            targetType: 'macro',
-            message: `Macro ${m1.name || m1.id} physically overlaps with ${m2.name || m2.id} (Area: ${overlapResult.overlapArea} µm²).`,
-            suggestion: 'Move macros apart so they do not intersect.',
-          });
-        } else if (overlapResult.halosViolated) {
-          list.push({
-            rule: 'Placement Halo Keepout Violation',
-            severity: 'warning',
-            targetId: m1.id,
-            targetType: 'macro',
-            message: `Keepout halos between ${m1.id} and ${m2.id} overlap. Gap is ${Math.max(overlapResult.actualGapX, overlapResult.actualGapY)}µm, required: ${overlapResult.requiredSeparation}µm (haloA=${m1.halo} + haloB=${m2.halo}).`,
-            suggestion: `Increase separation to at least ${overlapResult.requiredSeparation}µm for pin routing access.`,
-          });
-        }
-      }
-
-      // Core Containment
-      const containment = checkMacroCoreContainment(macros[i], project.core);
-      if (!containment.contained) {
-        list.push({
-          rule: 'Core Boundary DRC',
-          severity: 'error',
-          targetId: macros[i].id,
-          targetType: 'macro',
-          message: containment.violations[0] || `Macro ${macros[i].id} exceeds core boundary limits.`,
-          suggestion: 'Position macro completely inside the core boundary.',
-        });
-      }
-    }
-
-    // Pin spacing
-    ['top', 'bottom', 'left', 'right'].forEach((side) => {
-      const pinCheck = checkPinSpacing(project.pins, side, project.constraints?.minPinSpacing || 10, project.core.width, project.core.height);
-      if (!pinCheck.valid) {
-        pinCheck.violations.forEach((v) => {
-          list.push({
-            rule: 'I/O Pin Pitch DRC',
-            severity: 'error',
-            targetId: v.pinA,
-            targetType: 'pin',
-            message: v.message,
-            suggestion: `Increase spacing along the ${side} edge to at least ${v.requiredSpacing}µm.`,
-          });
-        });
-      }
-    });
-
-    // PDN Open Nets
-    if (pdnAnalysis.openNets.vddOpen) {
-      list.push({
-        rule: 'VDD Power Continuity',
-        severity: 'error',
-        targetId: 'ring_vdd',
-        targetType: 'ring',
-        message: 'VDD mesh has unreachable strap loads (floating power net segments).',
-        suggestion: 'Ensure vias connect VDD straps to the VDD power ring.',
-      });
-    }
-    if (pdnAnalysis.openNets.vssOpen) {
-      list.push({
-        rule: 'VSS Ground Continuity',
-        severity: 'error',
-        targetId: 'ring_vss',
-        targetType: 'ring',
-        message: 'VSS mesh has unreachable strap loads (floating ground net segments).',
-        suggestion: 'Ensure vias connect VSS straps to the VSS ground ring.',
-      });
-    }
-
-    // Missing Vias
-    if (pdnAnalysis.missingVias.missingViaCount > 0) {
-      pdnAnalysis.missingVias.details.forEach((d) => {
-        list.push({
-          rule: 'Missing Power Grid Via',
-          severity: 'warning',
-          targetId: d.strapId,
-          targetType: 'strap',
-          message: d.reason,
-          suggestion: `Add an electrical via at intersection ${d.expectedViaLocation} between ${d.layers}.`,
-          viaFix: {
-            id: `via_${d.net.toLowerCase()}_${d.x}_${d.y}`,
-            layer1: d.layer1 || 'M4',
-            layer2: d.layer2 || 'M5',
-            x: d.x,
-            y: d.y,
-            net: d.net,
-          },
-        });
-      });
-    }
-
-    return list;
-  }, [project, pdnAnalysis]);
+  // ─── LIVE EDA ANALYSIS (single shared rule deck, also used by FP-24) ─────
+  const signoff = useMemo(() => evaluateFloorplanSignoff(project), [project]);
+  const utilization = signoff.analysis.utilization;
+  const hpwl = signoff.analysis.hpwl;
+  const pdnAnalysis = signoff.analysis.pdn;
+  const congestionMap = signoff.analysis.congestion;
+  const violations = signoff.violations;
 
   // Select Violation handler
   const handleSelectViolation = useCallback((v) => {
@@ -422,7 +320,7 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
   };
 
   return (
-    <div className="fp-studio" data-testid="fp-studio">
+    <div className="fp-studio" data-testid="fp-studio" ref={studioRef}>
       {/* 1. TOP TOOLBAR */}
       <StudioToolbar
         project={project}
@@ -436,9 +334,9 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
         onUndo={handleUndo}
         onRedo={handleRedo}
         zoom={zoom}
-        onZoomIn={() => setZoom((z) => Math.min(3.0, Number((z + 0.1).toFixed(1))))}
-        onZoomOut={() => setZoom((z) => Math.max(0.4, Number((z - 0.1).toFixed(1))))}
-        onFitView={() => setZoom(1)}
+        onZoomIn={() => setZoom((z) => Math.min(6, Number((z * 1.2).toFixed(3))))}
+        onZoomOut={() => setZoom((z) => Math.max(0.4, Number((z / 1.2).toFixed(3))))}
+        onFitView={requestFit}
         snapToGrid={snapToGrid}
         onToggleSnap={() => setSnapToGrid(!snapToGrid)}
         gridSize={gridSize}
@@ -480,6 +378,8 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
               setSelectedId(id);
             }}
             onUpdateMacroPosition={handleUpdateMacroPosition}
+            onCommitMacroDrag={handleCommitMacroDrag}
+            fitToken={fitToken}
             snapToGrid={snapToGrid}
             gridSize={gridSize}
             showPowerNetwork={showPowerNetwork}
@@ -508,6 +408,7 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
       {/* 3. BOTTOM PANEL: LIVE METRICS & ANALYSIS */}
       <AnalysisPanel
         utilization={utilization}
+        maxUtilization={project.constraints?.maxUtilization}
         hpwl={hpwl}
         pdnAnalysis={pdnAnalysis}
         congestionMap={congestionMap}
