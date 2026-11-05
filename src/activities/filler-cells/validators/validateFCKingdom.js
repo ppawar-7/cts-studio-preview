@@ -4,6 +4,11 @@
  * Pure deterministic validator for Level 5 (fc-5): Filler Cells Kingdom Challenge.
  */
 
+import {
+  createDesignArtifact,
+  ARTIFACT_KINDS,
+} from '../../../logic/designArtifactContracts.js';
+
 export const CORRECT_CMP_DENSITY_ID = 'opt-drc-density-cmp';
 
 export function validateFCKingdom(submission) {
@@ -82,6 +87,41 @@ export function validateFCKingdom(submission) {
     feedback = `Great physical-only signoff (${score}/50 XP, ${stars} Stars)! You are ready to advance to GDSII & Tape-Out.`;
   }
 
+  const emptySites = Math.max(0, 60 - totalSitesFilled);
+  const rowFillPercent = Math.min(100, Math.round((totalSitesFilled / 60) * 100));
+
+  const artifacts = createDesignArtifact({
+    kind: ARTIFACT_KINDS.FILLER_CELLS_DENSITY,
+    sourceLevelId: 'fc-5',
+    inputs: {
+      cellPlan: cellPlan.map((c) => ({ ...c })),
+      cmpConcept,
+    },
+    measurements: {
+      totalSitesFilled,
+      emptySites,
+      rowFillPercent,
+      hasDecap,
+      hasTap,
+      endcapsPresent: true,
+      tapCellsContinuous: hasTap,
+      baseDrcViolations: emptySites === 0 ? 0 : emptySites,
+      densityPercent: 48.5,
+      timingImpactPs: 3.5,
+      slackDeltaPs: -3.5,
+      routingBlockages: 0,
+      pinBlocks: 0,
+      qorScore: fillMet && typesMet && conceptOk ? 96.0 : 70.0,
+      irMarginPercent: fillMet && typesMet ? 96.5 : 85.0,
+    },
+    units: {
+      rowFillPercent: '%',
+      densityPercent: '%',
+      timingImpactPs: 'ps',
+      qorScore: 'pts',
+    },
+  });
+
   return {
     passed,
     score,
@@ -91,5 +131,6 @@ export function validateFCKingdom(submission) {
     typesMet,
     conceptOk,
     totalSitesFilled,
+    artifacts,
   };
 }

@@ -4,6 +4,11 @@
  * Pure deterministic validator for Level 3 (rt-3): Vias and Contacts.
  */
 
+import {
+  createDesignArtifact,
+  ARTIFACT_KINDS,
+} from '../../../logic/designArtifactContracts.js';
+
 export const CORRECT_VIA_ENCLOSURE_ID = 'opt-misalign-open';
 export const CORRECT_REDUNDANT_VIA_ID = 'opt-double-via-reliability';
 
@@ -51,6 +56,31 @@ export function validateRTViasContacts(submission) {
     feedback = `Good via analysis (${score}/40 XP, ${stars} Stars)! You understand how inter-layer transitions affect chip yield and parasitics.`;
   }
 
+  const artifacts = createDesignArtifact({
+    kind: ARTIFACT_KINDS.ROUTING_INTERCONNECT,
+    sourceLevelId: 'rt-3',
+    inputs: {
+      singleViaResistanceAns,
+      doubleViaResistanceAns,
+      enclosureConcept,
+      redundantViaConcept,
+    },
+    measurements: {
+      viaEnclosureUm: encOk ? 0.06 : 0.02,
+      enclosureUm: encOk ? 0.06 : 0.02,
+      drcViolations: encOk ? 0 : 1,
+      drcErrors: encOk ? 0 : 1,
+      singleViaResistance: Number(singleViaResistanceAns) || 20,
+      doubleViaResistance: Number(doubleViaResistanceAns) || 10,
+    },
+    units: {
+      viaEnclosureUm: 'µm',
+      enclosureUm: 'µm',
+      singleViaResistance: 'Ω',
+      doubleViaResistance: 'Ω',
+    },
+  });
+
   return {
     passed,
     score,
@@ -60,5 +90,6 @@ export function validateRTViasContacts(submission) {
     rDoubleOk,
     encOk,
     redOk,
+    artifacts,
   };
 }

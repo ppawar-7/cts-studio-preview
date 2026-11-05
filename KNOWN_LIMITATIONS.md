@@ -56,3 +56,12 @@ The PD Playground ecosystem includes two specialized companion tools:
 2. **STA Playground** (`https://ppawar-7.github.io/sta-playground/`):
    - Standalone Static Timing Analysis tool with graph-based path tracing, setup/hold slack histograms, and PVT deratings.
    - Preserved as an independent laboratory and cross-linked from the Synthesis and CTS Kingdoms.
+
+
+---
+
+## 6. Educational Threat Model & Client-Side Sandbox Scope
+
+PD Playground is designed as an offline-first educational desktop/browser learning environment:
+- **No Server-Side Anti-Cheat:** All progression state resides in the browser's `localStorage` (`pdplayground_player_v2`). While internal JavaScript pipelines enforce strict type-checking and mathematical validators prevent unearned UI rewards, an advanced user with access to browser developer tools can manually inspect or edit local storage.
+- **Pedagogical Scope:** Sanity check ruledecks utilize Manhattan grid geometry and closed-form delay models. They teach real ASIC design principles and common physical violations without claiming to replace multi-gigabyte commercial signoff ruledecks (e.g., Calibre DRC/LVS, PrimeTime STA).

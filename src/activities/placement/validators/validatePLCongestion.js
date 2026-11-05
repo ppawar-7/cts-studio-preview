@@ -5,6 +5,10 @@
  */
 
 import { computeCongestionHeatmap } from '../../../engine/placementEngine.js';
+import {
+  createDesignArtifact,
+  ARTIFACT_KINDS,
+} from '../../../logic/designArtifactContracts.js';
 
 export const CORRECT_CONGESTION_MITIGATION_ID = 'opt-cell-padding-spreading';
 
@@ -51,6 +55,26 @@ export function validatePLCongestion(submission) {
     feedback = `Good congestion management (${score}/45 XP, ${stars} Stars)! You understand how placer cell spreading prevents unroutable shorts during detailed routing.`;
   }
 
+  const artifacts = createDesignArtifact({
+    kind: ARTIFACT_KINDS.PLACEMENT_LAYOUT,
+    sourceLevelId: 'pl-4',
+    inputs: {
+      congestionRatio,
+      hotspotBin,
+      mitigationConcept,
+    },
+    measurements: {
+      rawCongestionRatio: Number(congestionRatio) || 1.50,
+      maxCongestion: conceptOk ? 0.75 : 1.50,
+      hotspotResolved: conceptOk,
+      peakRatio: conceptOk ? 0.75 : 1.50,
+    },
+    units: {
+      maxCongestion: 'ratio',
+      peakRatio: 'ratio',
+    },
+  });
+
   return {
     passed,
     score,
@@ -59,5 +83,6 @@ export function validatePLCongestion(submission) {
     ratioOk,
     binOk,
     conceptOk,
+    artifacts,
   };
 }

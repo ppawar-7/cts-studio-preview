@@ -285,6 +285,11 @@ export function computeStars(score, thresholds) {
 
 /**
  * Apply level completion to player state.
+ *
+ * Enforces explicit artifact replacement policy:
+ * - New submission replaces previous artifact cleanly (no field merging)
+ * - Retains highest historical XP and stars
+ * - Incremental XP delta awarded to player total
  */
 export function applyLevelCompletion(player, kingdomId, level, score, artifacts = {}) {
   const kingdom = KINGDOMS.find((k) => k.id === kingdomId);
@@ -295,6 +300,11 @@ export function applyLevelCompletion(player, kingdomId, level, score, artifacts 
   const previousXP = existingProgress?.xpEarned ?? 0;
   const xpDelta = Math.max(0, xpEarned - previousXP);
 
+  // Explicit replacement: Do not merge arbitrary fields across submissions
+  const cleanArtifacts = (artifacts && typeof artifacts === 'object' && Object.keys(artifacts).length > 0)
+    ? artifacts
+    : (existingProgress?.artifacts || {});
+
   const updatedLevelProgress = {
     ...player.levelProgress,
     [level.id]: {
@@ -302,7 +312,7 @@ export function applyLevelCompletion(player, kingdomId, level, score, artifacts 
       stars: Math.max(stars, existingProgress?.stars ?? 0),
       xpEarned: Math.max(xpEarned, previousXP),
       verified: true,
-      artifacts: { ...(existingProgress?.artifacts || {}), ...artifacts },
+      artifacts: cleanArtifacts,
       completedAt: new Date().toISOString(),
     },
   };
@@ -350,7 +360,7 @@ export function applyLevelCompletion(player, kingdomId, level, score, artifacts 
  */
 export function applySanityCheckCompletion(player, kingdomId, check, score = 25) {
   const existing = player.sanityCheckProgress?.[check.id];
-  if (existing?.passed) return player; // Already passed
+  if (existing?.passed) return player; // Already passed - never award certification XP twice
 
   const updatedSanityProgress = {
     ...player.sanityCheckProgress,

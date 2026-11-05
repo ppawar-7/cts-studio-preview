@@ -1,6 +1,6 @@
 # ⚡ ASIC Physical Design (PD) Playground
 
-[![Tests](https://img.shields.io/badge/Vitest-419%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Vitest-436%20passed-brightgreen.svg)]()
 [![Build](https://img.shields.io/badge/Vite-production%20ready-blue.svg)]()
 [![Kingdoms](https://img.shields.io/badge/ASIC%20Kingdoms-8%20of%208%20Complete-gold.svg)]()
 [![Validation](https://img.shields.io/badge/Engineering%20Validation-Zero%20Sliders-purple.svg)]()
@@ -99,7 +99,7 @@ Open your browser at `http://localhost:5173`.
 
 ### Running Tests & Verification
 ```bash
-# 1. Run full Vitest test suite (419 unit, integration, and sanity check tests across 25 suites)
+# 1. Run full Vitest test suite (436 unit, integration, and contract, and sanity check tests across 27 suites)
 npm test
 
 # 2. Run mathematical calibration proof (validates zero-deadlock 2-star progression across all 8 kingdoms)
@@ -125,7 +125,7 @@ npm run preview
 
 ## 📚 Technical Documentation Index
 
-PD Playground maintains 12 comprehensive engineering and pedagogical documents in the repository root:
+PD Playground maintains 13 comprehensive engineering and pedagogical documents in the repository root:
 
 1. **[`README.md`](./README.md)**: Platform overview, kingdoms breakdown, installation, and test commands.
 2. **[`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md)**: Architecture diagrams, React component hierarchy, state flow, and pure validation pipeline.
@@ -138,7 +138,8 @@ PD Playground maintains 12 comprehensive engineering and pedagogical documents i
 9. **[`PROGRESSION_RULES.md`](./PROGRESSION_RULES.md)**: Mathematical proof of unlock gates, 2-star scoring thresholds, and zero-deadlock guarantees.
 10. **[`KNOWN_LIMITATIONS.md`](./KNOWN_LIMITATIONS.md)**: Transparent engineering disclosures of browser simulation approximations vs industrial EDA engines.
 11. **[`PROGRESS.md`](./PROGRESS.md)**: Chronological project milestones, hardening iterations, bug fixes, and verification history.
-12. **[`HANDOFF.md`](./HANDOFF.md)**: Developer handoff guide, directory map, and instructions for future AI assistants and engineers.
+12. **[`DESIGN_ARTIFACT_CONTRACTS.md`](./DESIGN_ARTIFACT_CONTRACTS.md)**: Formal contract schemas and fail-closed implementation matrix for all 26 stage sanity checks.
+13. **[`HANDOFF.md`](./HANDOFF.md)**: Developer handoff guide, directory map, and instructions for future AI assistants and engineers.
 
 ---
 

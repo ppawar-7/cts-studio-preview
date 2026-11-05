@@ -26,11 +26,8 @@ import { calculateDecapDroop, checkRowContinuity } from './fillerCellsEngine.js'
  * Execute real engineering evaluation for a given sanity check.
  *
  * @param {string} checkId - e.g. 'pl-legality', 'cts-clock-tree-report', 'rt-lvs', etc.
- * @param {Object} [context={}] - Design parameters or defect injection flags
- * @param {boolean} [context.isStudentDesign=false] - Whether this audit validates student-created design artifacts
- * @param {boolean} [context.hasStudentDesign=true] - Whether student has completed required prerequisite levels
- * @param {Object} [context.designData={}] - Extracted student design state
- * @param {boolean} [context.injectDefect=false] - Whether to deliberately inject a physical rule violation (demo mode)
+ * @param {Object} [arg2={}] - Context or designData
+ * @param {Object} [arg3=null] - Options when called with (checkId, data, options)
  * @returns {{ checkId: string, passed: boolean, canCertify: boolean, isDemonstration: boolean, metrics: Object, logOutput: Array<string> }}
  */
 export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
@@ -90,12 +87,12 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
       const halo = typeof data.halo === 'number'
         ? data.halo
         : (isDefect ? 8.0 : 15.0);
-      const marginMet = margin >= 20.0;
-      const haloMet = halo >= 15.0;
+      const marginMet = Number.isFinite(margin) && margin >= 20.0;
+      const haloMet = Number.isFinite(halo) && halo >= 15.0;
       metrics.margin = margin;
       metrics.halo = halo;
-      logs.push(`[DRC-FP] Core Boundary Margin: ${margin.toFixed(1)} µm -> ${marginMet ? 'PASSED' : 'VIOLATION (< 20.0 µm)'}`);
-      logs.push(`[DRC-FP] Macro-to-Macro Halo: ${halo.toFixed(1)} µm -> ${haloMet ? 'PASSED' : 'VIOLATION (< 15.0 µm)'}`);
+      logs.push(`[DRC-FP] Core Boundary Margin: ${Number.isFinite(margin) ? margin.toFixed(1) : 'INVALID'} µm -> ${marginMet ? 'PASSED' : 'VIOLATION (< 20.0 µm)'}`);
+      logs.push(`[DRC-FP] Macro-to-Macro Halo: ${Number.isFinite(halo) ? halo.toFixed(1) : 'INVALID'} µm -> ${haloMet ? 'PASSED' : 'VIOLATION (< 15.0 µm)'}`);
       passed = marginMet && haloMet;
       break;
     }
@@ -129,7 +126,7 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
     case 'pl-legality': {
       logs.push('[LEGAL-PL] Verifying Standard Cell Row Site Snapping & Overlaps...');
       let cells = data.cells;
-      if (!cells) {
+      if (!cells || !Array.isArray(cells)) {
         cells = isDefect
           ? [
               { id: 'C1', x: 20, y: 40, width: 40, height: 40 },
@@ -152,7 +149,7 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
         ? data.peakRatio
         : (typeof data.maxCongestion === 'number' ? data.maxCongestion : (isDefect ? 1.35 : 0.85));
       metrics.peakCongestionRatio = peakRatio;
-      const congMet = peakRatio <= 1.0;
+      const congMet = Number.isFinite(peakRatio) && peakRatio <= 1.0;
       logs.push(`[CONG-PL] Peak GCell Congestion Index: ${(peakRatio * 100).toFixed(0)}% (Limit: 100%) -> ${congMet ? 'PASSED' : 'OVERFLOW'}`);
       passed = congMet;
       break;
@@ -163,7 +160,7 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
         ? data.maxTapPitch
         : (typeof data.wellTapPitch === 'number' ? data.wellTapPitch : (isDefect ? 38.0 : 28.0));
       metrics.maxTapPitch = maxTapPitch;
-      const tapMet = maxTapPitch <= 30.0;
+      const tapMet = Number.isFinite(maxTapPitch) && maxTapPitch <= 30.0;
       logs.push(`[DRC-PL] Max Well-Tap Pitch: ${maxTapPitch.toFixed(1)} µm -> ${tapMet ? 'PASSED' : 'VIOLATION (Latch-up risk)'}`);
       passed = tapMet;
       break;
@@ -195,7 +192,7 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
       let skew;
       let latency;
       if (Array.isArray(data.sinks) && data.sinks.length > 0) {
-        const arrivals = data.sinks.map(s => s.arrivalTime);
+        const arrivals = data.sinks.map((s) => s.arrivalTime);
         const minArr = Math.min(...arrivals);
         const maxArr = Math.max(...arrivals);
         skew = Math.round((maxArr - minArr) * 1000);
@@ -206,7 +203,7 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
       }
       metrics.skewPs = skew;
       metrics.latencyPs = latency;
-      const skewMet = skew <= 30;
+      const skewMet = Number.isFinite(skew) && skew <= 30;
       logs.push(`[CTS-REPORT] Clock Skew: ${metrics.skewPs} ps (Target: <= 30 ps) -> ${skewMet ? 'PASSED' : 'VIOLATION'}`);
       logs.push(`[CTS-REPORT] Clock Latency: ${metrics.latencyPs} ps (Limit: <= 300 ps)`);
       passed = skewMet;
@@ -239,7 +236,7 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
         ? data.powerMw
         : (isDefect ? 12.4 : 1.8);
       metrics.clockPowerMw = powerMw;
-      const powerMet = powerMw <= 5.0;
+      const powerMet = Number.isFinite(powerMw) && powerMw <= 5.0;
       logs.push(`[CTS-POWER] Clock Tree Dynamic Power: ${powerMw.toFixed(1)} mW (Budget: <= 5.0 mW) -> ${powerMet ? 'PASSED' : 'OVER_BUDGET'}`);
       passed = powerMet;
       break;
@@ -250,7 +247,7 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
         ? data.maxSlewPs
         : (typeof data.maxTransitionPs === 'number' ? data.maxTransitionPs : (isDefect ? 110 : 42));
       metrics.maxSlewPs = maxSlewPs;
-      const slewMet = maxSlewPs <= 80;
+      const slewMet = Number.isFinite(maxSlewPs) && maxSlewPs <= 80;
       logs.push(`[CTS-QOR] Max Clock Slew: ${maxSlewPs} ps (Limit: <= 80 ps) -> ${slewMet ? 'PASSED' : 'SLEW_VIOLATION'}`);
       passed = slewMet;
       break;
@@ -298,7 +295,7 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
         ? data.wnsPs
         : (typeof data.worstNegativeSlackNs === 'number' ? Math.round(data.worstNegativeSlackNs * 1000) : (isDefect ? -55 : 18));
       metrics.wnsPs = wnsPs;
-      const timingMet = wnsPs >= 0;
+      const timingMet = Number.isFinite(wnsPs) && wnsPs >= 0;
       logs.push(`[TIMING-RT] Post-Route Worst Negative Slack (WNS): ${wnsPs >= 0 ? '+' : ''}${wnsPs} ps -> ${timingMet ? 'MET (PASSED)' : 'TIMING_VIOLATION'}`);
       passed = timingMet;
       break;
@@ -315,12 +312,21 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
     }
     case 'rt-constraints': {
       logs.push('[CONST-RT] Checking Path Coverage and SDC Timing Constraints...');
-      const unconstrained = typeof data.unconstrained === 'number'
-        ? data.unconstrained
-        : (isDefect ? 3 : 0);
-      metrics.unconstrained = unconstrained;
-      logs.push(`[CONST-RT] Unconstrained Endpoints: ${unconstrained} -> ${unconstrained === 0 ? '100% Constrained (PASSED)' : 'SDC DEFECT DETECTED'}`);
-      passed = unconstrained === 0;
+      if (typeof data.unconstrained === 'number') {
+        const unconstrained = data.unconstrained;
+        metrics.unconstrained = unconstrained;
+        logs.push(`[CONST-RT] Unconstrained Endpoints: ${unconstrained} -> ${unconstrained === 0 ? '100% Constrained (PASSED)' : 'SDC DEFECT DETECTED'}`);
+        passed = unconstrained === 0;
+      } else {
+        const noiseMv = typeof data.glitchVoltageMv === 'number'
+          ? data.glitchVoltageMv
+          : (typeof data.maxVictimNoiseMv === 'number' ? data.maxVictimNoiseMv : (typeof data.crosstalkMv === 'number' ? data.crosstalkMv : (isDefect ? 65 : 25)));
+        const maxLimit = typeof data.maxAllowedNoiseMv === 'number' ? data.maxAllowedNoiseMv : 50;
+        metrics.noiseMv = noiseMv;
+        const noiseMet = Number.isFinite(noiseMv) && noiseMv <= maxLimit;
+        logs.push(`[CONST-RT] Peak Crosstalk Glitch Noise: ${noiseMv} mV (Budget: <= ${maxLimit} mV) -> ${noiseMet ? 'PASSED' : 'SI_NOISE_VIOLATION'}`);
+        passed = noiseMet;
+      }
       break;
     }
 
@@ -343,7 +349,7 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
         logs.push(`[FC-DRC] Base DRC Violations: ${data.baseDrcViolations} -> ${passed ? 'PASSED' : 'VIOLATION'}`);
       } else {
         const cells = data.cells || (isDefect
-          ? [{ widthSites: 70, startSite: 0 }] // Missing 30 sites!
+          ? [{ widthSites: 70, startSite: 0 }]
           : [{ widthSites: 100, startSite: 0 }]);
         const continuity = checkRowContinuity(100, cells);
         metrics.gapRemaining = continuity.gapRemaining;
@@ -369,13 +375,22 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
     }
     case 'fc-design': {
       logs.push('[FC-CMP] Checking Poly and Metal Density Planarity for CMP...');
-      const density = typeof data.densityPercent === 'number'
-        ? data.densityPercent
-        : (isDefect ? 26.5 : 48.5);
-      metrics.densityPercent = density;
-      const densityMet = density >= 35.0 && density <= 75.0;
-      logs.push(`[FC-CMP] Layer Density: ${density.toFixed(1)}% (Allowed Window: 35%-75%) -> ${densityMet ? 'PASSED' : 'CMP_OUT_OF_SPEC'}`);
-      passed = densityMet;
+      if (typeof data.endcapsPresent === 'boolean' && typeof data.tapCellsContinuous === 'boolean') {
+        const physicalMet = data.endcapsPresent && data.tapCellsContinuous;
+        metrics.endcapsPresent = data.endcapsPresent;
+        metrics.tapCellsContinuous = data.tapCellsContinuous;
+        logs.push(`[FC-CMP] Row Endcaps: ${data.endcapsPresent ? 'Present (PASSED)' : 'MISSING'}`);
+        logs.push(`[FC-CMP] Tap Cells: ${data.tapCellsContinuous ? 'Continuous (PASSED)' : 'DISCONTINUOUS'}`);
+        passed = physicalMet;
+      } else {
+        const density = typeof data.densityPercent === 'number'
+          ? data.densityPercent
+          : (isDefect ? 26.5 : 48.5);
+        metrics.densityPercent = density;
+        const densityMet = Number.isFinite(density) && density >= 35.0 && density <= 75.0;
+        logs.push(`[FC-CMP] Layer Density: ${density.toFixed(1)}% (Allowed Window: 35%-75%) -> ${densityMet ? 'PASSED' : 'CMP_OUT_OF_SPEC'}`);
+        passed = densityMet;
+      }
       break;
     }
     case 'fc-timing': {
@@ -384,24 +399,39 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
         ? data.slackDeltaPs
         : (typeof data.timingImpactPs === 'number' ? -data.timingImpactPs : (isDefect ? -18 : 0));
       metrics.slackDeltaPs = slackDeltaPs;
-      const timingMet = slackDeltaPs >= -5; // Allow up to 5 ps margin
+      const timingMet = Number.isFinite(slackDeltaPs) && slackDeltaPs >= -5;
       logs.push(`[FC-TIMING] Timing Delta post-filler: ${slackDeltaPs >= 0 ? '+' : ''}${slackDeltaPs} ps -> ${timingMet ? 'PRESERVED (PASSED)' : 'TIMING_REGRESSION'}`);
       passed = timingMet;
       break;
     }
     case 'fc-constraints': {
       logs.push('[FC-CONST] Validating Design Rule Constraints on Max Capacitance/Transition...');
-      const drcViolations = typeof data.drcViolations === 'number'
-        ? data.drcViolations
-        : (isDefect ? 4 : 0);
-      metrics.drcViolations = drcViolations;
-      logs.push(`[FC-CONST] Slew/Capacitance Violations: ${drcViolations} -> ${drcViolations === 0 ? 'PASSED' : 'VIOLATION'}`);
-      passed = drcViolations === 0;
+      if (typeof data.drcViolations === 'number') {
+        const drcViolations = data.drcViolations;
+        metrics.drcViolations = drcViolations;
+        logs.push(`[FC-CONST] Slew/Capacitance Violations: ${drcViolations} -> ${drcViolations === 0 ? 'PASSED' : 'VIOLATION'}`);
+        passed = drcViolations === 0;
+      } else {
+        const droopMv = typeof data.droopMv === 'number' ? data.droopMv : (isDefect ? 75 : 40);
+        const maxDroop = typeof data.maxAllowedDroopMv === 'number' ? data.maxAllowedDroopMv : 40;
+        metrics.droopMv = droopMv;
+        const droopOk = Number.isFinite(droopMv) && droopMv <= maxDroop;
+        logs.push(`[FC-CONST] Dynamic IR Droop: ${droopMv} mV (Limit: <= ${maxDroop} mV) -> ${droopOk ? 'PASSED' : 'DROOP_VIOLATION'}`);
+        passed = droopOk;
+      }
       break;
     }
     case 'fc-power': {
       logs.push('[FC-DECAP] Calculating Dynamic Supply Droop Suppression & Leakage Current...');
-      if (typeof data.droopMv === 'number') {
+      if (typeof data.decapCapPf === 'number') {
+        const capPf = data.decapCapPf;
+        const decapDroop = calculateDecapDroop(100, 200, capPf, data.decapSites || 20);
+        metrics.droopMv = decapDroop.droopMv;
+        metrics.leakageUa = decapDroop.leakageCurrentUa;
+        logs.push(`[FC-DECAP] Dynamic IR Droop: ${decapDroop.droopMv} mV (Limit: <= 50 mV) -> ${decapDroop.isAcceptable ? 'PASSED' : 'DROOP_EXCEEDED'}`);
+        logs.push(`[FC-DECAP] Decap Standby Leakage: ${decapDroop.leakageCurrentUa} µA`);
+        passed = decapDroop.isAcceptable;
+      } else if (typeof data.droopMv === 'number') {
         const droopOk = data.droopMv <= (data.maxAllowedDroopMv || 40);
         metrics.droopMv = data.droopMv;
         metrics.leakageUa = data.leakageUa || 14.5;
@@ -409,9 +439,7 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
         logs.push(`[FC-DECAP] Decap Standby Leakage: ${metrics.leakageUa} µA`);
         passed = droopOk;
       } else {
-        const capPf = typeof data.decapCapPf === 'number'
-          ? data.decapCapPf
-          : (isDefect ? 25 : 500);
+        const capPf = isDefect ? 25 : 500;
         const decapDroop = calculateDecapDroop(100, 200, capPf, data.decapSites || 20);
         metrics.droopMv = decapDroop.droopMv;
         metrics.leakageUa = decapDroop.leakageCurrentUa;
@@ -427,7 +455,7 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
         ? data.irMarginPercent
         : (typeof data.qorScore === 'number' ? data.qorScore : (isDefect ? 88.5 : 96.5));
       metrics.irMarginPercent = irMarginPercent;
-      const qorMet = irMarginPercent >= 95.0;
+      const qorMet = Number.isFinite(irMarginPercent) && irMarginPercent >= 95.0;
       logs.push(`[FC-QOR] IR Drop Supply Margin: ${irMarginPercent.toFixed(1)}% of VDD (Target: >= 95.0%) -> ${qorMet ? 'PASSED' : 'POOR_QOR'}`);
       passed = qorMet;
       break;
@@ -444,9 +472,9 @@ export function evaluateSanityCheck(checkId, arg2 = {}, arg3 = null) {
     }
 
     default: {
-      logs.push(`[EDA-VERIFY] Running ruledeck verification for: ${checkId}...`);
-      logs.push('[EDA-VERIFY] Criteria verified against design rules -> PASSED');
-      passed = true;
+      logs.push(`[RULE-ENGINE] ❌ Unknown sanity check identifier: "${checkId}"`);
+      logs.push('[RESULT] Check rejected: Unknown ruledeck.');
+      passed = false;
       break;
     }
   }

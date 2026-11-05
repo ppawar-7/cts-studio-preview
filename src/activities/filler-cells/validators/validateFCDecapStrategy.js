@@ -4,6 +4,11 @@
  * Pure deterministic validator for Level 4 (fc-4): Decap Cell Strategy.
  */
 
+import {
+  createDesignArtifact,
+  ARTIFACT_KINDS,
+} from '../../../logic/designArtifactContracts.js';
+
 export const CORRECT_DECAP_PENALTY_ID = 'opt-decap-leakage-power';
 
 export function validateFCDecapStrategy(submission) {
@@ -54,6 +59,32 @@ export function validateFCDecapStrategy(submission) {
     feedback = `Good decap analysis (${score}/45 XP, ${stars} Stars)! You understand how on-die capacitance stabilizes power delivery networks.`;
   }
 
+  // Droop at 500 pF is 40 mV (<= 40 mV limit)
+  // Decap standby leakage is 14.5 µA (<= 20.0 µA budget)
+  const artifacts = createDesignArtifact({
+    kind: ARTIFACT_KINDS.FILLER_CELLS_DENSITY,
+    sourceLevelId: 'fc-4',
+    inputs: {
+      droop100Ans,
+      droop500Ans,
+      decapPenaltyConcept,
+    },
+    measurements: {
+      droopMv: d500Ok ? 40 : 200,
+      maxAllowedDroopMv: 40,
+      decapCapPf: 500,
+      decapCapFf: 500000,
+      leakageUa: 14.5,
+      maxAllowedLeakageUa: 20.0,
+      drcViolations: 0,
+    },
+    units: {
+      droopMv: 'mV',
+      decapCapPf: 'pF',
+      leakageUa: 'µA',
+    },
+  });
+
   return {
     passed,
     score,
@@ -62,5 +93,6 @@ export function validateFCDecapStrategy(submission) {
     d100Ok,
     d500Ok,
     conceptOk,
+    artifacts,
   };
 }

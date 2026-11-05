@@ -34,7 +34,6 @@ const { resolveBrowserExecutable } = require('./browser_resolver.cjs');
 const PORT = 4195;
 const BASE_URL = `http://localhost:${PORT}`;
 const SCREENSHOT_DIR_LOCAL = path.resolve(__dirname, '..', 'screenshots');
-const SCREENSHOT_DIR_BRAIN = 'C:\\Users\\pranil\\.gemini\\antigravity\\brain\\6bc66831-7a8f-4043-a9e4-425498e75a65\\screenshots';
 
 let previewProc = null;
 let browserProc = null;
@@ -146,10 +145,6 @@ async function runTest() {
     const buffer = Buffer.from(res.data, 'base64');
     const localPath = path.join(SCREENSHOT_DIR_LOCAL, name);
     fs.writeFileSync(localPath, buffer);
-    try {
-      const brainPath = path.join(SCREENSHOT_DIR_BRAIN, name);
-      fs.writeFileSync(brainPath, buffer);
-    } catch (e) {}
     console.log(`  📸 Saved screenshot: ${name}`);
   }
 

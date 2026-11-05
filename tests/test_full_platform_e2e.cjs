@@ -38,14 +38,11 @@ const { resolveBrowserExecutable } = require('./browser_resolver.cjs');
 const PORT = 4190;
 const BASE_URL = `http://localhost:${PORT}`;
 const SCREENSHOT_DIR_LOCAL = path.resolve(__dirname, '..', 'screenshots');
-const SCREENSHOT_DIR_BRAIN = 'C:\\Users\\pranil\\.gemini\\antigravity\\brain\\6bc66831-7a8f-4043-a9e4-425498e75a65\\screenshots';
 
 if (!fs.existsSync(SCREENSHOT_DIR_LOCAL)) {
   fs.mkdirSync(SCREENSHOT_DIR_LOCAL, { recursive: true });
 }
-if (!fs.existsSync(SCREENSHOT_DIR_BRAIN)) {
-  fs.mkdirSync(SCREENSHOT_DIR_BRAIN, { recursive: true });
-}
+
 
 let previewProc = null;
 let browserProc = null;
@@ -148,12 +145,6 @@ async function runTest() {
     const buffer = Buffer.from(res.data, 'base64');
     const localPath = path.join(SCREENSHOT_DIR_LOCAL, name);
     fs.writeFileSync(localPath, buffer);
-    try {
-      const brainPath = path.join(SCREENSHOT_DIR_BRAIN, name);
-      fs.writeFileSync(brainPath, buffer);
-    } catch (e) {
-      // non-fatal
-    }
     console.log(`  📸 Saved screenshot: ${name}`);
   }
 
@@ -315,7 +306,7 @@ async function runTest() {
   const runDemoBtn = await evalJs(`
     (() => {
       const btn = Array.from(document.querySelectorAll('.sanity-modal button')).find(b =>
-        b.textContent.includes('Run Verification Audit') || b.textContent.includes('Run Command Demonstration')
+        b.textContent.includes('Run Verification Audit') || b.textContent.includes('Run Command Demonstration') || b.textContent.includes('Run EDA Verification')
       );
       if (btn) {
         btn.click();

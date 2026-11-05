@@ -19,7 +19,6 @@ const BASE_URL = `http://localhost:${PORT}`;
 const CDP_PORT = 9245;
 
 const SCREENSHOT_DIR_LOCAL = path.resolve(__dirname, '..', 'screenshots');
-const SCREENSHOT_DIR_BRAIN = 'C:\\Users\\pranil\\.gemini\\antigravity\\brain\\6bc66831-7a8f-4043-a9e4-425498e75a65\\screenshots';
 
 let previewProc = null;
 let browserProc = null;
@@ -93,7 +92,7 @@ class SimpleCdpClient {
   async screenshot(filename) {
     const { data } = await this.send('Page.captureScreenshot', { format: 'png' });
     const buffer = Buffer.from(data, 'base64');
-    [SCREENSHOT_DIR_LOCAL, SCREENSHOT_DIR_BRAIN].forEach((dir) => {
+    [SCREENSHOT_DIR_LOCAL].forEach((dir) => {
       if (fs.existsSync(dir)) {
         fs.writeFileSync(path.join(dir, filename), buffer);
       }

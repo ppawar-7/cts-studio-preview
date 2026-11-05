@@ -105,3 +105,12 @@ flowchart TD
 2. **Iframe Isolation**:
    - Configured with `sandbox="allow-scripts allow-same-origin allow-forms allow-modals"`.
    - Completely offline with zero external network calls.
+
+
+---
+
+## 5. Offline Isolation & Stage-Aware Educational Context
+
+The Static Timing Analysis Studio (`public/studios/sta/`) has been fully decoupled from third-party networks:
+- External Google Fonts (`fonts.googleapis.com`, `fonts.gstatic.com`) have been completely replaced with standard offline system font stacks.
+- Stage-specific routing parameters (`/studio/sta?stage=synthesis`, `/studio/sta?stage=placement`, `/studio/sta?stage=cts`, `/studio/sta?stage=routing`) display dedicated educational context banners clarifying how timing closure evolutions differ between wire-load estimations, clock propagation, and post-route parasitic extractions.

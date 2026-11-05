@@ -4,6 +4,11 @@
  * Pure deterministic validator for Level 3 (fc-3): N-Well Continuity.
  */
 
+import {
+  createDesignArtifact,
+  ARTIFACT_KINDS,
+} from '../../../logic/designArtifactContracts.js';
+
 export const CORRECT_WELL_EDGE_ID = 'opt-well-edge-violation';
 
 export function validateFCWellContinuity(submission) {
@@ -57,6 +62,30 @@ export function validateFCWellContinuity(submission) {
     feedback = `Good well continuity analysis (${score}/40 XP, ${stars} Stars)! You understand how filler cells preserve physical mask planarity.`;
   }
 
+  const emptySites = Math.max(0, 12 - totalFilledSites);
+  const rowFillPercent = Math.min(100, Math.round((totalFilledSites / 12) * 100));
+
+  const artifacts = createDesignArtifact({
+    kind: ARTIFACT_KINDS.FILLER_CELLS_DENSITY,
+    sourceLevelId: 'fc-3',
+    inputs: {
+      chosenFillers: Array.isArray(chosenFillers) ? [...chosenFillers] : [],
+      wellEdgeConcept,
+    },
+    measurements: {
+      totalFilledSites,
+      emptySites,
+      rowFillPercent,
+      wellContinuityMet: fillOk,
+      chosenFillers: Array.isArray(chosenFillers) ? [...chosenFillers] : [],
+      railGaps: emptySites === 0 ? 0 : emptySites,
+      baseDrcViolations: emptySites === 0 ? 0 : emptySites,
+    },
+    units: {
+      rowFillPercent: '%',
+    },
+  });
+
   return {
     passed,
     score,
@@ -65,5 +94,6 @@ export function validateFCWellContinuity(submission) {
     fillOk,
     conceptOk,
     totalFilledSites,
+    artifacts,
   };
 }

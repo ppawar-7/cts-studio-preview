@@ -16,10 +16,42 @@ export default function STAStudioPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const stages = [
-    { id: 'synthesis', label: 'Synthesis (Pre-Layout SDC)', emoji: '⚗️', kingdom: 'synthesis' },
-    { id: 'placement', label: 'Placement (Wire Estimates)', emoji: '📍', kingdom: 'placement' },
-    { id: 'cts', label: 'Post-CTS (Real Skew & Latency)', emoji: '⏱️', kingdom: 'cts' },
-    { id: 'routing', label: 'Post-Route (SPEF Extraction)', emoji: '🛣️', kingdom: 'routing' },
+    {
+      id: 'synthesis',
+      label: 'Synthesis (Pre-Layout SDC)',
+      emoji: '⚗️',
+      kingdom: 'synthesis',
+      focusTitle: 'Pre-Layout Timing Constraints (SDC)',
+      focusDesc: 'During Synthesis, STA estimates gate delays from standard-cell Liberty (.lib) lookup tables using wire-load models (WLM). The primary goal is achieving zero setup slack (WNS >= 0) at target clock frequency before physical cell locations exist.',
+      metricTarget: 'Target Setup Slack: >= 0.00 ns (Zero WNS violation)',
+    },
+    {
+      id: 'placement',
+      label: 'Placement (Wire Estimates)',
+      emoji: '📍',
+      kingdom: 'placement',
+      focusTitle: 'Placement Timing & Wire Delay Estimates',
+      focusDesc: 'After standard cells are snapped to row sites, STA replaces statistical wire-load models with Steiner tree / Manhattan wirelength estimations (FLUTE). Placement optimizers perform timing-driven cell clustering and critical path buffering.',
+      metricTarget: 'Target Wirelength HPWL: Minimize critical net resistance/capacitance',
+    },
+    {
+      id: 'cts',
+      label: 'Post-CTS (Real Skew & Latency)',
+      emoji: '⏱️',
+      kingdom: 'cts',
+      focusTitle: 'Post-CTS Propagated Clock Timing Sign-Off',
+      focusDesc: 'Once the clock tree is built, ideal clock networks are replaced with propagated clocks. STA calculates actual insertion delay, launch/capture clock skew, and validates both Setup and Hold timing across all process corners.',
+      metricTarget: 'Target Clock Skew: <= 30 ps | Target Insertion Delay: <= 300 ps',
+    },
+    {
+      id: 'routing',
+      label: 'Post-Route (SPEF Extraction)',
+      emoji: '🛣️',
+      kingdom: 'routing',
+      focusTitle: 'Post-Route Parasitic SPEF Sign-Off',
+      focusDesc: 'With detailed routing wires and vias materialized, parasitics are extracted into standard SPEF files. STA computes distributed RC Elmore delays and verifies signal integrity crosstalk glitch noise on victim nets.',
+      metricTarget: 'Target Sign-off WNS: >= 0 ps | Victim Noise Glitch: <= 50 mV',
+    },
   ];
 
   const currentStage = stages.find((s) => s.id === stage) || stages[2];
@@ -31,7 +63,7 @@ export default function STAStudioPage() {
         <div className="container studio-page__header-inner">
           <div className="studio-page__title-area">
             <Link to={`/kingdom/${currentStage.kingdom}`} className="studio-page__back-link">
-              ← Return to {stages.find((s) => s.id === stage)?.label.split(' ')[0] || 'CTS'} Kingdom
+              ← Return to {currentStage.label.split(' ')[0]} Kingdom
             </Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
               <h1 className="studio-page__title">⏱️ Static Timing Analysis (STA) Studio (Integrated)</h1>
@@ -68,7 +100,7 @@ export default function STAStudioPage() {
       <div className="studio-page__tabs-bar">
         <div className="container studio-page__tabs-inner">
           <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-            Timing Sign-Off Stage:
+            Educational Timing Context:
           </span>
           {stages.map((s) => (
             <button
@@ -82,6 +114,37 @@ export default function STAStudioPage() {
           ))}
         </div>
       </div>
+
+      {/* Stage-Specific Educational Context Guide Banner */}
+      {!isFullscreen && (
+        <div className="container" style={{ paddingTop: '0.75rem', paddingBottom: '0.5rem' }}>
+          <div style={{
+            background: 'rgba(15, 23, 42, 0.85)',
+            border: '1px solid #1e293b',
+            borderLeft: '4px solid #38bdf8',
+            borderRadius: '6px',
+            padding: '0.85rem 1.25rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.35rem',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <strong style={{ color: '#f8fafc', fontSize: '0.95rem' }}>
+                {currentStage.emoji} Stage Sign-off Focus: {currentStage.focusTitle}
+              </strong>
+              <span className="badge badge--available" style={{ fontSize: '0.75rem' }}>
+                {currentStage.metricTarget}
+              </span>
+            </div>
+            <p style={{ color: '#94a3b8', fontSize: '0.86rem', margin: 0, lineHeight: 1.5 }}>
+              {currentStage.focusDesc}
+            </p>
+            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+              ℹ️ Note: The embedded laboratory below is the comprehensive multi-corner STA simulator. Use the graph controls to inspect timing paths and examine PVT derating margins.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Embedded Studio Iframe Container */}
       <div className="studio-page__canvas-container">

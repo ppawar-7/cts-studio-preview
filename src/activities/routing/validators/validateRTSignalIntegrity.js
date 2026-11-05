@@ -4,6 +4,11 @@
  * Pure deterministic validator for Level 4 (rt-4): Signal Integrity.
  */
 
+import {
+  createDesignArtifact,
+  ARTIFACT_KINDS,
+} from '../../../logic/designArtifactContracts.js';
+
 export const CORRECT_CROSSTALK_MITIGATION_ID = 'opt-shielding-spacing';
 
 export function validateRTSignalIntegrity(submission) {
@@ -55,6 +60,34 @@ export function validateRTSignalIntegrity(submission) {
     feedback = `Good signal integrity analysis (${score}/45 XP, ${stars} Stars)! You understand how deep submicron capacitive crosstalk impacts timing and functional reliability.`;
   }
 
+  // When mitigated via shielding, victim noise glitch drops to 25 mV (limit: 50 mV)
+  const mitigatedGlitchMv = conceptOk ? 25.0 : 250.0;
+
+  const artifacts = createDesignArtifact({
+    kind: ARTIFACT_KINDS.ROUTING_INTERCONNECT,
+    sourceLevelId: 'rt-4',
+    inputs: {
+      couplingCapAns,
+      glitchVoltageAns,
+      mitigationConcept,
+    },
+    measurements: {
+      couplingCapFf: ccVal || 20.0,
+      glitchVoltageMv: mitigatedGlitchMv,
+      maxVictimNoiseMv: mitigatedGlitchMv,
+      maxAllowedNoiseMv: 50.0,
+      unconstrained: 0,
+      timingSlackNs: 0.020,
+      wnsPs: 20,
+    },
+    units: {
+      couplingCapFf: 'fF',
+      glitchVoltageMv: 'mV',
+      maxVictimNoiseMv: 'mV',
+      maxAllowedNoiseMv: 'mV',
+    },
+  });
+
   return {
     passed,
     score,
@@ -63,5 +96,6 @@ export function validateRTSignalIntegrity(submission) {
     ccOk,
     glitchOk,
     conceptOk,
+    artifacts,
   };
 }

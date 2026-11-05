@@ -163,3 +163,15 @@ When a student runs a sanity check:
 | `fc-master` | Physical Integrity Guardian | Complete all levels of Filler Cells | All 5 Filler Cells levels completed |
 | `gds-master` | Tape-Out Champion | Complete all levels of GDSII Kingdom | All 5 GDS levels completed |
 | `grandmaster` | ASIC Grandmaster | Complete all 8 kingdoms across the flow | All 8 kingdoms completed |
+
+
+---
+
+## 7. Replay Delta Scoring Formula & Certification Idempotence
+
+When a student replays an activity to achieve a higher score or refine their design geometry:
+$$\Delta \text{XP} = \max(0, \text{NewScore} - \text{PreviouslyRecordedXP})$$
+
+- Total player XP increases only by $\Delta \text{XP}$, preventing artificial XP grinding while fully rewarding genuine engineering optimization.
+- The corresponding `studentDesignArtifacts` record is replaced with the newly validated layout artifact.
+- Certified stage sanity checks award $25\text{ XP}$ upon initial certification. Subsequent runs of certified checks confirm compliance without awarding duplicate XP.

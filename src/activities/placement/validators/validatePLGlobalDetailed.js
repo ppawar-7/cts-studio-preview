@@ -4,6 +4,11 @@
  * Pure deterministic validator for Level 2 (pl-2): Global vs Detailed Placement.
  */
 
+import {
+  createDesignArtifact,
+  ARTIFACT_KINDS,
+} from '../../../logic/designArtifactContracts.js';
+
 export const LEGALIZATION_CASES = [
   // Cell A: at x=43, y=55 (Rough global). Legal row Y=40, legal site X=40. Displ = |40-43| + |40-55| = 3 + 15 = 18
   { id: 'CELL_A', roughX: 43, roughY: 55, expectedLegalX: 40, expectedLegalY: 40, expectedDisp: 18 },
@@ -61,6 +66,35 @@ export function validatePLGlobalDetailed(submission) {
     feedback = `Good legalization analysis (${score}/35 XP, ${stars} Stars)! You understand how detailed placers clean up continuous global approximations.`;
   }
 
+  const cells = legalOk
+    ? [
+        { id: 'CELL_A', x: 40, y: 40, width: 30, height: 40 },
+        { id: 'CELL_B', x: 80, y: 40, width: 30, height: 40 },
+      ]
+    : [
+        { id: 'CELL_A', x: 43, y: 55, width: 30, height: 40 },
+        { id: 'CELL_B', x: 78, y: 38, width: 30, height: 40 },
+      ];
+
+  const artifacts = createDesignArtifact({
+    kind: ARTIFACT_KINDS.PLACEMENT_LAYOUT,
+    sourceLevelId: 'pl-2',
+    inputs: {
+      legalizedCells: Array.isArray(legalizedCells) ? legalizedCells.map((c) => ({ ...c })) : [],
+      displacementAns,
+      analyticalConcept,
+    },
+    measurements: {
+      cells,
+      overlapsResolved: legalOk,
+      totalDisplacement: Number(displacementAns) || 0,
+      legalOk,
+    },
+    units: {
+      totalDisplacement: 'µm',
+    },
+  });
+
   return {
     passed,
     score,
@@ -69,5 +103,6 @@ export function validatePLGlobalDetailed(submission) {
     legalOk,
     dispOk,
     conceptOk,
+    artifacts,
   };
 }

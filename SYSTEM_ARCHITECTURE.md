@@ -238,3 +238,28 @@ The storage loader (`src/context/PlayerContext.jsx` and `src/logic/storageMigrat
 3. Initializes empty `sanityCheckProgress` map.
 4. Recomputes total XP and unlocked kingdoms.
 5. Saves the upgraded state to `pdplayground_player_v2`.
+
+
+---
+
+## 5. Design Artifact Contract Pipeline & Fail-Closed Gating
+
+To guarantee authentic physical design verification across all 8 kingdoms, PD Playground implements a formal, versioned contract architecture:
+
+```mermaid
+flowchart TD
+    Activity["Student Activity (e.g. fp-5, pl-5, cts-5, rt-5, fc-5)"] -->|emits validated design geometry| Contract["createDesignArtifact() (src/logic/designArtifactContracts.js)"]
+    Contract -->|validates schema & bounds| Storage["PlayerContext / localStorage (studentDesignArtifacts)"]
+    
+    SanityModal["SanityModal (KingdomPage.jsx)"] -->|requests stage audit| ContextHelper["getStudentDesignForSanityCheck() (studentDesignContext.js)"]
+    Storage -->|reads studentDesignArtifacts| ContextHelper
+    
+    ContextHelper -->|Missing prerequisite or artifact| FailClosed["❌ Fail-Closed Reject (0 XP, No Certification)"]
+    ContextHelper -->|Verified Artifact Available| Engine["evaluateSanityCheck() (sanityCheckEngine.js)"]
+    Engine -->|Verifies actual physical layout metrics| Certified["🛡️ Certified Stage Sign-Off (+25 XP Earned)"]
+```
+
+### Fail-Closed Gating Tenets:
+- **Zero Default Pass:** Unknown checks, missing artifacts, or incomplete prerequisite levels immediately trigger closed rejection logs in the simulated EDA terminal (`NO STUDENT DESIGN FOUND`).
+- **Demonstration Isolation:** Practice drill mode allows defect injection and golden circuit tests without awarding stage certification XP or writing to `sanityCheckProgress`.
+- **Replay Idempotence:** Replays compute positive `xpDelta` (`max(0, newXP - prevXP)`), and passing an already certified check awards 0 duplicate XP.

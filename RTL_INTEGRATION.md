@@ -97,3 +97,10 @@ flowchart TD
    - Prevents untrusted scripts from altering parent React application state while allowing rich canvas rendering and waveform playback.
 3. **No External Network Requests**:
    - The studio bundle operates entirely on in-browser Web APIs with zero tracking or telemetry.
+
+
+---
+
+## 5. 100% Offline Asset Delivery & Font Isolation
+
+All RTL Playground assets (interactive simulator, logic gate schematics, waveform canvas, and Moore/Mealy FSM builder) are hosted strictly locally under `public/studios/rtl/`. The standalone HTML and scripts use local system font stacks (`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`) with zero external network requests to Google Fonts or cloud CDNs.

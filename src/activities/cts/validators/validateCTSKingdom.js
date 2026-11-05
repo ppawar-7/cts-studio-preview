@@ -5,6 +5,10 @@
  */
 
 import { computeClockTreeMetrics } from '../../../engine/ctsEngine.js';
+import {
+  createDesignArtifact,
+  ARTIFACT_KINDS,
+} from '../../../logic/designArtifactContracts.js';
 
 export const CORRECT_ICG_CONCEPT_ID = 'opt-icg-dynamic-power';
 
@@ -75,6 +79,40 @@ export function validateCTSKingdom(submission) {
     feedback = `Great CTS signoff (${score}/50 XP, ${stars} Stars)! You are ready to advance to Routing.`;
   }
 
+  // Model dynamic power: Base clock mesh (1.8 mW) + buffer stages (0.2 mW / buffer)
+  const totalBuffers = bufferStages.reduce((sum, s) => sum + (Math.max(0, parseInt(s, 10) || 0)), 0);
+  const derivedPowerMw = Number((1.8 + totalBuffers * 0.2).toFixed(1));
+  const skewPs = Math.round(metrics.skew * 1000);
+  const latencyPs = Math.round(metrics.latency * 1000);
+
+  const artifacts = createDesignArtifact({
+    kind: ARTIFACT_KINDS.CTS_CLOCK_TREE,
+    sourceLevelId: 'cts-5',
+    inputs: {
+      bufferStages: [...bufferStages],
+      icgConcept,
+    },
+    measurements: {
+      sinks,
+      skewPs,
+      latencyPs,
+      maxLatencyPs: latencyPs,
+      powerMw: derivedPowerMw,
+      maxSlewPs: 45,
+      maxTransitionPs: 45,
+      stages: [...bufferStages],
+      totalBuffers,
+      skewMet,
+      latencyMet,
+    },
+    units: {
+      skewPs: 'ps',
+      latencyPs: 'ps',
+      powerMw: 'mW',
+      maxSlewPs: 'ps',
+    },
+  });
+
   return {
     passed,
     score,
@@ -84,5 +122,6 @@ export function validateCTSKingdom(submission) {
     skewMet,
     latencyMet,
     exactStages,
+    artifacts,
   };
 }

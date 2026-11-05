@@ -5,6 +5,10 @@
  */
 
 import { checkRectCollision, isContainedInCore } from '../../../engine/geometryEngine.js';
+import {
+  createDesignArtifact,
+  ARTIFACT_KINDS,
+} from '../../../logic/designArtifactContracts.js';
 
 export const CORRECT_HALO_CONCEPT_ID = 'opt-halo-routing-drc';
 
@@ -38,6 +42,25 @@ export function validateFPMacroPlacement(submission) {
 
   const haloConceptOk = haloConcept === CORRECT_HALO_CONCEPT_ID;
 
+  // Real measurements
+  const m1Margin = Math.min(
+    m1.x,
+    m1.y,
+    core.width - (m1.x + (m1.width || 0)),
+    core.height - (m1.y + (m1.height || 0))
+  );
+  const m2Margin = Math.min(
+    m2.x,
+    m2.y,
+    core.width - (m2.x + (m2.width || 0)),
+    core.height - (m2.y + (m2.height || 0))
+  );
+  const measuredMargin = Math.max(0, Math.min(m1Margin, m2Margin));
+
+  const dx = Math.max(0, Math.max(m1.x - (m2.x + (m2.width || 0)), m2.x - (m1.x + (m1.width || 0))));
+  const dy = Math.max(0, Math.max(m1.y - (m2.y + (m2.height || 0)), m2.y - (m1.y + (m1.height || 0))));
+  const measuredHalo = Math.max(dx, dy);
+
   const boundsScore = boundsOk ? 15 : 0;
   const haloScore = haloOk ? 15 : 0;
   const conceptScore = haloConceptOk ? 15 : 0;
@@ -63,6 +86,26 @@ export function validateFPMacroPlacement(submission) {
     feedback = `Good macro layout (${score}/45 XP, ${stars} Stars)! Your placement prevents routing congestion around dense memory arrays.`;
   }
 
+  const artifacts = createDesignArtifact({
+    kind: ARTIFACT_KINDS.FLOORPLAN_LAYOUT,
+    sourceLevelId: 'fp-4',
+    inputs: {
+      macros: macros.map((m) => ({ ...m })),
+      haloConcept,
+    },
+    measurements: {
+      margin: measuredMargin,
+      halo: measuredHalo,
+      boundsOk,
+      haloOk,
+      haloConceptOk,
+    },
+    units: {
+      margin: 'µm',
+      halo: 'µm',
+    },
+  });
+
   return {
     passed,
     score,
@@ -71,5 +114,6 @@ export function validateFPMacroPlacement(submission) {
     boundsOk,
     haloOk,
     haloConceptOk,
+    artifacts,
   };
 }

@@ -83,11 +83,16 @@ export default function LevelPage() {
     }
 
     const verifiedScore = Math.min(result.score, level.xpReward);
-    completeLevel(kingdom.id, level, verifiedScore, result.artifacts || result.designData || result.metrics || result);
+    const xpDelta = Math.max(0, verifiedScore - currentLevelXP);
+
+    // Pass validated design artifact or explicit metrics (never fallback soup)
+    const artifactToPersist = result.artifacts || result.designData || {};
+    completeLevel(kingdom.id, level, verifiedScore, artifactToPersist);
+
     setCompletionData({
       score: verifiedScore,
       stars: result.stars,
-      xpEarned: verifiedScore,
+      xpEarned: xpDelta,
       feedback: result.feedback,
     });
   };
@@ -105,7 +110,9 @@ export default function LevelPage() {
             <span className="level-page__complete-emoji">🎉</span>
             <h2 className="level-page__complete-title">Level Complete!</h2>
             <p className="level-page__complete-xp">
-              +{completionData.xpEarned} XP Verified &amp; Earned
+              {completionData.xpEarned > 0
+                ? `+${completionData.xpEarned} XP Verified & Earned`
+                : `Score Verified: ${completionData.score}/${level.xpReward} XP (Already Earned)`}
             </p>
             <StarDisplay stars={completionData.stars} />
 

@@ -122,3 +122,20 @@ Rule: If $R_{\text{antenna}} > 200 \implies$ insert reverse-biased diode to grou
 To prevent chemical-mechanical polishing (CMP) dishing and erosion defects:
 $$\rho_{\text{metal}} = \frac{\sum \text{Metal Polygon Area}}{\text{Window Area}}$$
 Ruledeck requirement: $0.35 \le \rho_{\text{metal}} \le 0.75$ across sliding $20\,\mu\text{m} \times 20\,\mu\text{m}$ windows on all routing layers.
+
+
+---
+
+## 9. Clock Dynamic Power & Buffer Tree Energy Budget Model
+
+In Clock Tree Synthesis (`cts-5` and `cts-power`), dynamic switching power is derived from the clock frequency ($f = 1.0\text{ GHz}$), operating voltage ($V_{\text{DD}} = 1.0\text{ V}$), baseline clock distribution network cap, and inserted clock buffer instances ($N_{\text{buf}}$):
+
+$$P_{\text{dyn}} = P_{\text{base}} + N_{\text{buf}} \times P_{\text{buffer}}$$
+
+Where:
+- $P_{\text{base}} = 1.8\text{ mW}$ (baseline root trunk and flip-flop sink pin switching)
+- $P_{\text{buffer}} = 0.20\text{ mW}$ per inserted clock buffer
+- **Foundry Sign-Off Budget:** $P_{\text{dyn}} \le 5.0\text{ mW}$
+
+For a typical 6-buffer balanced clock tree:
+$$P_{\text{dyn}} = 1.8 + (6 \times 0.20) = 3.0\text{ mW} \le 5.0\text{ mW} \quad \text{[COMPLIANT]}$$

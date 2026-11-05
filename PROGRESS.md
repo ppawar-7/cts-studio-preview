@@ -96,3 +96,14 @@ This document records the chronological development, architectural evolutions, b
   - Updated `README.md` with private clone URL (`https://github.com/ppawar-7/pd-playground-game-private.git`).
   - Replaced unsupported MIT claims with accurate Source Provenance & Intellectual Property disclosure.
 
+
+
+---
+
+## Milestone 4: Design Artifact Contract Pipeline & Final Full-Platform Hardening (Completed)
+- **Design Artifact Contracts**: Implemented `src/logic/designArtifactContracts.js` with versioned schemas (`contractVersion: '2.0.0'`), finite number validation, and strict property checking.
+- **Activity Validator Connections**: Connected all capstone and prerequisite validators (`fp-4`, `fp-5`, `pl-2`, `pl-4`, `pl-5`, `cts-2`, `cts-5`, `rt-3`, `rt-4`, `rt-5`, `fc-3`, `fc-4`, `fc-5`) to emit genuine physical design artifacts.
+- **Fail-Closed Sanity Check Engine**: Updated `src/engine/sanityCheckEngine.js` and `src/logic/studentDesignContext.js` to fail closed on missing student designs, removing unearned passing fallbacks.
+- **Replay & Progression Engine**: Enhanced `progressionEngine.js` and `LevelPage.jsx` to compute clean XP deltas and prevent duplicate stage check rewards.
+- **100% Offline Isolation**: Removed external Google Fonts calls from `public/studios/sta/index.html`, ensuring zero external network requests.
+- **Test Suite Verification**: Vitest test suite expanded to 436 tests across 27 suites (all passing). Browser E2E test suites verified 100% across all 8 kingdoms.

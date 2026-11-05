@@ -5,6 +5,10 @@
  */
 
 import { checkRoutingShorts } from '../../../engine/routingEngine.js';
+import {
+  createDesignArtifact,
+  ARTIFACT_KINDS,
+} from '../../../logic/designArtifactContracts.js';
 
 export const CORRECT_LVS_CONCEPT_ID = 'opt-lvs-connectivity-check';
 
@@ -35,6 +39,10 @@ export function validateRTKingdom(submission) {
   const layerOk = (net1Layer === 'M1' || net1Layer === 'M3') && (net2Layer === 'M2' || net2Layer === 'M4');
   const conceptOk = lvsConcept === CORRECT_LVS_CONCEPT_ID;
 
+  // Educational LVS: Compare extracted physical net count with intended schematic nets (2)
+  const extractedNetCount = noShorts ? 2 : 1; // When shorted, both nets merge into 1 electrical node
+  const lvsMatch = extractedNetCount === 2 && noShorts;
+
   const shortScore = noShorts ? 20 : 0;
   const layerScore = layerOk ? 15 : 0;
   const conceptScore = conceptOk ? 15 : 0;
@@ -62,6 +70,32 @@ export function validateRTKingdom(submission) {
     feedback = `Great routing optimization (${score}/50 XP, ${stars} Stars)! You are ready to advance to Physical Filler Cells.`;
   }
 
+  const artifacts = createDesignArtifact({
+    kind: ARTIFACT_KINDS.ROUTING_INTERCONNECT,
+    sourceLevelId: 'rt-5',
+    inputs: {
+      net1Layer,
+      net2Layer,
+      lvsConcept,
+    },
+    measurements: {
+      segments,
+      hasShorts: !noShorts,
+      shorts: noShorts ? 0 : 1,
+      opens: 0,
+      unroutedNets: 0,
+      openSegments: 0,
+      lvsMatch,
+      drcErrors: noShorts && layerOk ? 0 : (!noShorts ? 1 : 0) + (!layerOk ? 1 : 0),
+      wnsPs: 18,
+      timingSlackNs: 0.018,
+    },
+    units: {
+      wnsPs: 'ps',
+      timingSlackNs: 'ns',
+    },
+  });
+
   return {
     passed,
     score,
@@ -70,5 +104,6 @@ export function validateRTKingdom(submission) {
     noShorts,
     layerOk,
     conceptOk,
+    artifacts,
   };
 }

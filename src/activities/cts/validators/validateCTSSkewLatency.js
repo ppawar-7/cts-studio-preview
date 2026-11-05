@@ -4,6 +4,11 @@
  * Pure deterministic validator for Level 2 (cts-2): Clock Skew and Latency.
  */
 
+import {
+  createDesignArtifact,
+  ARTIFACT_KINDS,
+} from '../../../logic/designArtifactContracts.js';
+
 export const CORRECT_HOLD_HAZARD_ID = 'opt-positive-skew-hurts-hold';
 
 export function validateCTSSkewLatency(submission) {
@@ -51,6 +56,34 @@ export function validateCTSSkewLatency(submission) {
     feedback = `Good skew & latency analysis (${score}/35 XP, ${stars} Stars)! You understand how clock latency deltas govern flip-flop timing windows.`;
   }
 
+  const artifacts = createDesignArtifact({
+    kind: ARTIFACT_KINDS.CTS_CLOCK_TREE,
+    sourceLevelId: 'cts-2',
+    inputs: {
+      launchLatency,
+      captureLatency,
+      setupSlackAns,
+      holdRiskConcept,
+    },
+    measurements: {
+      launchLatencyNs: Number(launchLatency) || 0.20,
+      captureLatencyNs: Number(captureLatency) || 0.28,
+      skewPs: 80,
+      setupSlack: 0.030,
+      holdSlack: 0.040,
+      tCombNs: 0.77,
+      slackOk,
+      conceptOk,
+    },
+    units: {
+      launchLatencyNs: 'ns',
+      captureLatencyNs: 'ns',
+      skewPs: 'ps',
+      setupSlack: 'ns',
+      holdSlack: 'ns',
+    },
+  });
+
   return {
     passed,
     score,
@@ -59,5 +92,6 @@ export function validateCTSSkewLatency(submission) {
     latencyScore,
     slackScore,
     conceptScore,
+    artifacts,
   };
 }

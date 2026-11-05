@@ -109,7 +109,7 @@ export default function KingdomPage() {
       if (auditMode === 'student') {
         result = evaluateSanityCheck(activeCheck.id, {
           isStudentDesign: true,
-          hasStudentDesign: studentAuditInfo?.canCertify ?? false,
+          hasStudentDesign: Boolean(studentAuditInfo?.canCertify && !studentAuditInfo?.isPracticeOnly),
           reason: studentAuditInfo?.reason,
           designData: studentAuditInfo?.designData || {},
         });
@@ -537,16 +537,20 @@ export default function KingdomPage() {
               {/* Status Context Banner */}
               {auditMode === 'student' ? (
                 <div style={{
-                  background: studentAuditInfo?.canCertify ? '#f0fdf4' : '#fffbeb',
-                  border: `1px solid ${studentAuditInfo?.canCertify ? '#bbf7d0' : '#fef3c7'}`,
+                  background: studentAuditInfo?.canCertify ? '#f0fdf4' : (studentAuditInfo?.isPracticeOnly ? '#f5f3ff' : '#fffbeb'),
+                  border: `1px solid ${studentAuditInfo?.canCertify ? '#bbf7d0' : (studentAuditInfo?.isPracticeOnly ? '#ddd6fe' : '#fef3c7')}`,
                   borderRadius: '8px',
                   padding: '10px 14px',
                   marginBottom: '1rem',
                   fontSize: '0.85rem',
                   lineHeight: 1.5,
-                  color: studentAuditInfo?.canCertify ? '#166534' : '#92400e',
+                  color: studentAuditInfo?.canCertify ? '#166534' : (studentAuditInfo?.isPracticeOnly ? '#5b21b6' : '#92400e'),
                 }}>
-                  {studentAuditInfo?.canCertify ? (
+                  {studentAuditInfo?.isPracticeOnly ? (
+                    <div>
+                      <strong>🔬 Educational Drill:</strong> {studentAuditInfo?.reason}
+                    </div>
+                  ) : studentAuditInfo?.canCertify ? (
                     <div>
                       <strong>✓ Verified Student Design Ready:</strong> This check evaluates your layout parameters generated from <strong>{studentAuditInfo.requirement?.prerequisiteLevels.join(', ')}</strong>. Passing this audit certifies your design and awards +{activeCheck.xpReward} XP.
                     </div>
@@ -619,30 +623,31 @@ export default function KingdomPage() {
                       <div className="sanity-terminal__line sanity-terminal__line--dim">
                         [INIT] Command: {activeCheck.command}
                       </div>
-                      <div className="sanity-terminal__line sanity-terminal__line--dim">
-                        [SCOPE] Physical design ruledeck criteria: {activeCheck.criteria}
-                      </div>
-                      {simulationLogs.map((log, idx) => (
-                        <div
-                          key={idx}
-                          className={`sanity-terminal__line ${
-                            log.includes('PASSED') || log.includes('Clean') || log.includes('MET') || log.includes('CLEAN_PASS')
-                              ? 'sanity-terminal__line--green'
-                              : log.includes('VIOLATION') || log.includes('OVERFLOW') || log.includes('FAIL') || log.includes('ABORT')
-                              ? 'sanity-terminal__line--red'
-                              : 'sanity-terminal__line--cyan'
-                          }`}
-                        >
-                          {log}
-                        </div>
-                      ))}
+                      {simulationLogs.map((log, index) => {
+                        let lineClass = '';
+                        if (log.includes('PASSED') || log.includes('CLEAN_PASS') || log.includes('100%')) {
+                          lineClass = 'sanity-terminal__line--green';
+                        } else if (log.includes('VIOLATION') || log.includes('FAIL') || log.includes('OVER_BUDGET') || log.includes('OVERFLOW')) {
+                          lineClass = 'sanity-terminal__line--red';
+                        } else if (log.includes('⚠️') || log.includes('Warning') || log.includes('DEMONSTRATION')) {
+                          lineClass = 'sanity-terminal__line--amber';
+                        } else if (log.includes('ℹ️') || log.includes('[RULE-ENGINE]')) {
+                          lineClass = 'sanity-terminal__line--dim';
+                        }
+
+                        return (
+                          <div key={index} className={`sanity-terminal__line ${lineClass}`}>
+                            {log}
+                          </div>
+                        );
+                      })}
                     </>
                   )}
                 </div>
               </div>
 
-              {/* Action buttons with strict engineering validation */}
-              <div className="sanity-modal__actions">
+              {/* Action Buttons */}
+              <div className="sanity-modal__footer sanity-modal__actions" style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                 {!simulationDone ? (
                   <button
                     type="button"
@@ -650,12 +655,12 @@ export default function KingdomPage() {
                     onClick={handleRunSimulation}
                     disabled={runningSimulation}
                   >
-                    {runningSimulation ? '⏳ Running Ruledeck Verification...' : `⚡ Run Verification Audit (${auditMode === 'student' ? 'Student Design' : 'Demonstration'})`}
+                    {runningSimulation ? '⏳ Evaluating Ruledeck...' : `▶ Run EDA Verification: ${activeCheck.name}`}
                   </button>
                 ) : isSanityCheckPassed(player, activeCheck.id) ? (
                   <div style={{ width: '100%', textAlign: 'center' }}>
                     <div className="sanity-modal__passed-notice" style={{ marginBottom: '0.75rem' }}>
-                      ✓ <strong>Stage Check Certified:</strong> +{activeCheck.xpReward} XP earned for this verification.
+                      ✓ <strong>Stage Check Previously Certified:</strong> This rule check is permanently certified.
                     </div>
                     <button
                       type="button"

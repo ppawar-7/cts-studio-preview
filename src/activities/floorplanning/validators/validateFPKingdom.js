@@ -10,6 +10,10 @@ import {
   validatePinPlacements,
   computeUtilization,
 } from '../../../engine/geometryEngine.js';
+import {
+  createDesignArtifact,
+  ARTIFACT_KINDS,
+} from '../../../logic/designArtifactContracts.js';
 
 export const CORRECT_POWER_GRID_ID = 'opt-mesh-power-straps';
 
@@ -30,12 +34,35 @@ export function validateFPKingdom(submission) {
   // 1. Macro validation
   let macrosOk = false;
   let macroFeedback = '';
+  let measuredMargin = 0;
+  let measuredHalo = 0;
+
   if (Array.isArray(macros) && macros.length >= 2) {
     const m1 = macros[0];
     const m2 = macros[1];
     const m1Inside = isContainedInCore(m1, core);
     const m2Inside = isContainedInCore(m2, core);
     const collision = checkRectCollision(m1, m2, halo);
+
+    // Compute actual boundary clearance (margin) to core edges
+    const m1Margin = Math.min(
+      m1.x,
+      m1.y,
+      core.width - (m1.x + m1.width),
+      core.height - (m1.y + m1.height)
+    );
+    const m2Margin = Math.min(
+      m2.x,
+      m2.y,
+      core.width - (m2.x + m2.width),
+      core.height - (m2.y + m2.height)
+    );
+    measuredMargin = Math.max(0, Math.min(m1Margin, m2Margin));
+
+    // Compute actual macro-to-macro clear distance (halo clearance)
+    const dx = Math.max(0, Math.max(m1.x - (m2.x + m2.width), m2.x - (m1.x + m1.width)));
+    const dy = Math.max(0, Math.max(m1.y - (m2.y + m2.height), m2.y - (m1.y + m1.height)));
+    measuredHalo = Math.max(dx, dy);
 
     if (!m1Inside || !m2Inside) {
       macroFeedback = 'Macros exceed core boundary bounds.';
@@ -101,6 +128,32 @@ export function validateFPKingdom(submission) {
     feedback = `Great floorplanning work (${score}/50 XP, ${stars} Stars)! You are ready to advance to Standard Cell Placement.`;
   }
 
+  // Construct explicit verified design artifact
+  const artifacts = createDesignArtifact({
+    kind: ARTIFACT_KINDS.FLOORPLAN_LAYOUT,
+    sourceLevelId: 'fp-5',
+    inputs: {
+      macros: Array.isArray(macros) ? macros.map((m) => ({ ...m })) : [],
+      pins: Array.isArray(pins) ? pins.map((p) => ({ ...p })) : [],
+      powerGridConcept,
+    },
+    measurements: {
+      margin: measuredMargin,
+      halo: measuredHalo,
+      macrosOk,
+      pinsOk,
+      powerOk,
+      coreWidth: core.width,
+      coreHeight: core.height,
+    },
+    units: {
+      margin: 'µm',
+      halo: 'µm',
+      coreWidth: 'µm',
+      coreHeight: 'µm',
+    },
+  });
+
   return {
     passed,
     score,
@@ -109,5 +162,6 @@ export function validateFPKingdom(submission) {
     macrosOk,
     pinsOk,
     powerOk,
+    artifacts,
   };
 }
