@@ -103,22 +103,11 @@ export function validateFCKingdom(submission) {
       rowFillPercent,
       hasDecap,
       hasTap,
-      endcapsPresent: true,
       tapCellsContinuous: hasTap,
       baseDrcViolations: emptySites === 0 ? 0 : emptySites,
-      densityPercent: 48.5,
-      timingImpactPs: 3.5,
-      slackDeltaPs: -3.5,
-      routingBlockages: 0,
-      pinBlocks: 0,
-      qorScore: fillMet && typesMet && conceptOk ? 96.0 : 70.0,
-      irMarginPercent: fillMet && typesMet ? 96.5 : 85.0,
     },
     units: {
       rowFillPercent: '%',
-      densityPercent: '%',
-      timingImpactPs: 'ps',
-      qorScore: 'pts',
     },
   });
 

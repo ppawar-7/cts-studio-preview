@@ -82,18 +82,10 @@ export function validateRTKingdom(submission) {
       segments,
       hasShorts: !noShorts,
       shorts: noShorts ? 0 : 1,
-      opens: 0,
-      unroutedNets: 0,
-      openSegments: 0,
       lvsMatch,
       drcErrors: noShorts && layerOk ? 0 : (!noShorts ? 1 : 0) + (!layerOk ? 1 : 0),
-      wnsPs: 18,
-      timingSlackNs: 0.018,
     },
-    units: {
-      wnsPs: 'ps',
-      timingSlackNs: 'ns',
-    },
+    units: {},
   });
 
   return {

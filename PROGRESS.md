@@ -107,3 +107,14 @@ This document records the chronological development, architectural evolutions, b
 - **Replay & Progression Engine**: Enhanced `progressionEngine.js` and `LevelPage.jsx` to compute clean XP deltas and prevent duplicate stage check rewards.
 - **100% Offline Isolation**: Removed external Google Fonts calls from `public/studios/sta/index.html`, ensuring zero external network requests.
 - **Test Suite Verification**: Vitest test suite expanded to 436 tests across 27 suites (all passing). Browser E2E test suites verified 100% across all 8 kingdoms.
+
+---
+
+## Milestone 7: Release-Blocking Correctness Patch — Fail-Closed Artifact Validation & Honest 15-Check Certification
+- **P0 Fail-Closed Regression Reproduction**: Added src/tests/engine/certificationIntegrityRegressions.test.js proving false certification loopholes, unearned clean fallbacks, and practice drill deadlocks. All 5 regression tests now pass 100%.
+- **P1 Schema & Metric Immutability**: Established designArtifactContracts.js v2.0.0 with CHECK_MANDATORY_FIELDS for all 15 certifiable checks, rejecting NaN, Infinity, negative dimensions, and non-positive coordinates.
+- **P2 Elimination of Fabricated Measurements**: Purged unearned fields (unplacedPins: 0, opens: 0, maxSlewPs: 45, endcapsPresent: true, etc.) from activity validators. All measurements are strictly derived from student inputs.
+- **P3 Check Ruledeck Alignment**: Corrected c-constraints (evaluates dynamic droop <= 40 mV) and c-power (evaluates decap gate leakage <= 20 µA).
+- **P4 Honest 15 Certifiable vs 11 Practice-Only Division**: Formally classified the 26 checks. Practice-only checks are educational demonstration drills that unlock after levels and award 0 XP, never blocking kingdom completion. Certifiable checks evaluate genuine student design parameters and award +25 XP.
+- **P5 Replay Delta & Stale Certification Handling**: Applied replay formula $\Delta \text{XP} = \max(0, \text{NewScore} - \text{PrevXP})$ and stale certification detection if modified designs violate design rules.
+- **P6 Test Suite Verification**: Full test suite expanded to **28 suites, 443 tests (100% passing)**. Headless browser E2E journeys (	est_studios_and_all_26_sanity_checks.cjs, 	est_fresh_student_journey.cjs, 	est_full_platform_e2e.cjs, 	est_2star_progression_math.cjs, 	est_all_40_activities_e2e.cjs) all verified 100% cleanly.

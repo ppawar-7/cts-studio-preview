@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   SANITY_CHECK_REQUIREMENTS,
   getStudentDesignForSanityCheck,
+  CHECK_CLASSIFICATION,
 } from '../../logic/studentDesignContext';
 import { evaluateSanityCheck } from '../../engine/sanityCheckEngine';
 
@@ -49,17 +50,19 @@ describe('Sanity Checks — Comprehensive 26-Check Individual Verification Matri
           unconnectedNets: 0,
           wellTapPitch: 25.0,
           missingRailVias: 0,
+          offRailCells: 0,
         },
       },
       // CTS
       'cts-1': { completed: true },
       'cts-2': { completed: true, artifacts: { setupSlack: 0.040, holdSlack: 0.035, skewPs: 20 } },
-      'cts-3': { completed: true },
+      'cts-3': { completed: true, artifacts: { gatingEfficiencyPercent: 85 } },
       'cts-4': { completed: true },
       'cts-5': {
         completed: true,
         artifacts: {
           powerMw: 2.8,
+          latencyPs: 195,
           maxLatencyPs: 195,
           maxTransitionPs: 50,
           skewPs: 18,
@@ -69,14 +72,16 @@ describe('Sanity Checks — Comprehensive 26-Check Individual Verification Matri
       // Routing
       'rt-1': { completed: true },
       'rt-2': { completed: true },
-      'rt-3': { completed: true, artifacts: { viaEnclosureUm: 0.08, drcViolations: 0 } },
-      'rt-4': { completed: true, artifacts: { maxVictimNoiseMv: 30 } },
+      'rt-3': { completed: true, artifacts: { viaEnclosureUm: 0.08, drcViolations: 0, drcErrors: 0 } },
+      'rt-4': { completed: true, artifacts: { maxVictimNoiseMv: 30, glitchVoltageMv: 30 } },
       'rt-5': {
         completed: true,
         artifacts: {
           unroutedNets: 0,
           openSegments: 0,
           hasShorts: false,
+          shorts: 0,
+          lvsMatch: true,
           opens: 0,
           timingSlackNs: 0.035,
         },
@@ -104,6 +109,9 @@ describe('Sanity Checks — Comprehensive 26-Check Individual Verification Matri
       'fc-5': {
         completed: true,
         artifacts: {
+          emptySites: 0,
+          totalSitesFilled: 60,
+          rowFillPercent: 100,
           baseDrcViolations: 0,
           endcapsPresent: true,
           tapCellsContinuous: true,
@@ -117,6 +125,17 @@ describe('Sanity Checks — Comprehensive 26-Check Individual Verification Matri
 
   it('verifies that exactly 26 checks are evaluated individually', () => {
     expect(ALL_26_SANITY_CHECKS).toHaveLength(26);
+  });
+
+  it('classifies exactly 15 certifiable and 11 practice-only checks', () => {
+    const certifiable = ALL_26_SANITY_CHECKS.filter(
+      (id) => SANITY_CHECK_REQUIREMENTS[id].classification === CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK
+    );
+    const practice = ALL_26_SANITY_CHECKS.filter(
+      (id) => SANITY_CHECK_REQUIREMENTS[id].classification === CHECK_CLASSIFICATION.PRACTICE_ONLY
+    );
+    expect(certifiable).toHaveLength(15);
+    expect(practice).toHaveLength(11);
   });
 
   // ─── PART A: Missing Prerequisites Rejection across all 26 checks ─────
@@ -175,21 +194,37 @@ describe('Sanity Checks — Comprehensive 26-Check Individual Verification Matri
   // ─── PART C: Student Design Sign-Off Validation across all 26 checks ───
   describe('Valid Student Design Sign-Off Certification (All 26 Checks)', () => {
     ALL_26_SANITY_CHECKS.forEach((checkId) => {
-      it(`[${checkId}] successfully signs off valid student design with certification rights`, () => {
+      it(`[${checkId}] correctly handles student design evaluation according to its classification`, () => {
         const studentCtx = getStudentDesignForSanityCheck(mockMasterPlayer, checkId);
-        expect(studentCtx.canCertify).toBe(true);
         expect(studentCtx.missingPrerequisites).toHaveLength(0);
 
-        const result = evaluateSanityCheck(checkId, {
-          isStudentDesign: true,
-          hasStudentDesign: true,
-          designData: studentCtx.designData,
-        });
+        if (studentCtx.canCertify) {
+          expect(studentCtx.canCertify).toBe(true);
+          expect(studentCtx.isPracticeOnly).toBe(false);
 
-        expect(result.passed).toBe(true);
-        expect(result.canCertify).toBe(true); // Genuine sign-off earned
-        expect(result.isDemonstration).toBe(false);
-        expect(result.logOutput.join(' ')).toContain('CLEAN_PASS');
+          const result = evaluateSanityCheck(checkId, {
+            isStudentDesign: true,
+            hasStudentDesign: true,
+            designData: studentCtx.designData,
+          });
+
+          expect(result.passed).toBe(true);
+          expect(result.canCertify).toBe(true); // Genuine sign-off earned
+          expect(result.isDemonstration).toBe(false);
+          expect(result.logOutput.join(' ')).toContain('CLEAN_PASS');
+        } else {
+          expect(studentCtx.canCertify).toBe(false);
+          expect(studentCtx.isPracticeOnly).toBe(true);
+
+          const result = evaluateSanityCheck(checkId, {
+            isStudentDesign: false,
+            injectDefect: false,
+          });
+
+          expect(result.passed).toBe(true);
+          expect(result.canCertify).toBe(false);
+          expect(result.isDemonstration).toBe(true);
+        }
       });
     });
   });

@@ -10,6 +10,11 @@
 
 import { KINGDOMS } from '../data/kingdomsData.js';
 import { ACHIEVEMENTS } from '../data/playerDefaults.js';
+import {
+  SANITY_CHECK_REQUIREMENTS,
+  getStudentDesignForSanityCheck,
+} from './studentDesignContext.js';
+import { CHECK_CLASSIFICATION } from './designArtifactContracts.js';
 
 // ─── Player level thresholds (XP required to reach each player level) ──────
 const PLAYER_LEVEL_THRESHOLDS = [0, 50, 150, 300, 500, 750, 1050, 1400, 1800, 2250, 2800];
@@ -72,7 +77,7 @@ export function countTotalSanityChecks() {
 export function countTotalSanityChecksPassed(player) {
   let count = 0;
   for (const k of KINGDOMS) {
-    for (const c of (k.sanityChecks || [])) {
+    for (const c of k.sanityChecks || []) {
       if (player?.sanityCheckProgress?.[c.id]?.passed) count++;
     }
   }
@@ -124,10 +129,27 @@ export function getKingdomSanityChecks(kingdomId) {
 }
 
 /**
- * Check if a specific sanity check has passed.
+ * Get only the CERTIFIABLE sanity checks for a kingdom (excludes PRACTICE_ONLY checks).
+ */
+export function getKingdomCertifiableSanityChecks(kingdomId) {
+  const checks = getKingdomSanityChecks(kingdomId);
+  return checks.filter((c) => {
+    const req = SANITY_CHECK_REQUIREMENTS[c.id];
+    return req && req.classification === CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK;
+  });
+}
+
+/**
+ * Check if a specific sanity check has passed (either certified or drilled).
  */
 export function isSanityCheckPassed(player, checkId) {
-  return Boolean(player.sanityCheckProgress?.[checkId]?.passed);
+  const progress = player?.sanityCheckProgress?.[checkId];
+  if (!progress) return false;
+  const req = SANITY_CHECK_REQUIREMENTS[checkId];
+  if (req?.classification === CHECK_CLASSIFICATION.PRACTICE_ONLY) {
+    return Boolean(progress.drilled || progress.passed);
+  }
+  return Boolean(progress.certified || progress.passed);
 }
 
 /**
@@ -139,13 +161,13 @@ export function countPassedKingdomSanityChecks(player, kingdomId) {
 }
 
 /**
- * Check if ALL sanity checks in a kingdom are passed.
- * Returns true if the kingdom has no sanity checks (e.g. RTL, Synthesis, GDS).
+ * Check if all CERTIFIABLE sanity checks in a kingdom are certified.
+ * Practice-only checks do not block kingdom completion.
  */
 export function areAllKingdomSanityChecksPassed(player, kingdomId) {
-  const checks = getKingdomSanityChecks(kingdomId);
-  if (!checks.length) return true;
-  return checks.every((c) => isSanityCheckPassed(player, c.id));
+  const certifiableChecks = getKingdomCertifiableSanityChecks(kingdomId);
+  if (!certifiableChecks.length) return true;
+  return certifiableChecks.every((c) => player?.sanityCheckProgress?.[c.id]?.certified === true);
 }
 
 /**
@@ -160,10 +182,10 @@ export function areAllKingdomLevelsCompleted(player, kingdomId) {
 /**
  * Check if a sanity check is unlocked and ready to be run.
  * Rules:
- * - The parent kingdom must be unlocked.
+ * - Parent kingdom must be unlocked.
  * - All main levels of this kingdom must be completed.
- * - For order === 1: Available once kingdom levels are completed!
- * - For order > 1: Available when the previous sanity check in that kingdom has passed.
+ * - If PRACTICE_ONLY: Immediately available once kingdom levels are completed.
+ * - If CERTIFIABLE: Available once the previous certifiable check is certified.
  */
 export function isSanityCheckUnlocked(player, kingdomId, check) {
   if (!isKingdomUnlocked(player, kingdomId)) return false;
@@ -175,13 +197,19 @@ export function isSanityCheckUnlocked(player, kingdomId, check) {
   const levelsDone = areAllKingdomLevelsCompleted(player, kingdomId);
   if (!levelsDone) return false;
 
-  // First check unlocks as soon as levels are done
-  if (check.order === 1) return true;
+  const req = SANITY_CHECK_REQUIREMENTS[check.id];
+  // Practice-only drills are open as soon as levels are done
+  if (req?.classification === CHECK_CLASSIFICATION.PRACTICE_ONLY) {
+    return true;
+  }
 
-  // Subsequent check requires previous check in the kingdom to be passed
-  const prevCheck = kingdom.sanityChecks.find((c) => c.order === check.order - 1);
-  if (!prevCheck) return true;
-  return isSanityCheckPassed(player, prevCheck.id);
+  // For certifiable checks: find prior certifiable check in this kingdom
+  const certifiableChecks = getKingdomCertifiableSanityChecks(kingdomId);
+  const checkIdx = certifiableChecks.findIndex((c) => c.id === check.id);
+  if (checkIdx <= 0) return true; // First certifiable check is unlocked!
+
+  const prevCertifiable = certifiableChecks[checkIdx - 1];
+  return Boolean(player.sanityCheckProgress?.[prevCertifiable.id]?.certified);
 }
 
 /**
@@ -220,7 +248,7 @@ export function isKingdomUnlocked(player, kingdomId) {
 }
 
 /**
- * Determine if a kingdom is completely finished (all levels done AND all sanity checks passed).
+ * Determine if a kingdom is completely finished (all levels done AND all certifiable sanity checks passed).
  */
 export function isKingdomCompleted(player, kingdomId) {
   return (
@@ -239,6 +267,13 @@ export function getKingdomStatus(player, kingdomId) {
 }
 
 /**
+ * Check if a specific level has been completed.
+ */
+export function isLevelCompleted(player, levelId) {
+  return Boolean(player?.levelProgress?.[levelId]?.completed);
+}
+
+/**
  * Determine if a level is unlocked.
  * Level 1 of a kingdom unlocks when the kingdom is unlocked AND the level's
  * pointsRequired is met from within that kingdom.
@@ -254,29 +289,23 @@ export function isLevelUnlocked(player, kingdom, level) {
 
   const prevLevel = kingdom.levels.find((l) => l.order === level.order - 1);
   if (!prevLevel) return true;
-  return player.levelProgress?.[prevLevel.id]?.completed ?? false;
-}
 
-/**
- * Determine if a level is completed.
- */
-export function isLevelCompleted(player, levelId) {
-  return player.levelProgress?.[levelId]?.completed ?? false;
+  return Boolean(player.levelProgress?.[prevLevel.id]?.completed);
 }
 
 /**
  * Get status of a level: 'locked' | 'available' | 'completed'
  */
 export function getLevelStatus(player, kingdom, level) {
-  if (!isLevelUnlocked(player, kingdom, level)) return 'locked';
-  if (isLevelCompleted(player, level.id)) return 'completed';
-  return 'available';
+  if (player.levelProgress?.[level.id]?.completed) return 'completed';
+  if (isLevelUnlocked(player, kingdom, level)) return 'available';
+  return 'locked';
 }
 
 /**
- * Compute how many stars to award based on XP score.
+ * Compute stars earned from score against thresholds [1-star, 2-star, 3-star].
  */
-export function computeStars(score, thresholds) {
+export function computeStars(score, thresholds = [10, 20, 30]) {
   if (score >= thresholds[2]) return 3;
   if (score >= thresholds[1]) return 2;
   if (score >= thresholds[0]) return 1;
@@ -290,6 +319,7 @@ export function computeStars(score, thresholds) {
  * - New submission replaces previous artifact cleanly (no field merging)
  * - Retains highest historical XP and stars
  * - Incremental XP delta awarded to player total
+ * - Revalidates affected certifications if design geometry changed
  */
 export function applyLevelCompletion(player, kingdomId, level, score, artifacts = {}) {
   const kingdom = KINGDOMS.find((k) => k.id === kingdomId);
@@ -301,9 +331,10 @@ export function applyLevelCompletion(player, kingdomId, level, score, artifacts 
   const xpDelta = Math.max(0, xpEarned - previousXP);
 
   // Explicit replacement: Do not merge arbitrary fields across submissions
-  const cleanArtifacts = (artifacts && typeof artifacts === 'object' && Object.keys(artifacts).length > 0)
-    ? artifacts
-    : (existingProgress?.artifacts || {});
+  const cleanArtifacts =
+    artifacts && typeof artifacts === 'object' && Object.keys(artifacts).length > 0
+      ? artifacts
+      : existingProgress?.artifacts || {};
 
   const updatedLevelProgress = {
     ...player.levelProgress,
@@ -317,13 +348,49 @@ export function applyLevelCompletion(player, kingdomId, level, score, artifacts 
     },
   };
 
+  const updatedArtifactsMap = {
+    ...(player.studentDesignArtifacts || {}),
+  };
+  if (cleanArtifacts?.kind) {
+    updatedArtifactsMap[cleanArtifacts.kind] = cleanArtifacts;
+  }
+
+  // Revalidate affected certifications if design artifact changed
+  const updatedSanityProgress = { ...(player.sanityCheckProgress || {}) };
+  if (artifacts && typeof artifacts === 'object' && Object.keys(artifacts).length > 0) {
+    const candidatePlayer = {
+      ...player,
+      levelProgress: updatedLevelProgress,
+      studentDesignArtifacts: updatedArtifactsMap,
+    };
+
+    for (const [chkId, chkReq] of Object.entries(SANITY_CHECK_REQUIREMENTS)) {
+      if (
+        chkReq.classification === CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK &&
+        chkReq.prerequisiteLevels.includes(level.id)
+      ) {
+        if (updatedSanityProgress[chkId]?.certified) {
+          const recheck = getStudentDesignForSanityCheck(candidatePlayer, chkId);
+          if (!recheck.canCertify) {
+            updatedSanityProgress[chkId] = {
+              ...updatedSanityProgress[chkId],
+              certified: false,
+              stale: true,
+              staleReason: recheck.reason,
+            };
+          }
+        }
+      }
+    }
+  }
+
   const updatedTotalXP = player.totalXP + xpDelta;
 
   const allLevelsCompleted = (kingdom?.levels || []).every(
     (l) => updatedLevelProgress[l.id]?.completed
   );
   const allSanityPassed = areAllKingdomSanityChecksPassed(
-    { ...player, levelProgress: updatedLevelProgress },
+    { ...player, levelProgress: updatedLevelProgress, sanityCheckProgress: updatedSanityProgress },
     kingdomId
   );
 
@@ -347,6 +414,8 @@ export function applyLevelCompletion(player, kingdomId, level, score, artifacts 
     ...player,
     totalXP: finalTotalXP,
     levelProgress: updatedLevelProgress,
+    sanityCheckProgress: updatedSanityProgress,
+    studentDesignArtifacts: updatedArtifactsMap,
     kingdomProgress: updatedKingdomProgress,
     lastPlayedAt: new Date().toISOString(),
   };
@@ -357,15 +426,71 @@ export function applyLevelCompletion(player, kingdomId, level, score, artifacts 
 
 /**
  * Apply sanity check completion to player state.
+ *
+ * Enforces:
+ * - PRACTICE_ONLY checks never award certification XP.
+ * - Replays of certified checks award 0 duplicate XP.
  */
-export function applySanityCheckCompletion(player, kingdomId, check, score = 25) {
-  const existing = player.sanityCheckProgress?.[check.id];
-  if (existing?.passed) return player; // Already passed - never award certification XP twice
+export function applySanityCheckCompletion(player, arg2, arg3, arg4) {
+  let kingdomId;
+  let checkId;
+  let score = 25;
+
+  if (typeof arg2 === 'string' && (typeof arg3 === 'string' || (arg3 && typeof arg3 === 'object'))) {
+    // (player, kingdomId, check, score)
+    kingdomId = arg2;
+    checkId = typeof arg3 === 'string' ? arg3 : arg3.id;
+    if (typeof arg4 === 'number') score = arg4;
+  } else if (typeof arg2 === 'string') {
+    // (player, checkId, score)
+    checkId = arg2;
+    if (typeof arg3 === 'number') score = arg3;
+    for (const k of KINGDOMS) {
+      if ((k.sanityChecks || []).some((c) => c.id === checkId)) {
+        kingdomId = k.id;
+        break;
+      }
+    }
+  } else if (arg2 && typeof arg2 === 'object') {
+    checkId = arg2.id;
+    if (typeof arg3 === 'number') score = arg3;
+    for (const k of KINGDOMS) {
+      if ((k.sanityChecks || []).some((c) => c.id === checkId)) {
+        kingdomId = k.id;
+        break;
+      }
+    }
+  }
+
+  const req = SANITY_CHECK_REQUIREMENTS[checkId];
+
+  // PRACTICE_ONLY checks can NEVER award certification XP!
+  if (req?.classification === CHECK_CLASSIFICATION.PRACTICE_ONLY) {
+    return {
+      ...player,
+      sanityCheckProgress: {
+        ...(player.sanityCheckProgress || {}),
+        [checkId]: {
+          passed: true,
+          certified: false,
+          drilled: true,
+          score: 0,
+          isPracticeOnly: true,
+          completedAt: new Date().toISOString(),
+        },
+      },
+    };
+  }
+
+  const existing = player.sanityCheckProgress?.[checkId];
+  if (existing?.certified) return player; // Already certified - never award duplicate certification XP
 
   const updatedSanityProgress = {
     ...player.sanityCheckProgress,
-    [check.id]: {
+    [checkId]: {
       passed: true,
+      certified: true,
+      stale: false,
       score,
       completedAt: new Date().toISOString(),
     },
@@ -373,32 +498,32 @@ export function applySanityCheckCompletion(player, kingdomId, check, score = 25)
 
   const updatedTotalXP = player.totalXP + score;
 
-  // Check if all sanity checks in this kingdom are now passed
   const kingdom = KINGDOMS.find((k) => k.id === kingdomId);
-  const allSanityPassed = (kingdom?.sanityChecks || []).every(
-    (c) => updatedSanityProgress[c.id]?.passed
+  const allSanityPassed = areAllKingdomSanityChecksPassed(
+    { ...player, sanityCheckProgress: updatedSanityProgress },
+    kingdomId
   );
   const allLevelsDone = areAllKingdomLevelsCompleted(player, kingdomId);
 
-  let bonusXP = 0;
-  if (allSanityPassed && allLevelsDone && !player.kingdomProgress?.[kingdomId]?.completed) {
-    bonusXP = 50; // Bonus for full sign-off
+  let kingdomXPBonus = 0;
+  const prevKingdomCompleted = player.kingdomProgress?.[kingdomId]?.completed;
+  if (allLevelsDone && allSanityPassed && !prevKingdomCompleted) {
+    kingdomXPBonus = 50;
   }
 
   const updatedKingdomProgress = {
     ...player.kingdomProgress,
     [kingdomId]: {
       completed: allLevelsDone && allSanityPassed,
-      totalXP: (player.kingdomProgress?.[kingdomId]?.totalXP ?? 0) + score + bonusXP,
+      totalXP: (player.kingdomProgress?.[kingdomId]?.totalXP ?? 0) + score + kingdomXPBonus,
     },
   };
 
   const updatedPlayer = {
     ...player,
-    totalXP: updatedTotalXP + bonusXP,
+    totalXP: updatedTotalXP + kingdomXPBonus,
     sanityCheckProgress: updatedSanityProgress,
     kingdomProgress: updatedKingdomProgress,
-    lastPlayedAt: new Date().toISOString(),
   };
 
   const newAchievements = checkAchievements(updatedPlayer);
@@ -406,28 +531,21 @@ export function applySanityCheckCompletion(player, kingdomId, check, score = 25)
 }
 
 /**
- * Check which achievements the player has unlocked.
+ * Check and unlock achievements based on player state.
  */
 export function checkAchievements(player) {
   const current = player.achievements || [];
-  const newlyUnlocked = [];
+  const currentIds = new Set(
+    current.map((a) => (typeof a === 'string' ? a : a.id))
+  );
+  const newAchievements = [...current];
 
   for (const ach of ACHIEVEMENTS) {
-    if (current.includes(ach.id)) continue;
-
-    let earned = false;
-    if (typeof ach.condition === 'function') {
-      try {
-        earned = Boolean(ach.condition(player));
-      } catch (e) {
-        earned = false;
-      }
-    }
-
-    if (earned) {
-      newlyUnlocked.push(ach.id);
+    if (currentIds.has(ach.id)) continue;
+    if (typeof ach.condition === 'function' && ach.condition(player)) {
+      newAchievements.push(ach.id);
     }
   }
 
-  return [...current, ...newlyUnlocked];
+  return newAchievements;
 }

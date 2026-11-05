@@ -73,10 +73,8 @@ export function validateFCDecapStrategy(submission) {
       droopMv: d500Ok ? 40 : 200,
       maxAllowedDroopMv: 40,
       decapCapPf: 500,
-      decapCapFf: 500000,
-      leakageUa: 14.5,
+      leakageUa: d500Ok ? 14.5 : 29.0,
       maxAllowedLeakageUa: 20.0,
-      drcViolations: 0,
     },
     units: {
       droopMv: 'mV',

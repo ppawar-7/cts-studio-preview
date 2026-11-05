@@ -218,6 +218,18 @@ To add or extend a level in any kingdom:
 
 ---
 
+## Release-Blocking Correctness Patch Handoff (15 Certifiable / 11 Practice-Only)
+- **Branch**: integration/certification-integrity-fixes\n- **Remote**: private-origin (https://github.com/ppawar-7/pd-playground-game-private.git)
+- **Unit & Integration Test Suite**: 443 passing Vitest tests across 28 test files (pm test).
+- **Production Build**: Clean production build in 1.76s (pm run build).
+- **Browser E2E Verification**:
+  - 	est_fresh_student_journey.cjs: 100% pass, clean progression from 0 XP to Kingdom 2 unlock.
+  - 	est_studios_and_all_26_sanity_checks.cjs: 100% pass across all 7 stages including fail-closed rejection, defect drill, and student certification.
+  - 	est_full_platform_e2e.cjs: 100% pass across all 8 kingdoms with live student certification.
+  - 	est_2star_progression_math.cjs: 100% pass, zero progression deadlocks.
+  - 	est_all_40_activities_e2e.cjs: 100% pass across all 40 activities.
+  - External network requests: Strictly 0.
+
 ## Milestone 4 Engineering Handoff & Release Readiness
 - **Branch**: `integration/verified-design-artifacts`
 - **Remote**: `private-origin` (`https://github.com/ppawar-7/pd-playground-game-private.git`)

@@ -281,6 +281,8 @@ async function runTest() {
       if (state.sanityCheckProgress) {
         delete state.sanityCheckProgress['pl-legality'];
       }
+      state.levelProgress['pl-2'] = { completed: true, xpEarned: 35, stars: 3, artifacts: { cells: [{ id: 'C1', x: 20, y: 40, width: 30, height: 40 }, { id: 'C2', x: 60, y: 40, width: 20, height: 40 }] } };
+      state.levelProgress['pl-5'] = { completed: true, xpEarned: 50, stars: 3, artifacts: { offRailCells: 0, missingRailVias: 0 } };
       localStorage.setItem('pdplayground_player_v2', JSON.stringify(state));
     })()
   `);

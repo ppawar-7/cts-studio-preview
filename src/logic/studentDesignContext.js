@@ -11,7 +11,10 @@
 import {
   ARTIFACT_STATUS,
   CHECK_CLASSIFICATION,
+  validateMeasurementsForCheck,
 } from './designArtifactContracts.js';
+
+export { ARTIFACT_STATUS, CHECK_CLASSIFICATION };
 
 /**
  * Helper to safely extract verified measurements or raw artifacts from levelProgress.
@@ -30,6 +33,10 @@ function getValidMeasurements(player, levelId) {
 
 /**
  * Mapping of sanity check IDs to their prerequisite level IDs, design requirements, and classifications.
+ *
+ * Grounded Reality:
+ * - 15 checks are CERTIFIABLE_EDUCATIONAL_CHECK (backed by actual student inputs & computed models)
+ * - 11 checks are PRACTICE_ONLY (educational drills / defect exploration; zero certification XP)
  */
 export const SANITY_CHECK_REQUIREMENTS = {
   // ─── Floorplanning (3 checks) ───────────────────────────────────
@@ -51,32 +58,21 @@ export const SANITY_CHECK_REQUIREMENTS = {
     classification: CHECK_CLASSIFICATION.PRACTICE_ONLY,
     prerequisiteLevels: ['fp-5'],
     title: 'VDD/VSS Power Ring Continuity',
-    description: 'Traces power and ground distribution rings around your core boundary to ensure complete closed loops with zero open segments.',
-    extractData: (player) => {
-      const fp5 = getValidMeasurements(player, 'fp-5') || {};
-      return {
-        ringContinuous: fp5.ringContinuous ?? (fp5.powerOk !== undefined ? fp5.powerOk : true),
-        floatingPins: fp5.floatingPins ?? 0,
-      };
-    },
+    description: 'Educational practice drill: Traces power and ground distribution rings around core boundary to check for open segments.',
+    extractData: () => ({}),
   },
   'fp-missing-vias': {
     classification: CHECK_CLASSIFICATION.PRACTICE_ONLY,
     prerequisiteLevels: ['fp-5'],
     title: 'Power Grid Crossing Vias',
-    description: 'Inspects power mesh layer intersections to confirm that all orthogonal strap-to-ring crossings have via connections.',
-    extractData: (player) => {
-      const fp5 = getValidMeasurements(player, 'fp-5') || {};
-      return {
-        missingVias: fp5.missingVias ?? (fp5.powerOk === false ? 4 : 0),
-      };
-    },
+    description: 'Educational practice drill: Inspects power mesh layer intersections to confirm orthogonal strap-to-ring via connections.',
+    extractData: () => ({}),
   },
 
   // ─── Placement (5 checks) ───────────────────────────────────────
   'pl-legality': {
     classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
-    prerequisiteLevels: ['pl-1', 'pl-2', 'pl-5'],
+    prerequisiteLevels: ['pl-2', 'pl-5'],
     title: 'Cell Site Legalization & Overlap Resolution',
     description: 'Validates that placed cells snap to standard cell site rows with zero overlapping transistor active areas.',
     extractData: (player) => {
@@ -84,7 +80,7 @@ export const SANITY_CHECK_REQUIREMENTS = {
       const pl2 = getValidMeasurements(player, 'pl-2') || {};
       return {
         cells: pl5.cells || pl2.cells,
-        overlapsResolved: pl5.noOverlaps ?? pl2.overlapsResolved,
+        noOverlaps: pl5.noOverlaps ?? pl2.noOverlaps,
       };
     },
   },
@@ -103,46 +99,28 @@ export const SANITY_CHECK_REQUIREMENTS = {
     },
   },
   'pl-drc': {
-    classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
-    prerequisiteLevels: ['pl-2', 'pl-5'],
+    classification: CHECK_CLASSIFICATION.PRACTICE_ONLY,
+    prerequisiteLevels: ['pl-5'],
     title: 'Cell-to-Cell Spacing & Row Orientation',
-    description: 'Validates standard cell row alignment, boundary clearances, and latchup well-tap pitch.',
-    extractData: (player) => {
-      const pl5 = getValidMeasurements(player, 'pl-5') || {};
-      return {
-        boundaryClearance: pl5.boundaryClearance,
-        nwellAligned: pl5.nwellAligned,
-        maxTapPitch: pl5.maxTapPitch ?? pl5.wellTapPitch,
-        wellTapPitch: pl5.wellTapPitch ?? pl5.maxTapPitch,
-      };
-    },
+    description: 'Educational practice drill: Validates standard cell row alignment, boundary clearances, and latchup well-tap pitch.',
+    extractData: () => ({}),
   },
   'pl-connectivity': {
-    classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
-    prerequisiteLevels: ['pl-3', 'pl-5'],
+    classification: CHECK_CLASSIFICATION.PRACTICE_ONLY,
+    prerequisiteLevels: ['pl-5'],
     title: 'Placement Net Connectivity',
-    description: 'Ensures all logical nets connect driver cell outputs to receiver cell inputs with zero unrouted terminals.',
-    extractData: (player) => {
-      const pl5 = getValidMeasurements(player, 'pl-5') || {};
-      return {
-        floatingPins: pl5.floatingPins ?? pl5.unplacedPins ?? 0,
-        unplacedPins: pl5.unplacedPins ?? pl5.floatingPins ?? 0,
-        unconnectedNets: pl5.unconnectedNets ?? 0,
-      };
-    },
+    description: 'Educational practice drill: Ensures all logical nets connect driver cell outputs to receiver cell inputs with zero unrouted terminals.',
+    extractData: () => ({}),
   },
   'pl-missing-vias': {
     classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
     prerequisiteLevels: ['pl-5'],
     title: 'Standard Cell Power Rail Tie-Offs & Well-Taps',
-    description: 'Verifies that substrate tap cells maintain required latchup spacing (<= 30 µm) and cell power pins connect to rails.',
+    description: 'Verifies that placed standard cells snap to row power rails with 0 off-rail instances.',
     extractData: (player) => {
       const pl5 = getValidMeasurements(player, 'pl-5') || {};
       return {
-        wellTapPitch: pl5.wellTapPitch ?? pl5.maxTapPitch,
-        maxTapPitch: pl5.maxTapPitch ?? pl5.wellTapPitch,
-        missingRailVias: pl5.missingRailVias ?? pl5.offRailCells ?? 0,
-        offRailCells: pl5.offRailCells ?? pl5.missingRailVias ?? 0,
+        offRailCells: pl5.offRailCells ?? pl5.missingRailVias,
       };
     },
   },
@@ -177,29 +155,22 @@ export const SANITY_CHECK_REQUIREMENTS = {
     },
   },
   'cts-qor': {
-    classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
-    prerequisiteLevels: ['cts-4', 'cts-5'],
+    classification: CHECK_CLASSIFICATION.PRACTICE_ONLY,
+    prerequisiteLevels: ['cts-5'],
     title: 'Clock Tree Quality of Results (QoR)',
-    description: 'Evaluates max insertion latency (<= 300 ps) and clock slew transition times (<= 80 ps).',
-    extractData: (player) => {
-      const cts5 = getValidMeasurements(player, 'cts-5') || {};
-      return {
-        maxLatencyPs: cts5.maxLatencyPs,
-        maxTransitionPs: cts5.maxTransitionPs,
-        maxSlewPs: cts5.maxSlewPs ?? cts5.maxTransitionPs,
-      };
-    },
+    description: 'Educational practice drill: Evaluates max insertion latency (<= 300 ps) and clock slew transition times (<= 80 ps).',
+    extractData: () => ({}),
   },
   'cts-clock-tree-report': {
     classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
     prerequisiteLevels: ['cts-5'],
     title: 'Clock Skew Balance Across Sinks',
-    description: 'Measures arrival time variance between launch and capture registers to confirm clock skew <= 30 ps.',
+    description: 'Measures arrival time variance between launch and capture registers to confirm clock skew <= 50 ps.',
     extractData: (player) => {
       const cts5 = getValidMeasurements(player, 'cts-5') || {};
       return {
         skewPs: cts5.skewPs,
-        latencyPs: cts5.latencyPs,
+        latencyPs: cts5.latencyPs ?? cts5.maxLatencyPs,
         stages: cts5.stages,
         sinks: cts5.sinks,
       };
@@ -208,17 +179,11 @@ export const SANITY_CHECK_REQUIREMENTS = {
 
   // ─── Routing (5 checks) ─────────────────────────────────────────
   'rt-routes': {
-    classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
-    prerequisiteLevels: ['rt-1', 'rt-5'],
+    classification: CHECK_CLASSIFICATION.PRACTICE_ONLY,
+    prerequisiteLevels: ['rt-5'],
     title: 'Detailed Routing Net Completion',
-    description: 'Verifies 100% net completion with zero unrouted antenna opens or dangling wire fragments.',
-    extractData: (player) => {
-      const rt5 = getValidMeasurements(player, 'rt-5') || {};
-      return {
-        unroutedNets: rt5.unroutedNets,
-        openSegments: rt5.openSegments,
-      };
-    },
+    description: 'Educational practice drill: Verifies 100% net completion with zero unrouted antenna opens or dangling wire fragments.',
+    extractData: () => ({}),
   },
   'rt-lvs': {
     classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
@@ -228,45 +193,37 @@ export const SANITY_CHECK_REQUIREMENTS = {
     extractData: (player) => {
       const rt5 = getValidMeasurements(player, 'rt-5') || {};
       return {
-        shorts: rt5.hasShorts ? 1 : (rt5.shorts ?? 0),
-        hasShorts: rt5.hasShorts ?? (rt5.shorts ? rt5.shorts > 0 : false),
-        opens: rt5.opens ?? 0,
+        shorts: rt5.shorts,
+        hasShorts: rt5.hasShorts,
+        lvsMatch: rt5.lvsMatch,
         segments: rt5.segments,
       };
     },
   },
   'rt-timing': {
-    classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
-    prerequisiteLevels: ['rt-4', 'rt-5'],
+    classification: CHECK_CLASSIFICATION.PRACTICE_ONLY,
+    prerequisiteLevels: ['rt-5'],
     title: 'Post-Route Parasitic RC Timing Sign-Off',
-    description: 'Calculates distributed wire delays using extracted SPEF parasitic resistances and capacitances.',
-    extractData: (player) => {
-      const rt5 = getValidMeasurements(player, 'rt-5') || {};
-      return {
-        wnsPs: rt5.wnsPs,
-        worstNegativeSlackNs: rt5.timingSlackNs ?? (typeof rt5.wnsPs === 'number' ? rt5.wnsPs / 1000 : undefined),
-      };
-    },
+    description: 'Educational practice drill: Calculates distributed wire delays using extracted SPEF parasitic resistances and capacitances.',
+    extractData: () => ({}),
   },
   'rt-design': {
     classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
-    prerequisiteLevels: ['rt-3', 'rt-5'],
+    prerequisiteLevels: ['rt-3'],
     title: 'Via Enclosure & Metal Spacing DRC',
-    description: 'Validates metal wire width, spacing, notch rules, and via layer enclosure margins (>= 0.05 µm).',
+    description: 'Validates metal wire width, spacing, notch rules, and via layer enclosure margins (>= 0.010 µm).',
     extractData: (player) => {
       const rt3 = getValidMeasurements(player, 'rt-3') || {};
-      const rt5 = getValidMeasurements(player, 'rt-5') || {};
       return {
         enclosureUm: rt3.viaEnclosureUm ?? rt3.enclosureUm,
         viaEnclosureUm: rt3.viaEnclosureUm ?? rt3.enclosureUm,
-        drcErrors: rt5.drcErrors ?? rt3.drcErrors ?? rt3.drcViolations ?? 0,
-        drcViolations: rt3.drcViolations ?? rt5.drcErrors ?? 0,
+        drcErrors: rt3.drcViolations ?? 0,
       };
     },
   },
   'rt-constraints': {
     classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
-    prerequisiteLevels: ['rt-4', 'rt-5'],
+    prerequisiteLevels: ['rt-4'],
     title: 'Signal Integrity & Crosstalk Noise Budget',
     description: 'Evaluates dynamic cross-coupling glitch voltage (<= 50 mV) on sensitive signal nets.',
     extractData: (player) => {
@@ -274,9 +231,7 @@ export const SANITY_CHECK_REQUIREMENTS = {
       return {
         glitchVoltageMv: rt4.glitchVoltageMv ?? rt4.maxVictimNoiseMv,
         maxVictimNoiseMv: rt4.maxVictimNoiseMv ?? rt4.glitchVoltageMv,
-        crosstalkMv: rt4.crosstalkMv ?? rt4.maxVictimNoiseMv ?? rt4.glitchVoltageMv,
         maxAllowedNoiseMv: rt4.maxAllowedNoiseMv || 50,
-        unconstrained: rt4.unconstrained ?? 0,
       };
     },
   },
@@ -284,7 +239,7 @@ export const SANITY_CHECK_REQUIREMENTS = {
   // ─── Filler Cells (9 checks) ────────────────────────────────────
   'fc-legality': {
     classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
-    prerequisiteLevels: ['fc-1', 'fc-3'],
+    prerequisiteLevels: ['fc-5'],
     title: '100% Standard Cell Row Fill Ratio',
     description: 'Verifies that every empty site in the row is populated with legal discrete filler cells (FILL1 to FILL64).',
     extractData: (player) => {
@@ -292,14 +247,14 @@ export const SANITY_CHECK_REQUIREMENTS = {
       const fc3 = getValidMeasurements(player, 'fc-3') || {};
       return {
         emptySites: fc5.emptySites ?? fc3.emptySites,
-        offSiteCount: fc5.emptySites ?? fc3.emptySites,
+        totalSitesFilled: fc5.totalSitesFilled ?? fc3.totalSitesFilled,
         rowFillPercent: fc5.rowFillPercent ?? fc3.rowFillPercent,
       };
     },
   },
   'fc-drc': {
     classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
-    prerequisiteLevels: ['fc-3', 'fc-5'],
+    prerequisiteLevels: ['fc-5'],
     title: 'Base Layer Diffusion & Poly DRC',
     description: 'Checks diffusion notch spacing between active standard cells and adjacent filler cells.',
     extractData: (player) => {
@@ -319,38 +274,22 @@ export const SANITY_CHECK_REQUIREMENTS = {
       const fc3 = getValidMeasurements(player, 'fc-3') || {};
       return {
         wellContinuityMet: fc3.wellContinuityMet,
-        chosenFillers: fc3.chosenFillers,
-        railGaps: fc3.railGaps ?? (fc3.wellContinuityMet ? 0 : 2),
       };
     },
   },
   'fc-design': {
-    classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
-    prerequisiteLevels: ['fc-2', 'fc-5'],
+    classification: CHECK_CLASSIFICATION.PRACTICE_ONLY,
+    prerequisiteLevels: ['fc-5'],
     title: 'Physical-Only Cell Placement Integrity',
-    description: 'Confirms that row endcaps terminate boundary rows and tap cells maintain continuous latchup immunity.',
-    extractData: (player) => {
-      const fc5 = getValidMeasurements(player, 'fc-5') || {};
-      return {
-        endcapsPresent: fc5.endcapsPresent,
-        tapCellsContinuous: fc5.tapCellsContinuous,
-        densityPercent: fc5.densityPercent,
-      };
-    },
+    description: 'Educational practice drill: Confirms that row endcaps terminate boundary rows and tap cells maintain latchup immunity.',
+    extractData: () => ({}),
   },
   'fc-timing': {
-    classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
-    prerequisiteLevels: ['fc-4', 'fc-5'],
+    classification: CHECK_CLASSIFICATION.PRACTICE_ONLY,
+    prerequisiteLevels: ['fc-5'],
     title: 'Filler Parasitic Interconnect Impact',
-    description: 'Verifies that added decoupling capacitors do not introduce intolerable capacitive loading on adjacent signal nets.',
-    extractData: (player) => {
-      const fc5 = getValidMeasurements(player, 'fc-5') || {};
-      return {
-        timingImpactPs: fc5.timingImpactPs,
-        slackDeltaPs: fc5.slackDeltaPs ?? (typeof fc5.timingImpactPs === 'number' ? -fc5.timingImpactPs : undefined),
-        maxAllowedImpactPs: 5.0,
-      };
-    },
+    description: 'Educational practice drill: Verifies that added decoupling capacitors do not introduce intolerable capacitive loading.',
+    extractData: () => ({}),
   },
   'fc-constraints': {
     classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
@@ -362,15 +301,13 @@ export const SANITY_CHECK_REQUIREMENTS = {
       return {
         droopMv: fc4.droopMv,
         maxAllowedDroopMv: fc4.maxAllowedDroopMv || 40,
-        decapCapFf: fc4.decapCapFf,
         decapCapPf: fc4.decapCapPf,
-        drcViolations: fc4.drcViolations ?? 0,
       };
     },
   },
   'fc-power': {
     classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
-    prerequisiteLevels: ['fc-4', 'fc-5'],
+    prerequisiteLevels: ['fc-4'],
     title: 'Decap Gate Oxide Tunneling Leakage',
     description: 'Checks total gate leakage current added by MOS decap cells to confirm standby power remains within budget (<= 20 µA).',
     extractData: (player) => {
@@ -379,51 +316,39 @@ export const SANITY_CHECK_REQUIREMENTS = {
         leakageUa: fc4.leakageUa,
         maxAllowedLeakageUa: fc4.maxAllowedLeakageUa || 20.0,
         decapCapPf: fc4.decapCapPf,
-        droopMv: fc4.droopMv,
       };
     },
   },
   'fc-qor': {
-    classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
+    classification: CHECK_CLASSIFICATION.PRACTICE_ONLY,
     prerequisiteLevels: ['fc-5'],
     title: 'Filler Cell Quality of Results Scorecard',
-    description: 'Comprehensive scorecard checking row fill legality, continuous N-well diffusion, and decap protection.',
-    extractData: (player) => {
-      const fc5 = getValidMeasurements(player, 'fc-5') || {};
-      return {
-        qorScore: fc5.qorScore,
-        irMarginPercent: fc5.irMarginPercent ?? fc5.qorScore,
-        minPassingScore: 90,
-      };
-    },
+    description: 'Educational practice drill: Comprehensive scorecard checking row fill legality, continuous N-well diffusion, and decap protection.',
+    extractData: () => ({}),
   },
   'fc-congestion': {
-    classification: CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK,
+    classification: CHECK_CLASSIFICATION.PRACTICE_ONLY,
     prerequisiteLevels: ['fc-5'],
     title: 'Filler Pin Blockage & Routing Track Availability',
-    description: 'Ensures physical-only filler cells do not block upper metal routing tracks or obstruct pin access.',
-    extractData: (player) => {
-      const fc5 = getValidMeasurements(player, 'fc-5') || {};
-      return {
-        routingBlockages: fc5.routingBlockages,
-        pinBlocks: fc5.pinBlocks ?? fc5.routingBlockages ?? 0,
-      };
-    },
+    description: 'Educational practice drill: Ensures physical-only filler cells do not block upper metal routing tracks.',
+    extractData: () => ({}),
   },
 };
 
 /**
- * Check whether a student has completed prerequisite levels to run a sanity check on their design.
+ * Check whether a student has completed prerequisite levels and generated valid artifacts
+ * to run a sanity check on their design.
  *
  * @param {Object} player - Player state object from PlayerContext
  * @param {string} checkId - Sanity check identifier
- * @returns {{ canCertify: boolean, missingPrerequisites: Array<string>, status: string, reason: string, requirement: Object, designData: Object }}
+ * @returns {{ canCertify: boolean, isPracticeOnly: boolean, missingPrerequisites: Array<string>, status: string, reason: string, requirement: Object, designData: Object }}
  */
 export function getStudentDesignForSanityCheck(player, checkId) {
   const req = SANITY_CHECK_REQUIREMENTS[checkId];
   if (!req) {
     return {
       canCertify: false,
+      isPracticeOnly: false,
       missingPrerequisites: [],
       status: ARTIFACT_STATUS.UNSUPPORTED_MODEL,
       reason: `Unknown sanity check identifier: ${checkId}`,
@@ -433,6 +358,8 @@ export function getStudentDesignForSanityCheck(player, checkId) {
   }
 
   const levelProgress = player?.levelProgress || {};
+
+  // Check 1: Incomplete prerequisite levels
   const missingPrerequisites = req.prerequisiteLevels.filter(
     (lvlId) => !levelProgress[lvlId]?.completed
   );
@@ -440,6 +367,7 @@ export function getStudentDesignForSanityCheck(player, checkId) {
   if (missingPrerequisites.length > 0) {
     return {
       canCertify: false,
+      isPracticeOnly: req.classification === CHECK_CLASSIFICATION.PRACTICE_ONLY,
       missingPrerequisites,
       status: ARTIFACT_STATUS.MISSING_PREREQUISITE,
       reason: `Prerequisite design missing: Complete ${missingPrerequisites.join(', ')} to generate your layout geometry first.`,
@@ -448,10 +376,55 @@ export function getStudentDesignForSanityCheck(player, checkId) {
     };
   }
 
-  // Student has completed all prerequisite levels! Extract real design state
+  // PRACTICE_ONLY checks can never certify, but once prerequisites are met, allow practice mode
+  if (req.classification === CHECK_CLASSIFICATION.PRACTICE_ONLY) {
+    return {
+      canCertify: false,
+      isPracticeOnly: true,
+      missingPrerequisites: [],
+      status: ARTIFACT_STATUS.PRACTICE_ONLY,
+      reason: 'This stage check is an educational demonstration and fault drill. Certification XP is not available.',
+      requirement: req,
+      designData: {},
+    };
+  }
+
+  // Check 2: Level marked completed, but missing design artifact envelope
+  const missingArtifacts = req.prerequisiteLevels.filter(
+    (lvlId) => !levelProgress[lvlId]?.artifacts || typeof levelProgress[lvlId].artifacts !== 'object'
+  );
+
+  if (missingArtifacts.length > 0) {
+    return {
+      canCertify: false,
+      isPracticeOnly: false,
+      missingPrerequisites: missingArtifacts,
+      status: ARTIFACT_STATUS.MISSING_ARTIFACT,
+      reason: `Prerequisite level ${missingArtifacts.join(', ')} is marked completed, but design artifacts are missing. Replay and complete the challenge to generate geometry.`,
+      requirement: req,
+      designData: {},
+    };
+  }
+
+  // Check 3: Extract data and validate mandatory physical fields
   const designData = req.extractData(player);
+  const measurementValidation = validateMeasurementsForCheck(checkId, designData);
+
+  if (!measurementValidation.isValid) {
+    return {
+      canCertify: false,
+      isPracticeOnly: false,
+      missingPrerequisites: [],
+      status: ARTIFACT_STATUS.INVALID_ARTIFACT,
+      reason: `Extracted student design measurements for ${checkId} are incomplete or invalid: ${measurementValidation.missingFields.join(', ')}.`,
+      requirement: req,
+      designData: {},
+    };
+  }
+
   return {
     canCertify: true,
+    isPracticeOnly: false,
     missingPrerequisites: [],
     status: ARTIFACT_STATUS.READY,
     reason: 'Student design parameters verified and ready for sign-off evaluation.',

@@ -32,20 +32,37 @@ To deliver interactive, instant-feedback simulations in pure client-side JavaScr
 
 ---
 
-## 2. Browser Environment & Performance
+## 2. Stage Sanity Check Classification: 15 Certifiable vs 11 Practice-Only Checks
 
-### 2.1 Execution Boundary
+Across the physical design kingdoms, exactly 26 stage sanity checks are implemented. In keeping with absolute technical integrity:
+
+1. **15 Certifiable Educational Checks**:
+   - Evaluated against genuine student design artifacts emitted during activity completion.
+   - Strictly fail closed if prerequisite levels are incomplete or design artifacts are missing/invalid.
+   - Award +25 XP upon passing.
+   - Count toward stage certification badges and kingdom completion.
+
+2. **11 Practice-Only Stage Checks**:
+   - Dedicated pedagogical demonstration drills and interactive fault-injection sandboxes.
+   - Designed to teach students failure diagnostics and physical rule concepts without requiring the upstream web activities to emit unmodelled commercial metrics (such as global pin accessibility maps or full CMP density tile scans).
+   - Award 0 XP upon completion and do not block kingdom completion or certification.
+
+---
+
+## 3. Browser Environment & Performance
+
+### 3.1 Execution Boundary
 - All simulation and verification happens in the student's browser thread.
 - Pure JavaScript runtime with zero WebAssembly or native C++ EDA binary dependencies.
 - Memory consumption is bounded to $< 50\ \text{MB}$ heap usage.
 
-### 2.2 Device & Screen Responsiveness
+### 3.2 Device & Screen Responsiveness
 - **Desktop Optimization**: The EDA schematic canvases, interactive truth tables, and placement grids are optimized for viewports $\ge 1024\ \text{px}$ wide.
 - **Mobile Viewports**: On mobile screens ($< 768\ \text{px}$), complex multi-column layout tables and routing grid editors enable horizontal scrolling. For the best physical design laboratory experience, a desktop or laptop display is strongly recommended.
 
 ---
 
-## 3. Relationship to Standalone Companion Playgrounds
+## 4. Relationship to Standalone Companion Playgrounds
 
 The PD Playground ecosystem includes two specialized companion tools:
 
@@ -57,10 +74,9 @@ The PD Playground ecosystem includes two specialized companion tools:
    - Standalone Static Timing Analysis tool with graph-based path tracing, setup/hold slack histograms, and PVT deratings.
    - Preserved as an independent laboratory and cross-linked from the Synthesis and CTS Kingdoms.
 
-
 ---
 
-## 6. Educational Threat Model & Client-Side Sandbox Scope
+## 5. Educational Threat Model & Client-Side Sandbox Scope
 
 PD Playground is designed as an offline-first educational desktop/browser learning environment:
 - **No Server-Side Anti-Cheat:** All progression state resides in the browser's `localStorage` (`pdplayground_player_v2`). While internal JavaScript pipelines enforce strict type-checking and mathematical validators prevent unearned UI rewards, an advanced user with access to browser developer tools can manually inspect or edit local storage.

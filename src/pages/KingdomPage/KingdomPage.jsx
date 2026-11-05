@@ -89,7 +89,7 @@ export default function KingdomPage() {
   const handleOpenCheck = (check) => {
     const auditInfo = getStudentDesignForSanityCheck(player, check.id);
     setStudentAuditInfo(auditInfo);
-    setAuditMode('student');
+    setAuditMode(auditInfo?.isPracticeOnly ? 'demo' : 'student');
     setDemoDefect(false);
     setActiveCheck(check);
     setRunningSimulation(false);
@@ -97,7 +97,7 @@ export default function KingdomPage() {
     const alreadyPassed = isSanityCheckPassed(player, check.id);
     setSimulationDone(alreadyPassed);
     setSimulationPassed(true);
-    setSimulationCanCertify(alreadyPassed);
+    setSimulationCanCertify(alreadyPassed && !auditInfo?.isPracticeOnly);
     setSimulationLogs([]);
   };
 

@@ -46,17 +46,17 @@ flowchart TD
 
 ## 2. Kingdom XP Thresholds & Reward Matrix
 
-| Order | Kingdom ID | Name | Core Levels | `pointsToUnlockNext` | Max Level XP | Sanity Checks | Sanity XP | Kingdom Bonus | Max Total Kingdom XP |
-| :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| 1 | `rtl-understanding` | RTL Understanding | 5 | 140 | 200 | 0 | 0 | +50 | 250 |
-| 2 | `synthesis` | Logic Synthesis | 5 | 140 | 200 | 0 | 0 | +50 | 250 |
-| 3 | `floorplanning` | Floorplanning | 5 | 140 | 200 | 3 | 60 | +50 | 310 |
-| 4 | `placement` | Placement | 5 | 140 | 200 | 5 | 100 | +50 | 350 |
-| 5 | `cts` | Clock Tree Synthesis | 5 | 140 | 200 | 4 | 80 | +50 | 330 |
-| 6 | `routing` | Routing | 5 | 140 | 200 | 5 | 100 | +50 | 350 |
-| 7 | `filler-cells` | Filler Cells | 5 | 140 | 200 | 9 | 180 | +50 | 430 |
-| 8 | `gds` | GDSII & Tape-Out | 5 | 0 | 200 | 0 | 0 | +50 | 250 |
-| **Total** | — | **All 8 Kingdoms** | **40** | — | **1600** | **26** | **520** | **+400** | **2520 XP** |
+| Order | Kingdom ID | Name | Core Levels | `pointsToUnlockNext` | Max Level XP | Certifiable Checks | Practice Checks | Certifiable Sanity XP | Kingdom Bonus | Max Total Kingdom XP |
+| :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| 1 | `rtl-understanding` | RTL Understanding | 5 | 140 | 200 | 0 | 0 | 0 | +50 | 250 |
+| 2 | `synthesis` | Logic Synthesis | 5 | 140 | 200 | 0 | 0 | 0 | +50 | 250 |
+| 3 | `floorplanning` | Floorplanning | 5 | 140 | 200 | 1 | 2 | 25 | +50 | 275 |
+| 4 | `placement` | Placement | 5 | 140 | 200 | 3 | 2 | 75 | +50 | 325 |
+| 5 | `cts` | Clock Tree Synthesis | 5 | 140 | 200 | 3 | 1 | 75 | +50 | 325 |
+| 6 | `routing` | Routing | 5 | 140 | 200 | 3 | 2 | 75 | +50 | 325 |
+| 7 | `filler-cells` | Filler Cells | 5 | 140 | 200 | 5 | 4 | 125 | +50 | 375 |
+| 8 | `gds` | GDSII & Tape-Out | 5 | 0 | 200 | 0 | 0 | 0 | +50 | 250 |
+| **Total** | — | **All 8 Kingdoms** | **40** | — | **1600** | **15** | **11** | **375** | **+400** | **2375 XP** |
 
 ---
 
@@ -75,7 +75,7 @@ Each kingdom contains exactly 5 core concept levels.
 The curriculum uses calibrated score gates to ensure mathematical progression continuity: **any student who earns the lowest acceptable passing score (2 stars) is mathematically guaranteed to unlock the next level and next kingdom without deadlocks or manual replay grinding**.
 
 | Level | Role / Concept Focus | `pointsRequired` | Max `xpReward` | 1-Star Threshold | 2-Star Threshold | 3-Star Threshold | Cumulative 2-Star XP | Next Gate Requirement |
-| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Level 1** | Conceptual Foundation & Core Primitive | 0 XP | 30 XP | 10 XP | **20 XP** | 30 XP | 20 XP | 20 XP (Level 2 Unlocks) |
 | **Level 2** | Architecture, Formats, & Syntax | 20 XP | 35 XP | 12 XP | **24 XP** | 35 XP | 44 XP | 44 XP (Level 3 Unlocks) |
 | **Level 3** | Quantitative Analysis & Trade-Offs | 44 XP | 40 XP | 15 XP | **28 XP** | 40 XP | 72 XP | 72 XP (Level 4 Unlocks) |
@@ -111,23 +111,52 @@ When a student replays an already completed level:
 
 ---
 
-## 4. Sanity Check Sign-Off Audits (Side Quests)
+## 4. Sanity Check Architecture: Certifiable vs Practice-Only Checks
 
-Sanity checks are stage-specific verification audits.
+Across the 5 physical design kingdoms, exactly 26 stage sanity checks are implemented. They fall into two distinct, documented categories:
 
-### 4.1 Activation Prerequisite
-Sanity checks for Kingdom $K$ become active (`status === 'available'`) only when **all 5 core levels** of Kingdom $K$ have been completed. This ensures the physical design database exists before running verification ruledecks.
+### 4.1 Exactly 15 Certifiable Stage Checks (`CERTIFIABLE_EDUCATIONAL_CHECK`)
+These checks verify genuine, engine-derived layout geometry and physical measurements emitted by student submissions in prerequisite levels.
+- **Fail-Closed Verification**: If prerequisite levels are incomplete, or if design artifacts are missing, corrupt, or contain invalid measurements (`NaN`, `Infinity`, negative geometry), the engine **strictly fails closed** with `canCertify: false, passed: false`. No clean fallback defaults are ever substituted.
+- **XP Reward**: 25 XP awarded once upon initial certification. Subsequent runs confirm compliance with 0 additional XP.
+- **Kingdom Completion Gating**: 100% kingdom completion and the gold Stage Certified badge require completing all 5 concept levels AND certifying all certifiable sanity checks in that kingdom.
 
-### 4.2 Sequential Chaining
-- Sanity Check #1 in a kingdom is available immediately after core levels are done.
-- Sanity Check $\#i$ ($i > 1$) unlocks when Sanity Check $\#(i-1)$ has passed.
+### 4.2 Exactly 11 Practice-Only Stage Checks (`PRACTICE_ONLY`)
+These checks are dedicated pedagogical demonstration drills and interactive fault-injection sandboxes.
+- **Pedagogical Purpose**: Enable students to observe simulated foundry defects, ruledeck diagnostics, and physical failure modes without requiring complex multi-stage layout synthesis.
+- **No Progression Blocking**: Practice-only checks unlock when prerequisite levels are done. They are recorded with `drilled: true, score: 0, certified: false` upon drill completion and award **0 certification XP**.
+- **Non-Blocking Invariant**: Practice-only checks **never** block kingdom completion or stage certification badges.
 
-### 4.3 Certification & Bonus XP
-When a student runs a sanity check:
-- The domain engine executes the corresponding ruledeck.
-- If physical design criteria are satisfied (e.g. 0 overlaps, $\text{droop} \le 50\ \text{mV}$, $\text{skew} \le 80\ \text{ps}$), the student can click **🛡️ Sign-Off & Certify Stage Check**.
-- Awards check `xpReward` (typically $20\ \text{XP}$).
-- When **all** sanity checks in the kingdom are certified, the player earns an additional **+50 XP Stage Certification Bonus** and a permanent gold badge on the world map.
+### 4.3 Stage Sanity Check Classification Table
+
+| Kingdom | Check ID | Classification | Prerequisite Levels | Verification Focus | Certification XP |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| **Floorplanning** | `fp-drc` | `CERTIFIABLE` | `fp-4`, `fp-5` | Core boundary margin & macro halo clearances | 25 XP |
+| Floorplanning | `fp-connectivity` | `PRACTICE_ONLY` | `fp-5` | Power ring continuity fault drill | 0 XP |
+| Floorplanning | `fp-missing-vias` | `PRACTICE_ONLY` | `fp-5` | Power mesh via intersection drill | 0 XP |
+| **Placement** | `pl-legality` | `CERTIFIABLE` | `pl-2`, `pl-5` | Standard cell row site snapping & 0 overlaps | 25 XP |
+| Placement | `pl-congestion` | `CERTIFIABLE` | `pl-4` | Peak GCell congestion ratio ($\le 1.0$) | 25 XP |
+| Placement | `pl-drc` | `PRACTICE_ONLY` | `pl-5` | Latchup well-tap spacing demonstration drill | 0 XP |
+| Placement | `pl-connectivity` | `PRACTICE_ONLY` | `pl-5` | Netlist pin binding demonstration drill | 0 XP |
+| Placement | `pl-missing-vias` | `CERTIFIABLE` | `pl-5` | Cell power pin rail snap & 0 off-rail cells | 25 XP |
+| **CTS** | `cts-clock-tree-report` | `CERTIFIABLE` | `cts-5` | Clock arrival skew balance ($\le 50$ ps) | 25 XP |
+| CTS | `cts-timing-reports` | `CERTIFIABLE` | `cts-2` | Post-CTS setup & hold timing closure | 25 XP |
+| CTS | `cts-power` | `CERTIFIABLE` | `cts-3`, `cts-5` | Clock buffer switching dissipation ($\le 5.0$ mW) | 25 XP |
+| CTS | `cts-qor` | `PRACTICE_ONLY` | `cts-5` | Max clock slew transition drill | 0 XP |
+| **Routing** | `rt-lvs` | `CERTIFIABLE` | `rt-5` | Detailed route LVS netlist match & 0 shorts | 25 XP |
+| Routing | `rt-design` | `CERTIFIABLE` | `rt-3` | Via enclosure ($\ge 0.010$ µm) & DRC pitch rules | 25 XP |
+| Routing | `rt-constraints` | `CERTIFIABLE` | `rt-4` | Signal integrity crosstalk glitch noise ($\le 50$ mV) | 25 XP |
+| Routing | `rt-routes` | `PRACTICE_ONLY` | `rt-5` | Open net track continuity drill | 0 XP |
+| Routing | `rt-timing` | `PRACTICE_ONLY` | `rt-5` | Post-route SPEF RC timing slack drill | 0 XP |
+| **Filler Cells** | `fc-legality` | `CERTIFIABLE` | `fc-5` | 100% standard cell row discrete fill ratio | 25 XP |
+| Filler Cells | `fc-drc` | `CERTIFIABLE` | `fc-5` | Base layer poly & diffusion notch DRC | 25 XP |
+| Filler Cells | `fc-connectivity` | `CERTIFIABLE` | `fc-3` | Continuous N-well & substrate bias | 25 XP |
+| Filler Cells | `fc-constraints` | `CERTIFIABLE` | `fc-4` | Dynamic power rail droop suppression ($\le 40$ mV) | 25 XP |
+| Filler Cells | `fc-power` | `CERTIFIABLE` | `fc-4` | Decap gate oxide tunneling leakage ($\le 20\ \mu\text{A}$) | 25 XP |
+| Filler Cells | `fc-design` | `PRACTICE_ONLY` | `fc-5` | Row endcap and tap boundary drill | 0 XP |
+| Filler Cells | `fc-timing` | `PRACTICE_ONLY` | `fc-5` | Filler parasitic interconnect impact drill | 0 XP |
+| Filler Cells | `fc-qor` | `PRACTICE_ONLY` | `fc-5` | Composite filler quality of results scorecard | 0 XP |
+| Filler Cells | `fc-congestion` | `PRACTICE_ONLY` | `fc-5` | Pin blockage & upper routing track availability | 0 XP |
 
 ---
 
@@ -146,7 +175,7 @@ When a student runs a sanity check:
 | 8 | Route Master | 1400 XP |
 | 9 | Filler Wizard | 1800 XP |
 | 10 | Tape-Out Legend | 2250 XP |
-| 11 | ASIC Grandmaster | 2800 XP |
+| 11 | ASIC Grandmaster | 2600 XP |
 
 ### 5.2 Achievements
 
@@ -164,14 +193,14 @@ When a student runs a sanity check:
 | `gds-master` | Tape-Out Champion | Complete all levels of GDSII Kingdom | All 5 GDS levels completed |
 | `grandmaster` | ASIC Grandmaster | Complete all 8 kingdoms across the flow | All 8 kingdoms completed |
 
-
 ---
 
-## 7. Replay Delta Scoring Formula & Certification Idempotence
+## 6. Replay Delta Scoring Formula & Certification Stale Handling
 
-When a student replays an activity to achieve a higher score or refine their design geometry:
+When a student replays an activity:
 $$\Delta \text{XP} = \max(0, \text{NewScore} - \text{PreviouslyRecordedXP})$$
 
-- Total player XP increases only by $\Delta \text{XP}$, preventing artificial XP grinding while fully rewarding genuine engineering optimization.
-- The corresponding `studentDesignArtifacts` record is replaced with the newly validated layout artifact.
-- Certified stage sanity checks award $25\text{ XP}$ upon initial certification. Subsequent runs of certified checks confirm compliance without awarding duplicate XP.
+1. **XP Delta**: Total player XP increases only by $\Delta \text{XP}$, preventing artificial XP grinding while fully rewarding genuine engineering optimization.
+2. **Clean Artifact Envelope Replacement**: Replaying an activity completely replaces its stored artifact envelope with new deterministic measurements derived from the student's submission.
+3. **Stale Certification Detection**: If a student replays a level and submits a design that violates a previously certified check's constraints, the certification engine detects this and transitions the certification to `stale: true, certified: false`, requiring the student to re-verify compliance before re-earning the certification.
+4. **No Double-Dipping**: Re-certifying a revalidated check confirms compliance with $0\text{ additional XP}$ (the $25\text{ XP}$ was already awarded previously).

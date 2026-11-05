@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   SANITY_CHECK_REQUIREMENTS,
   getStudentDesignForSanityCheck,
+  CHECK_CLASSIFICATION,
 } from '../../logic/studentDesignContext';
 
 describe('studentDesignContext — 26 Sanity Check Requirements & Student Artifact Extraction', () => {
@@ -46,6 +47,18 @@ describe('studentDesignContext — 26 Sanity Check Requirements & Student Artifa
       expect(SANITY_CHECK_REQUIREMENTS[checkId].prerequisiteLevels.length).toBeGreaterThan(0);
       expect(typeof SANITY_CHECK_REQUIREMENTS[checkId].extractData).toBe('function');
     });
+  });
+
+  it('classifies checks strictly into 15 certifiable and 11 practice-only', () => {
+    const certifiable = ALL_26_CHECKS.filter(
+      (id) => SANITY_CHECK_REQUIREMENTS[id].classification === CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK
+    );
+    const practice = ALL_26_CHECKS.filter(
+      (id) => SANITY_CHECK_REQUIREMENTS[id].classification === CHECK_CLASSIFICATION.PRACTICE_ONLY
+    );
+
+    expect(certifiable).toHaveLength(15);
+    expect(practice).toHaveLength(11);
   });
 
   it('rejects unknown sanity check IDs with clean feedback', () => {
@@ -102,25 +115,25 @@ describe('studentDesignContext — 26 Sanity Check Requirements & Student Artifa
     expect(resFpDrc.designData.halo).toBe(16.0);
 
     const resFpConn = getStudentDesignForSanityCheck(fullyCompletedPlayer, 'fp-connectivity');
-    expect(resFpConn.canCertify).toBe(true);
-    expect(resFpConn.designData.ringContinuous).toBe(true);
-    expect(resFpConn.designData.floatingPins).toBe(0);
+    expect(resFpConn.canCertify).toBe(false);
+    expect(resFpConn.isPracticeOnly).toBe(true);
 
     const resFpVias = getStudentDesignForSanityCheck(fullyCompletedPlayer, 'fp-missing-vias');
-    expect(resFpVias.canCertify).toBe(true);
-    expect(resFpVias.designData.missingVias).toBe(0);
+    expect(resFpVias.canCertify).toBe(false);
+    expect(resFpVias.isPracticeOnly).toBe(true);
   });
 
   it('extracts custom student placement and CTS metrics accurately', () => {
     const student = {
       levelProgress: {
         'cts-2': { completed: true, artifacts: { setupSlack: 0.045, holdSlack: 0.050, skewPs: 25 } },
-        'cts-3': { completed: true },
+        'cts-3': { completed: true, artifacts: { gatingEfficiencyPercent: 85 } },
         'cts-4': { completed: true },
         'cts-5': {
           completed: true,
           artifacts: {
             powerMw: 3.2,
+            latencyPs: 190,
             maxLatencyPs: 190,
             maxTransitionPs: 55,
             skewPs: 22,
@@ -138,8 +151,8 @@ describe('studentDesignContext — 26 Sanity Check Requirements & Student Artifa
     expect(resPower.designData.powerMw).toBe(3.2);
 
     const resQor = getStudentDesignForSanityCheck(student, 'cts-qor');
-    expect(resQor.canCertify).toBe(true);
-    expect(resQor.designData.maxTransitionPs).toBe(55);
+    expect(resQor.canCertify).toBe(false);
+    expect(resQor.isPracticeOnly).toBe(true);
 
     const resReport = getStudentDesignForSanityCheck(student, 'cts-clock-tree-report');
     expect(resReport.canCertify).toBe(true);

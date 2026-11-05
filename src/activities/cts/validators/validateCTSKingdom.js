@@ -98,8 +98,6 @@ export function validateCTSKingdom(submission) {
       latencyPs,
       maxLatencyPs: latencyPs,
       powerMw: derivedPowerMw,
-      maxSlewPs: 45,
-      maxTransitionPs: 45,
       stages: [...bufferStages],
       totalBuffers,
       skewMet,
@@ -109,7 +107,6 @@ export function validateCTSKingdom(submission) {
       skewPs: 'ps',
       latencyPs: 'ps',
       powerMw: 'mW',
-      maxSlewPs: 'ps',
     },
   });
 

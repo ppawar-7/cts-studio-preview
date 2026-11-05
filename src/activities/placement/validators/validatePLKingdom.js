@@ -96,16 +96,11 @@ export function validatePLKingdom(submission) {
       allAligned,
       hpwl: hpwlResult.totalHPWL,
       offRailCells,
-      unplacedPins: 0,
-      boundaryClearance: 10.0,
       nwellAligned: allAligned,
-      maxTapPitch: 28.0,
       overlapsResolved: noOverlaps,
     },
     units: {
       hpwl: 'µm',
-      boundaryClearance: 'µm',
-      maxTapPitch: 'µm',
     },
   });
 

@@ -17,8 +17,9 @@
  * - Keeps educational feedback separate from engineering measurements
  */
 
-export const ARTIFACT_SCHEMA_VERSION = 1;
-export const CURRENT_MODEL_VERSION = 1;
+export const ARTIFACT_CONTRACT_VERSION = '2.0.0';
+export const ARTIFACT_SCHEMA_VERSION = 2;
+export const CURRENT_MODEL_VERSION = 2;
 
 /**
  * Supported artifact kinds across the 8 ASIC kingdoms.
@@ -59,6 +60,29 @@ export const CHECK_CLASSIFICATION = {
 };
 
 /**
+ * Mandatory physical fields required for CERTIFIABLE sanity checks.
+ * If any of these fields are missing, NaN, or invalid in student mode,
+ * the certification engine strictly fails closed.
+ */
+export const CHECK_MANDATORY_FIELDS = {
+  'fp-drc': ['margin', 'halo'],
+  'pl-legality': ['cells'],
+  'pl-congestion': ['maxCongestion'],
+  'pl-missing-vias': ['offRailCells'],
+  'cts-clock-tree-report': ['skewPs', 'latencyPs'],
+  'cts-timing-reports': ['setupSlack', 'holdSlack'],
+  'cts-power': ['powerMw'],
+  'rt-lvs': ['shorts', 'lvsMatch'],
+  'rt-design': ['viaEnclosureUm', 'drcErrors'],
+  'rt-constraints': ['glitchVoltageMv'],
+  'fc-legality': ['emptySites'],
+  'fc-drc': ['baseDrcViolations'],
+  'fc-connectivity': ['wellContinuityMet'],
+  'fc-constraints': ['droopMv'],
+  'fc-power': ['leakageUa'],
+};
+
+/**
  * Helper to check if a value is a strictly finite number (not NaN, not Infinity).
  */
 export function isFiniteNumber(val) {
@@ -74,6 +98,7 @@ export function isFiniteNumber(val) {
  * @param {Object} spec.inputs - Student-chosen design parameters
  * @param {Object} spec.measurements - Deterministic engine-derived measurements
  * @param {Object} [spec.units={}] - Measurement units
+ * @param {string} [spec.contractVersion=ARTIFACT_CONTRACT_VERSION]
  * @param {number} [spec.schemaVersion=ARTIFACT_SCHEMA_VERSION]
  * @param {number} [spec.modelVersion=CURRENT_MODEL_VERSION]
  * @returns {Object} Validated design artifact
@@ -84,10 +109,12 @@ export function createDesignArtifact({
   inputs = {},
   measurements = {},
   units = {},
+  contractVersion = ARTIFACT_CONTRACT_VERSION,
   schemaVersion = ARTIFACT_SCHEMA_VERSION,
   modelVersion = CURRENT_MODEL_VERSION,
 }) {
   const artifact = {
+    contractVersion,
     schemaVersion,
     kind,
     sourceLevelId,
@@ -124,9 +151,14 @@ export function validateDesignArtifact(artifact, expectedKind = null) {
     };
   }
 
-  // Schema version
-  if (!Number.isInteger(artifact.schemaVersion) || artifact.schemaVersion < 1) {
-    errors.push('artifact.schemaVersion must be a positive integer.');
+  // Schema version enforcement: accept 1 or 2, reject unknown/future versions
+  if (!Number.isInteger(artifact.schemaVersion) || artifact.schemaVersion < 1 || artifact.schemaVersion > 2) {
+    errors.push(`artifact.schemaVersion must be 1 or 2 (received: ${artifact.schemaVersion}).`);
+  }
+
+  // Contract version
+  if (artifact.contractVersion && typeof artifact.contractVersion !== 'string') {
+    errors.push('artifact.contractVersion must be a valid string if present.');
   }
 
   // Kind
@@ -150,26 +182,47 @@ export function validateDesignArtifact(artifact, expectedKind = null) {
     errors.push('artifact.measurements must be an object.');
   }
 
-  // Reject NaN / Infinity anywhere in measurements
+  // Deep inspection of measurements: reject NaN, Infinity, and invalid geometry
   if (artifact.measurements && typeof artifact.measurements === 'object') {
     for (const [key, val] of Object.entries(artifact.measurements)) {
-      if (typeof val === 'number' && !Number.isFinite(val)) {
-        errors.push(`Measurement "${key}" is not a finite number (${val}).`);
+      if (typeof val === 'number') {
+        if (!Number.isFinite(val)) {
+          errors.push(`Measurement "${key}" must be a finite number (received: ${val}).`);
+        }
+        // Negative dimension check for physical bounds
+        if (
+          (key.includes('margin') ||
+            key.includes('halo') ||
+            key.includes('Width') ||
+            key.includes('Height') ||
+            key.includes('Pitch') ||
+            key.includes('Clearance') ||
+            key.includes('emptySites')) &&
+          val < 0
+        ) {
+          errors.push(`Physical dimension "${key}" must be non-negative (received: ${val}).`);
+        }
       }
     }
-  }
 
-  // Kind-specific structural validation
-  if (artifact.kind === ARTIFACT_KINDS.FLOORPLAN_LAYOUT) {
-    validateFloorplanArtifact(artifact, errors);
-  } else if (artifact.kind === ARTIFACT_KINDS.PLACEMENT_LAYOUT) {
-    validatePlacementArtifact(artifact, errors);
-  } else if (artifact.kind === ARTIFACT_KINDS.CTS_CLOCK_TREE) {
-    validateCTSArtifact(artifact, errors);
-  } else if (artifact.kind === ARTIFACT_KINDS.ROUTING_INTERCONNECT) {
-    validateRoutingArtifact(artifact, errors);
-  } else if (artifact.kind === ARTIFACT_KINDS.FILLER_CELLS_DENSITY) {
-    validateFillerCellsArtifact(artifact, errors);
+    // Inspect cells array if present
+    if (Array.isArray(artifact.measurements.cells)) {
+      artifact.measurements.cells.forEach((cell, idx) => {
+        if (!cell || typeof cell !== 'object') {
+          errors.push(`Cell at index ${idx} must be a valid object.`);
+          return;
+        }
+        if (!Number.isFinite(cell.x) || !Number.isFinite(cell.y)) {
+          errors.push(`Cell "${cell.id || idx}" has invalid coordinates (x: ${cell.x}, y: ${cell.y}).`);
+        }
+        if (typeof cell.width === 'number' && (!Number.isFinite(cell.width) || cell.width <= 0)) {
+          errors.push(`Cell "${cell.id || idx}" has invalid width (${cell.width}). Width must be positive.`);
+        }
+        if (typeof cell.height === 'number' && (!Number.isFinite(cell.height) || cell.height <= 0)) {
+          errors.push(`Cell "${cell.id || idx}" has invalid height (${cell.height}). Height must be positive.`);
+        }
+      });
+    }
   }
 
   return {
@@ -180,77 +233,48 @@ export function validateDesignArtifact(artifact, expectedKind = null) {
 }
 
 /**
- * Floorplan Layout validation
+ * Validate that extracted measurements meet mandatory field requirements for a specific check.
+ *
+ * @param {string} checkId
+ * @param {Object} measurements
+ * @returns {{ isValid: boolean, missingFields: string[], errors: string[] }}
  */
-function validateFloorplanArtifact(artifact, errors) {
-  const { measurements } = artifact;
-  if (measurements.margin !== undefined && (!isFiniteNumber(measurements.margin) || measurements.margin < 0)) {
-    errors.push('Floorplan margin must be a non-negative finite number.');
+export function validateMeasurementsForCheck(checkId, measurements) {
+  const mandatory = CHECK_MANDATORY_FIELDS[checkId];
+  if (!mandatory) {
+    // If not in mandatory list, it's either PRACTICE_ONLY or unknown
+    return { isValid: false, missingFields: [], errors: [`Check ${checkId} is not a certifiable check.`] };
   }
-  if (measurements.halo !== undefined && (!isFiniteNumber(measurements.halo) || measurements.halo < 0)) {
-    errors.push('Floorplan halo must be a non-negative finite number.');
-  }
-}
 
-/**
- * Placement Layout validation
- */
-function validatePlacementArtifact(artifact, errors) {
-  const { measurements, inputs } = artifact;
-  const cells = measurements.cells || inputs.cells;
-  if (cells !== undefined) {
-    if (!Array.isArray(cells)) {
-      errors.push('Placement cells must be an array.');
-    } else {
-      for (let i = 0; i < cells.length; i++) {
-        const c = cells[i];
-        if (!c || typeof c !== 'object') {
-          errors.push(`Cell at index ${i} is not an object.`);
-        } else {
-          if (!isFiniteNumber(c.x) || !isFiniteNumber(c.y)) {
-            errors.push(`Cell "${c.id || i}" has invalid coordinates.`);
-          }
-          if (c.width !== undefined && (!isFiniteNumber(c.width) || c.width <= 0)) {
-            errors.push(`Cell "${c.id || i}" has invalid width.`);
-          }
-          if (c.height !== undefined && (!isFiniteNumber(c.height) || c.height <= 0)) {
-            errors.push(`Cell "${c.id || i}" has invalid height.`);
-          }
-        }
+  if (!measurements || typeof measurements !== 'object') {
+    return { isValid: false, missingFields: mandatory, errors: ['Measurements container is missing or invalid.'] };
+  }
+
+  const missingFields = [];
+  const errors = [];
+
+  for (const field of mandatory) {
+    const val = measurements[field];
+    if (val === undefined || val === null) {
+      missingFields.push(field);
+    } else if (typeof val === 'number') {
+      if (!Number.isFinite(val)) {
+        errors.push(`Field "${field}" is not a finite number.`);
+      }
+    } else if (field === 'cells') {
+      if (!Array.isArray(val) || val.length === 0) {
+        errors.push(`Field "cells" must be a non-empty array.`);
+      }
+    } else if (field === 'wellContinuityMet' || field === 'lvsMatch') {
+      if (typeof val !== 'boolean') {
+        errors.push(`Field "${field}" must be a boolean.`);
       }
     }
   }
-}
 
-/**
- * Clock Tree Synthesis validation
- */
-function validateCTSArtifact(artifact, errors) {
-  const { measurements } = artifact;
-  if (measurements.skewPs !== undefined && (!isFiniteNumber(measurements.skewPs) || measurements.skewPs < 0)) {
-    errors.push('CTS skewPs must be a non-negative finite number.');
-  }
-  if (measurements.latencyPs !== undefined && (!isFiniteNumber(measurements.latencyPs) || measurements.latencyPs < 0)) {
-    errors.push('CTS latencyPs must be a non-negative finite number.');
-  }
-}
-
-/**
- * Routing Interconnect validation
- */
-function validateRoutingArtifact(artifact, errors) {
-  const { measurements } = artifact;
-  if (measurements.segments !== undefined && !Array.isArray(measurements.segments)) {
-    errors.push('Routing segments must be an array.');
-  }
-}
-
-/**
- * Filler Cells validation
- */
-function validateFillerCellsArtifact(artifact, errors) {
-  const { measurements } = artifact;
-  if (measurements.emptySites !== undefined && (!isFiniteNumber(measurements.emptySites) || measurements.emptySites < 0)) {
-    errors.push('Filler cells emptySites must be a non-negative integer.');
-  }
+  return {
+    isValid: missingFields.length === 0 && errors.length === 0,
+    missingFields,
+    errors,
+  };
 }
