@@ -199,7 +199,45 @@ export function deserializeProject(json) {
     throw new Error('Project JSON must be a string');
   }
   const parsed = JSON.parse(json);
+  const problems = validateProjectShape(parsed);
+  if (problems.length > 0) {
+    throw new Error(`Not a valid floorplan project: ${problems.join('; ')}`);
+  }
   return migrateProject(parsed);
+}
+
+/**
+ * Structural validation for imported/loaded projects. Returns a list of problems
+ * (empty when the JSON is a usable floorplan). Migration fills optional fields,
+ * but die/core geometry must exist and be positive or the Studio would silently
+ * replace the user's file with a default project.
+ */
+export function validateProjectShape(raw) {
+  const problems = [];
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return ['top-level value must be a JSON object'];
+  }
+  const rect = (r, label) => {
+    if (!r || typeof r !== 'object') { problems.push(`missing ${label} rectangle`); return; }
+    ['width', 'height'].forEach((k) => {
+      if (!(Number(r[k]) > 0)) problems.push(`${label}.${k} must be a positive number`);
+    });
+    ['x', 'y'].forEach((k) => {
+      if (r[k] !== undefined && !Number.isFinite(Number(r[k]))) problems.push(`${label}.${k} must be numeric`);
+    });
+  };
+  rect(raw.die, 'die');
+  rect(raw.core, 'core');
+  if (raw.macros !== undefined && !Array.isArray(raw.macros)) problems.push('macros must be an array');
+  (Array.isArray(raw.macros) ? raw.macros : []).forEach((m, i) => {
+    if (!m || !(Number(m.width) > 0) || !(Number(m.height) > 0)) problems.push(`macros[${i}] needs positive width and height`);
+  });
+  if (raw.pins !== undefined && !Array.isArray(raw.pins)) problems.push('pins must be an array');
+  (Array.isArray(raw.pins) ? raw.pins : []).forEach((p, i) => {
+    if (!p || !p.id) problems.push(`pins[${i}] needs an id`);
+    if (p && p.edge && !['top', 'bottom', 'left', 'right'].includes(p.edge)) problems.push(`pins[${i}].edge must be top/bottom/left/right`);
+  });
+  return problems;
 }
 
 /**

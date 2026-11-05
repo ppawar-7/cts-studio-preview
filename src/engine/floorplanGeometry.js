@@ -99,7 +99,7 @@ export function computeDieFromCore(core, margins = 20) {
  * @param {Array|Object} macros
  * @param {Array|Object} blockages
  */
-export function computeUtilization(coreArea, stdCellAreaUm2 = 0, macros = [], blockages = []) {
+export function computeUtilization(coreArea, stdCellAreaUm2 = 0, macros = [], blockages = [], coreRect = null) {
   const safeCoreArea = Math.max(0, Number(coreArea) || 0);
   const safeStdCellArea = Math.max(0, Number(stdCellAreaUm2) || 0);
 
@@ -125,6 +125,9 @@ export function computeUtilization(coreArea, stdCellAreaUm2 = 0, macros = [], bl
       macroArea,
       blockageArea,
       nominalUtilization: 0,
+      rawNominalUtilization: 0,
+      placeableArea: 0,
+      keepoutArea: 0,
       effectiveUtilization: 0,
       overutilized: false,
       routableArea: 0,
@@ -141,7 +144,25 @@ export function computeUtilization(coreArea, stdCellAreaUm2 = 0, macros = [], bl
   const nominalUtilization = overutilized ? 100 : Number(rawNominal.toFixed(2));
 
   const routableArea = Math.max(0, safeCoreArea - macroArea - blockageArea);
-  const rawEffective = routableArea > 0 ? (safeStdCellArea / routableArea) * 100 : 100;
+
+  // When the core rectangle is known, compute the real placeable area: core minus the
+  // union of (macro + keepout halo) and blockage rectangles, clipped to the core.
+  // This avoids double counting overlaps and accounts for halo keepouts.
+  let placeableArea = null;
+  let keepoutArea = null;
+  if (coreRect && Number(coreRect.width) > 0 && Number(coreRect.height) > 0) {
+    const list = (items, withHalo) => (Array.isArray(items) ? items : Object.values(items || {}))
+      .filter((it) => it && Number.isFinite(Number(it.x)) && Number.isFinite(Number(it.y)))
+      .map((it) => {
+        const h = withHalo ? Math.max(0, Number(it.halo) || 0) : 0;
+        return { x: Number(it.x) - h, y: Number(it.y) - h, width: (Number(it.width) || 0) + 2 * h, height: (Number(it.height) || 0) + 2 * h };
+      });
+    keepoutArea = Number(unionAreaClipped([...list(macros, true), ...list(blockages, false)], coreRect).toFixed(2));
+    placeableArea = Number(Math.max(0, safeCoreArea - keepoutArea).toFixed(2));
+  }
+
+  const denominator = placeableArea !== null ? placeableArea : routableArea;
+  const rawEffective = denominator > 0 ? (safeStdCellArea / denominator) * 100 : 100;
   const effectiveUtilization = Number(rawEffective.toFixed(2));
 
   return {
@@ -150,15 +171,60 @@ export function computeUtilization(coreArea, stdCellAreaUm2 = 0, macros = [], bl
     macroArea: Number(macroArea.toFixed(2)),
     blockageArea: Number(blockageArea.toFixed(2)),
     nominalUtilization,
+    rawNominalUtilization: Number(rawNominal.toFixed(2)),
     effectiveUtilization,
     overutilized,
     routableArea: Number(routableArea.toFixed(2)),
+    placeableArea,
+    keepoutArea,
     allNames: {
       nominal: 'Nominal Utilization = (StdCell + Macro) / CoreArea',
-      effective: 'Effective Placement Utilization = StdCell / (CoreArea - Macro - Blockage)',
+      effective: placeableArea !== null
+        ? 'Effective Placement Utilization = StdCell / (CoreArea - ∪(Macro+Halo, Blockage))'
+        : 'Effective Placement Utilization = StdCell / (CoreArea - Macro - Blockage)',
       routable: 'Routable Standard Cell Area = CoreArea - Macro - Blockage',
     },
   };
+}
+
+/**
+ * Area of the union of axis-aligned rectangles, clipped to `clip`
+ * (coordinate-compression sweep; exact for rectangles).
+ */
+export function unionAreaClipped(rects = [], clip) {
+  const cx0 = Number(clip.x) || 0;
+  const cy0 = Number(clip.y) || 0;
+  const cx1 = cx0 + (Number(clip.width) || 0);
+  const cy1 = cy0 + (Number(clip.height) || 0);
+  const rs = rects
+    .map((r) => ({
+      x0: Math.max(cx0, r.x), y0: Math.max(cy0, r.y),
+      x1: Math.min(cx1, r.x + r.width), y1: Math.min(cy1, r.y + r.height),
+    }))
+    .filter((r) => r.x1 > r.x0 && r.y1 > r.y0);
+  if (rs.length === 0) return 0;
+  const xs = [...new Set(rs.flatMap((r) => [r.x0, r.x1]))].sort((a, b) => a - b);
+  let area = 0;
+  for (let i = 0; i < xs.length - 1; i++) {
+    const xa = xs[i];
+    const xb = xs[i + 1];
+    const spans = rs.filter((r) => r.x0 <= xa && r.x1 >= xb).map((r) => [r.y0, r.y1]).sort((a, b) => a[0] - b[0]);
+    let covered = 0;
+    let curStart = null;
+    let curEnd = null;
+    spans.forEach(([a, b]) => {
+      if (curEnd === null || a > curEnd) {
+        if (curEnd !== null) covered += curEnd - curStart;
+        curStart = a;
+        curEnd = b;
+      } else if (b > curEnd) {
+        curEnd = b;
+      }
+    });
+    if (curEnd !== null) covered += curEnd - curStart;
+    area += covered * (xb - xa);
+  }
+  return area;
 }
 
 /**
@@ -301,6 +367,32 @@ export function checkMacroToMacroClearance(macroA, macroB, requiredParam) {
 }
 
 /**
+ * Physical location of an I/O pin.
+ * `coord` is the offset along the edge measured from the core origin (x for top/bottom,
+ * y for left/right). Without a die the pin sits on the core edge (legacy behaviour);
+ * with a die the pin sits on the die boundary, which is where I/O pins physically are.
+ */
+export function pinLocation(p, core, die = null) {
+  if (typeof p.x === 'number' && typeof p.y === 'number') return { x: p.x, y: p.y };
+  const pos = typeof p.coord === 'number' ? p.coord : p.position || 0;
+  const cx = Number(core?.x) || 0;
+  const cy = Number(core?.y) || 0;
+  const cw = Number(core?.width) || 0;
+  const ch = Number(core?.height) || 0;
+  const hasDie = die && Number(die.width) > 0 && Number(die.height) > 0;
+  const dx = hasDie ? Number(die.x) || 0 : cx;
+  const dy = hasDie ? Number(die.y) || 0 : cy;
+  const left = dx;
+  const right = hasDie ? dx + Number(die.width) : cx + cw;
+  const top = dy;
+  const bottom = hasDie ? dy + Number(die.height) : cy + ch;
+  if (p.edge === 'bottom') return { x: cx + pos, y: bottom };
+  if (p.edge === 'left') return { x: left, y: cy + pos };
+  if (p.edge === 'right') return { x: right, y: cy + pos };
+  return { x: cx + pos, y: top };
+}
+
+/**
  * Compute Half-Perimeter Wirelength (HPWL) for nets across macros and pins.
  * Supports both array and dictionary shapes for macros/pins/nets.
  *
@@ -308,8 +400,9 @@ export function checkMacroToMacroClearance(macroA, macroB, requiredParam) {
  * @param {Array|Object} macros
  * @param {Array|Object} pins
  * @param {Object} core
+ * @param {Object|null} die - when given, pins sit on the die boundary (physical I/O location)
  */
-export function computeHPWL(nets = [], macros = [], pins = [], core = { x: 0, y: 0, width: 400, height: 300 }) {
+export function computeHPWL(nets = [], macros = [], pins = [], core = { x: 0, y: 0, width: 400, height: 300 }, die = null) {
   const macroMap = new Map();
   if (Array.isArray(macros)) {
     macros.forEach((m) => macroMap.set(m.id, m));
@@ -335,21 +428,7 @@ export function computeHPWL(nets = [], macros = [], pins = [], core = { x: 0, y:
       if (typeof p.x === 'number' && typeof p.y === 'number') {
         return { x: p.x, y: p.y };
       }
-      let px = core.x || 0;
-      let py = core.y || 0;
-      const pos = typeof p.coord === 'number' ? p.coord : p.position || 0;
-      if (p.edge === 'top') {
-        px += pos;
-      } else if (p.edge === 'bottom') {
-        px += pos;
-        py += core.height;
-      } else if (p.edge === 'left') {
-        py += pos;
-      } else if (p.edge === 'right') {
-        px += core.width;
-        py += pos;
-      }
-      return { x: px, y: py };
+      return pinLocation(p, core, die);
     }
     return null;
   };
@@ -530,8 +609,10 @@ export function transformMacroOrientation(macro, orientation = 'R0') {
   const w = Number(macro.width) || 0;
   const h = Number(macro.height) || 0;
 
-  const swapsDimensions = orientation === 'R90' || orientation === 'R270' ||
-                          orientation === 'MXR90' || orientation === 'MYR90';
+  // The stored width/height already reflect the macro's current orientation, so the
+  // footprint only swaps when the change flips between a 0°/180° family and a 90°/270° family.
+  const isQuarterTurn = (o) => o === 'R90' || o === 'R270' || o === 'MXR90' || o === 'MYR90';
+  const swapsDimensions = isQuarterTurn(macro.orientation || 'R0') !== isQuarterTurn(orientation);
 
   return {
     ...macro,

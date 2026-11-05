@@ -10,6 +10,8 @@
  * All coordinates in micrometers (µm).
  */
 
+import { pinLocation } from './floorplanGeometry.js';
+
 /**
  * Compute 2D routing congestion heatmap over the core area.
  *
@@ -83,13 +85,7 @@ export function computeCongestionMap(project, binCountX = 8, binCountY = 8) {
       return { x: m.x + m.width / 2, y: m.y + m.height / 2 };
     }
     if (pinMap.has(nodeId)) {
-      const p = pinMap.get(nodeId);
-      let px = core.x, py = core.y;
-      if (p.edge === 'top') { px += p.coord; }
-      else if (p.edge === 'bottom') { px += p.coord; py += core.height; }
-      else if (p.edge === 'left') { py += p.coord; }
-      else if (p.edge === 'right') { px += core.width; py += p.coord; }
-      return { x: px, y: py };
+      return pinLocation(pinMap.get(nodeId), core, project?.die || null);
     }
     return null;
   };
