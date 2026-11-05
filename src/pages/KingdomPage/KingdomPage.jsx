@@ -12,8 +12,8 @@
  * - Stale Revalidation Awareness & Transparent Educational Scopes
  */
 
-import React, { useState } from 'react';
-import { useParams, Link, Navigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, Link, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { usePlayer } from '../../context/PlayerContext.jsx';
 import LevelCard from '../../components/LevelCard/LevelCard.jsx';
 import {
@@ -37,9 +37,11 @@ import './KingdomPage.css';
 export default function KingdomPage({ isExploreMode = false }) {
   const { kingdomId } = useParams();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { player, passSanityCheck } = usePlayer();
 
   const isExplore = Boolean(isExploreMode || location.pathname.startsWith('/explore'));
+  const checkParam = searchParams.get('check');
 
   const [activeCheck, setActiveCheck] = useState(null);
   const [runningSimulation, setRunningSimulation] = useState(false);
@@ -94,6 +96,16 @@ export default function KingdomPage({ isExploreMode = false }) {
     ? Math.max(0, prevKingdom.pointsToUnlockNext - prevKingdomXP)
     : 0;
 
+  // Close modal and remove bookmarkable query parameter
+  const handleCloseModal = () => {
+    setActiveCheck(null);
+    if (searchParams.has('check')) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('check');
+      setSearchParams(nextParams, { replace: true });
+    }
+  };
+
   // Open interactive verification modal
   const handleOpenCheck = (check) => {
     const auditInfo = getStudentDesignForSanityCheck(player, check.id);
@@ -109,7 +121,27 @@ export default function KingdomPage({ isExploreMode = false }) {
     setSimulationPassed(true);
     setSimulationCanCertify(alreadyPassed && !auditInfo?.isPracticeOnly && !isExplore);
     setSimulationLogs([]);
+
+    if (searchParams.get('check') !== check.id) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set('check', check.id);
+      setSearchParams(nextParams, { replace: true });
+    }
   };
+
+  // Automatically open terminal if bookmarkable ?check= query parameter matches
+  useEffect(() => {
+    if (checkParam && kingdom) {
+      if (activeCheck?.id !== checkParam) {
+        const found = (kingdom.sanityChecks || []).find((c) => c.id === checkParam);
+        if (found) {
+          handleOpenCheck(found);
+        }
+      }
+    } else if (!checkParam && activeCheck) {
+      setActiveCheck(null);
+    }
+  }, [checkParam, kingdom, activeCheck]);
 
   // Run EDA verification simulation
   const handleRunSimulation = () => {
@@ -141,24 +173,24 @@ export default function KingdomPage({ isExploreMode = false }) {
   // Sign off and certify check (Normal Game mode only)
   const handleCertifyCheck = () => {
     if (isExplore) {
-      setActiveCheck(null);
+      handleCloseModal();
       return;
     }
     if (activeCheck && simulationPassed && simulationCanCertify) {
       passSanityCheck(kingdom.id, activeCheck, activeCheck.xpReward);
-      setActiveCheck(null);
+      handleCloseModal();
     }
   };
 
   // Complete a practice-only drill
   const handleCompletePracticeDrill = () => {
     if (isExplore) {
-      setActiveCheck(null);
+      handleCloseModal();
       return;
     }
     if (activeCheck) {
       passSanityCheck(kingdom.id, activeCheck, 0);
-      setActiveCheck(null);
+      handleCloseModal();
     }
   };
 
@@ -597,7 +629,7 @@ export default function KingdomPage({ isExploreMode = false }) {
 
       {/* ─── SANITY CHECK VERIFICATION TERMINAL MODAL ─── */}
       {activeCheck && (
-        <div className="sanity-modal-overlay" onClick={() => setActiveCheck(null)}>
+        <div className="sanity-modal-overlay" onClick={handleCloseModal}>
           <div className="sanity-modal" onClick={(e) => e.stopPropagation()}>
             <div className="sanity-modal__header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -614,7 +646,7 @@ export default function KingdomPage({ isExploreMode = false }) {
               </div>
               <button
                 className="sanity-modal__close"
-                onClick={() => setActiveCheck(null)}
+                onClick={handleCloseModal}
               >
                 ✕
               </button>
@@ -849,13 +881,23 @@ export default function KingdomPage({ isExploreMode = false }) {
                         ? '✓ Reference Example Passed — Explore Mode (Practice Result — No XP Awarded)'
                         : '⚠️ Fault Detected in Defect Injection Run — Explore Mode'}
                     </div>
-                    <button
-                      type="button"
-                      className="btn btn--secondary btn--lg w-full"
-                      onClick={() => setActiveCheck(null)}
-                    >
-                      Close Audit Window (Explore Mode)
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <button
+                        type="button"
+                        className="btn btn--secondary btn--lg"
+                        style={{ flex: 1 }}
+                        onClick={handleCloseModal}
+                      >
+                        Close Terminal
+                      </button>
+                      <Link
+                        to="/explore"
+                        className="btn btn--primary btn--lg"
+                        style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+                      >
+                        Explore Catalog ›
+                      </Link>
+                    </div>
                   </div>
                 ) : isSanityCheckPassed(player, activeCheck.id) ? (
                   <div style={{ width: '100%', textAlign: 'center' }}>
@@ -865,7 +907,7 @@ export default function KingdomPage({ isExploreMode = false }) {
                     <button
                       type="button"
                       className="btn btn--secondary btn--lg w-full"
-                      onClick={() => setActiveCheck(null)}
+                      onClick={handleCloseModal}
                     >
                       Close Audit Window
                     </button>
@@ -921,7 +963,7 @@ export default function KingdomPage({ isExploreMode = false }) {
                     <button
                       type="button"
                       className="btn btn--secondary btn--lg w-full"
-                      onClick={() => setActiveCheck(null)}
+                      onClick={handleCloseModal}
                     >
                       Close &amp; Revise Design
                     </button>

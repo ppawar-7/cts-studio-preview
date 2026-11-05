@@ -129,7 +129,7 @@ export default function LevelPage({ isExploreMode = false }) {
             </h2>
             <p className="level-page__complete-xp">
               {isExplore
-                ? 'Practice Result — No XP Awarded (Normal Game progress unchanged)'
+                ? `Score: ${completionData.score}/${level.xpReward} · Practice Result — No XP Awarded (Normal Game progress unchanged)`
                 : completionData.xpEarned > 0
                 ? `+${completionData.xpEarned} XP Verified & Earned`
                 : `Score Verified: ${completionData.score}/${level.xpReward} XP (Already Earned)`}

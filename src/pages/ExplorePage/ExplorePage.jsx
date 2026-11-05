@@ -262,13 +262,23 @@ export default function ExplorePage() {
                 {/* Sanity Checks Info */}
                 {(k.sanityChecks || []).length > 0 && (
                   <div className="explore-kingdom-card__sanity">
-                    <span className="explore-sanity-tag">
-                      🛡️ {certifiableCount} Certifiable Checks
-                    </span>
+                    <Link
+                      to={`/explore/kingdom/${k.id}?check=${k.sanityChecks[0].id}`}
+                      className="explore-sanity-tag"
+                      style={{ textDecoration: 'none', cursor: 'pointer' }}
+                      title={`Open ${k.sanityChecks[0].name} terminal directly`}
+                    >
+                      🛡️ {certifiableCount} Certifiable Checks ›
+                    </Link>
                     {practiceCount > 0 && (
-                      <span className="explore-sanity-tag explore-sanity-tag--practice">
-                        🔬 {practiceCount} Practice Drills
-                      </span>
+                      <Link
+                        to={`/explore/kingdom/${k.id}?check=${(k.sanityChecks.find((c) => SANITY_CHECK_REQUIREMENTS[c.id]?.classification === CHECK_CLASSIFICATION.PRACTICE_ONLY) || k.sanityChecks[k.sanityChecks.length - 1]).id}`}
+                        className="explore-sanity-tag explore-sanity-tag--practice"
+                        style={{ textDecoration: 'none', cursor: 'pointer' }}
+                        title="Open practice drill terminal directly"
+                      >
+                        🔬 {practiceCount} Practice Drills ›
+                      </Link>
                     )}
                   </div>
                 )}
@@ -349,7 +359,7 @@ export default function ExplorePage() {
                   return (
                     <Link
                       key={check.id}
-                      to={`/explore/kingdom/${k.id}`}
+                      to={`/explore/kingdom/${k.id}?check=${check.id}`}
                       className="explore-sanity-link"
                     >
                       <span className="explore-sanity-link__icon">{check.icon}</span>

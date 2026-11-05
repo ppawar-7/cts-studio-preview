@@ -7,18 +7,25 @@
  * 1. Preserves player identity (name, avatarEmoji, createdAt).
  * 2. Automatic safety backup of v1 storage to 'pdplayground_player_v1_backup'.
  * 3. Distinguishes verifiable levels (implemented in activityRegistry) from legacy unverified records.
- * 4. Recomputes totalXP consistently to prevent desynchronized inflated totals.
- * 5. Idempotent: repeated migrations produce identical valid states.
- * 6. Handles corrupted or empty storage safely without crashing.
+ * 4. Recomputes totalXP consistently and accurately (levelXP + sanityXP + kingdom bonuses).
+ * 5. Preserves legitimate kingdom completion bonuses across save, reload, and migration.
+ * 6. Idempotent: repeated migrations produce identical valid states.
+ * 7. Handles corrupted or empty storage safely without crashing.
  */
 
 import { DEFAULT_PLAYER } from '../data/playerDefaults.js';
 import { hasActivity } from '../activities/activityRegistry.js';
+import { KINGDOMS } from '../data/kingdomsData.js';
+import {
+  areAllKingdomLevelsCompleted,
+  areAllKingdomSanityChecksPassed,
+} from './progressionEngine.js';
 
 export const CURRENT_SCHEMA_VERSION = 2;
 export const STORAGE_KEY_V1 = 'pdplayground_player_v1';
 export const STORAGE_KEY_V2 = 'pdplayground_player_v2';
 export const STORAGE_BACKUP_KEY = 'pdplayground_player_v1_backup';
+export const KINGDOM_COMPLETION_BONUS_XP = 50;
 
 /**
  * Migrates a raw or parsed player state object to Schema v2.
@@ -62,16 +69,14 @@ export function migratePlayerState(rawPlayer) {
 
     // Check if level has an actual implementation in the activity registry
     if (hasActivity(levelId)) {
-      // Preserved level (e.g. rtl-1 verified challenge)
       cleanLevelProgress[levelId] = {
         completed: Boolean(progress.completed),
         stars: Math.max(0, Math.min(3, Number(progress.stars) || 0)),
         xpEarned: Math.max(0, Number(progress.xpEarned) || 0),
-        verified: Boolean(progress.verified ?? true), // Existing rtl-1 completions preserved
+        verified: Boolean(progress.verified ?? true),
         migratedAt: new Date().toISOString(),
       };
     } else if (progress.completed) {
-      // Unimplemented level previously marked completed via legacy slider
       archivedLegacy[levelId] = {
         ...progress,
         archivedReason: 'Level activity currently under development. Revalidation required upon milestone release.',
@@ -88,16 +93,31 @@ export function migratePlayerState(rawPlayer) {
     };
   }
 
-  // Preserve sanityCheckProgress safely
+  // Preserve sanityCheckProgress, kingdomProgress, studentDesignArtifacts, achievements
   migrated.sanityCheckProgress = rawPlayer.sanityCheckProgress && typeof rawPlayer.sanityCheckProgress === 'object'
     ? rawPlayer.sanityCheckProgress
     : {};
+
+  migrated.kingdomProgress = rawPlayer.kingdomProgress && typeof rawPlayer.kingdomProgress === 'object'
+    ? rawPlayer.kingdomProgress
+    : {};
+
+  migrated.studentDesignArtifacts = rawPlayer.studentDesignArtifacts && typeof rawPlayer.studentDesignArtifacts === 'object'
+    ? rawPlayer.studentDesignArtifacts
+    : {};
+
+  migrated.achievements = Array.isArray(rawPlayer.achievements)
+    ? rawPlayer.achievements
+    : [];
 
   return ensureIntegrity(migrated);
 }
 
 /**
- * Recomputes derived totalXP and ensures non-corrupt object structure.
+ * Recomputes derived totalXP and ensures structural integrity:
+ * - Sum of verified level XP
+ * - Sum of sanity check scores
+ * - Exactly +50 XP per legitimately completed or awarded kingdom bonus (never duplicated)
  */
 function ensureIntegrity(player) {
   const levelXP = Object.values(player.levelProgress || {}).reduce((sum, item) => {
@@ -108,12 +128,43 @@ function ensureIntegrity(player) {
     return sum + (Number(item?.score) || 0);
   }, 0);
 
+  const updatedKingdomProgress = { ...(player.kingdomProgress || {}) };
+  let kingdomBonusXP = 0;
+
+  for (const kingdom of KINGDOMS) {
+    const kId = kingdom.id;
+    const existingKProgress = updatedKingdomProgress[kId] || {};
+
+    const allLevelsDone = areAllKingdomLevelsCompleted(player, kId);
+    const allSanityDone = areAllKingdomSanityChecksPassed(player, kId);
+    const isCurrentlyComplete = allLevelsDone && allSanityDone;
+
+    // Check if bonus was previously awarded or kingdom criteria were met
+    const bonusEarned = Boolean(
+      existingKProgress.bonusAwarded ||
+      existingKProgress.completed ||
+      isCurrentlyComplete
+    );
+
+    if (bonusEarned) {
+      kingdomBonusXP += KINGDOM_COMPLETION_BONUS_XP;
+      updatedKingdomProgress[kId] = {
+        ...existingKProgress,
+        completed: isCurrentlyComplete,
+        bonusAwarded: true,
+      };
+    }
+  }
+
   return {
     ...player,
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    totalXP: levelXP + sanityXP,
+    totalXP: levelXP + sanityXP + kingdomBonusXP,
     levelProgress: player.levelProgress || {},
     sanityCheckProgress: player.sanityCheckProgress || {},
+    kingdomProgress: updatedKingdomProgress,
+    studentDesignArtifacts: player.studentDesignArtifacts || {},
+    achievements: Array.isArray(player.achievements) ? player.achievements : [],
   };
 }
 
