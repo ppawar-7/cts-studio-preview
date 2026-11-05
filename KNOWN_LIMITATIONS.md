@@ -30,6 +30,21 @@ To deliver interactive, instant-feedback simulations in pure client-side JavaScr
 ### 1.5 GDSII & Physical Verification
 - **DRC / LVS Engines**: Physical verification checks operate on Manhattan boundary polygon approximations. Non-orthogonal (45-degree) geometries and complex optical proximity correction (OPC) inverse lithography simulations are demonstrated conceptually rather than computed via numerical Maxwell equations.
 
+### 1.6 Floorplan Studio and Floorplanning Lessons (independent review, Nov 2026)
+These are the models the Floorplan Studio actually implements. Numbers it shows are educational estimates.
+- **Halo rule**: two macros must be at least `haloA + haloB` apart. This is a deliberately conservative teaching rule; production tools usually let halos overlap and enforce a separate macro-channel spacing.
+- **Effective utilization**: standard-cell area divided by core area minus the exact union of (macro + halo) and blockage rectangles clipped to the core. All blockage types are treated as hard.
+- **I/O pins**: drawn and measured on the die boundary; `coord` is the offset along the edge measured from the core origin. No pin layers, tracks or pad cells are modelled.
+- **HPWL**: macro centres and pin locations; no pin offsets inside macros.
+- **IR drop**: strap-only model. `R = (L/W)·ρ` (M4 0.08 Ω/sq, M5 0.05 Ω/sq), uniform current (15 mA default), `I·R/8` when the strap is fed at both ends, `I·R/2` when fed at one end, open (no number) when the strap is not connected. Ring, via and mesh resistance are ignored.
+- **PDN checks**: connectivity is a graph search over ring/strap/via shapes; a via only joins the two layers it names. Missing vias are only checked where a strap crosses a same-net ring on another layer (strap-to-strap mesh crossings are not checked). Shorts are a via landing on VDD and VSS metal, or VDD/VSS shapes overlapping on one layer.
+- **Congestion heatmap**: an uncalibrated illustrative proxy (macro area fraction plus a constant demand per net bounding box). With the shipped designs the maximum ratio stays below 0.8, so it rarely reports hotspots. Treat it as a picture of where demand concentrates, not as a routability prediction.
+- **Placement rows**: rows span the full core and are not cut around macros.
+- **Not implemented**: timing-driven placement, global routing, EM checks, real DRC decks, LEF/DEF import/export.
+- **Studio editing scope**: you can move macros, change orientation and halo, move pins (edge and coordinate) and add or remove vias. You cannot add or resize macros, straps, rings, blockages or nets, or resize the die/core. Open-ended work is therefore repair and arrangement of the provided designs.
+- **Lessons**: FP-24 grades the saved Studio project with the same rule deck as the Studio. FP-6, 7, 8, 11, 14 and 18 grade numeric answers. The other lessons in FP-6 to FP-23 are concept checks with lesson-specific questions; their layout picture is a static reference, not an experiment.
+- **Touch**: one-finger drag and pan work; pinch-zoom is not implemented (use the zoom buttons).
+
 ---
 
 ## 2. Stage Sanity Check Classification: 15 Certifiable vs 11 Practice-Only Checks
