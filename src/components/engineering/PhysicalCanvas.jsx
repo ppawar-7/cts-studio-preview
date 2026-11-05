@@ -3,11 +3,11 @@
  * ==================
  * Interactive physical layout canvas using responsive SVG.
  * Supports:
- * - Die and Core boundaries
+ * - Die and Core boundaries with non-overlapping label badges
  * - I/O Pin markers along boundaries
  * - Draggable/positionable hard macros with keepout halos
- * - Standard cell rows
- * - Grid snapping and coordinate inspection
+ * - Power rings with separate, high-contrast indicator chip
+ * - Responsive full-width layout (no hardcoded maxWidth bottleneck)
  */
 
 import React from 'react';
@@ -26,7 +26,6 @@ export default function PhysicalCanvas({
   onSelectMacro,
   showPowerRings = true,
 }) {
-  const scale = 0.8;
   const viewBoxW = dieWidth + 80;
   const viewBoxH = dieHeight + 80;
   const offsetX = 40;
@@ -37,7 +36,7 @@ export default function PhysicalCanvas({
       <svg
         viewBox={`0 0 ${viewBoxW} ${viewBoxH}`}
         className="physical-svg"
-        style={{ width: '100%', maxWidth: '700px', height: 'auto' }}
+        style={{ width: '100%', maxWidth: '100%', height: 'auto', display: 'block' }}
       >
         {/* Die Boundary */}
         <rect
@@ -50,9 +49,23 @@ export default function PhysicalCanvas({
           strokeWidth="3"
           rx="4"
         />
-        <text x={offsetX + 10} y={offsetY + 20} fill="#94a3b8" fontSize="11" fontWeight="700">
-          DIE BOUNDARY ({dieWidth} × {dieHeight} µm)
-        </text>
+
+        {/* Die Boundary Label with background chip — top-left */}
+        <g className="canvas-label-badge">
+          <rect
+            x={offsetX + 10}
+            y={offsetY + 8}
+            width={190}
+            height={20}
+            fill="#1e293b"
+            stroke="#334155"
+            strokeWidth="1"
+            rx="3"
+          />
+          <text x={offsetX + 18} y={offsetY + 22} fill="#94a3b8" fontSize="10" fontWeight="700">
+            DIE BOUNDARY ({dieWidth} × {dieHeight} µm)
+          </text>
+        </g>
 
         {/* Core Boundary */}
         <rect
@@ -65,9 +78,24 @@ export default function PhysicalCanvas({
           strokeWidth="2"
           strokeDasharray="4 2"
         />
-        <text x={offsetX + margin + 8} y={offsetY + margin + 18} fill="#38bdf8" fontSize="11" fontWeight="700">
-          CORE AREA ({coreWidth} × {coreHeight} µm)
-        </text>
+
+        {/* Core Area Label with background chip */}
+        <g className="canvas-core-badge">
+          <rect
+            x={offsetX + margin + 8}
+            y={offsetY + margin + 6}
+            width={160}
+            height={18}
+            fill="#0f172a"
+            stroke="#0284c7"
+            strokeWidth="1"
+            rx="3"
+            opacity="0.9"
+          />
+          <text x={offsetX + margin + 14} y={offsetY + margin + 19} fill="#38bdf8" fontSize="9" fontWeight="700">
+            CORE AREA ({coreWidth} × {coreHeight} µm)
+          </text>
+        </g>
 
         {/* Optional Power Rings (VDD in red, VSS in blue) */}
         {showPowerRings && (
@@ -94,9 +122,24 @@ export default function PhysicalCanvas({
               strokeWidth="3"
               opacity="0.85"
             />
-            <text x={offsetX + margin} y={offsetY + margin - 28} fill="#ef4444" fontSize="9" fontWeight="700">
-              VDD / VSS Power Rings
-            </text>
+            {/* Positioned on top-right of die boundary to completely prevent overlap with Die Boundary label */}
+            <g className="power-rings-badge">
+              <rect
+                x={offsetX + dieWidth - 175}
+                y={offsetY + 8}
+                width={165}
+                height={20}
+                fill="#1e293b"
+                stroke="#334155"
+                strokeWidth="1"
+                rx="3"
+              />
+              <circle cx={offsetX + dieWidth - 163} cy={offsetY + 18} r="3.5" fill="#ef4444" />
+              <circle cx={offsetX + dieWidth - 152} cy={offsetY + 18} r="3.5" fill="#3b82f6" />
+              <text x={offsetX + dieWidth - 142} y={offsetY + 22} fill="#ef4444" fontSize="9.5" fontWeight="700">
+                VDD / VSS Power Rings
+              </text>
+            </g>
           </g>
         )}
 

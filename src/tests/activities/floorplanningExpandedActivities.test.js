@@ -1,0 +1,72 @@
+/**
+ * floorplanningExpandedActivities.test.js
+ * =======================================
+ * Validates that all 19 expanded Floorplanning 2.0 activities (fp-6 through fp-24)
+ * are properly registered in activityRegistry and their validators function deterministically.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { getActivity, hasActivity } from '../../activities/activityRegistry.js';
+import { EXPANDED_LESSONS } from '../../activities/floorplanning/expanded/fpExpandedCurriculumData.js';
+
+describe('Floorplanning 2.0 Expanded Activities (fp-6 through fp-24)', () => {
+  const lessonIds = Object.keys(EXPANDED_LESSONS);
+
+  it('all 19 expanded lessons are defined in EXPANDED_LESSONS', () => {
+    expect(lessonIds.length).toBe(19);
+  });
+
+  lessonIds.forEach((id) => {
+    describe(`Activity: ${id} (${EXPANDED_LESSONS[id].title})`, () => {
+      it(`is registered in activityRegistry and returns an activity descriptor`, () => {
+        expect(hasActivity(id)).toBe(true);
+        const act = getActivity(id);
+        expect(act).toBeTruthy();
+        expect(act.levelId).toBe(id);
+        expect(act.kingdomId).toBe('floorplanning');
+        expect(typeof act.validator).toBe('function');
+      });
+
+      it(`rejects incomplete submission`, () => {
+        const act = getActivity(id);
+        const res = act.validator({});
+        expect(res.passed).toBe(false);
+      });
+    });
+  });
+
+  it('fp-6 validates correctly with proper aspect ratio and quiz answer', () => {
+    const act = getActivity('fp-6');
+    const validRes = act.validator({ aspectRatio: 0.6, bestRatioQuiz: 'ar-square' });
+    expect(validRes.passed).toBe(true);
+    expect(validRes.stars).toBeGreaterThanOrEqual(2);
+  });
+
+  it('fp-7 validates area budgets', () => {
+    const act = getActivity('fp-7');
+    const validRes = act.validator({ stdCellArea: 1250000, requiredCoreArea: 1785714 });
+    expect(validRes.passed).toBe(true);
+    expect(validRes.stars).toBeGreaterThanOrEqual(2);
+  });
+
+  it('fp-11 validates halo separation sum rule', () => {
+    const act = getActivity('fp-11');
+    const validRes = act.validator({ requiredSeparation: 35, corridorQuiz: 'corridor-congestion' });
+    expect(validRes.passed).toBe(true);
+    expect(validRes.stars).toBeGreaterThanOrEqual(2);
+  });
+
+  it('fp-18 validates static IR drop calculation', () => {
+    const act = getActivity('fp-18');
+    const validRes = act.validator({ calculatedDrop: 30, irFixQuiz: 'add-more-straps' });
+    expect(validRes.passed).toBe(true);
+    expect(validRes.stars).toBeGreaterThanOrEqual(2);
+  });
+
+  it('fp-24 validates master capstone requirements', () => {
+    const act = getActivity('fp-24');
+    const validRes = act.validator({ macrosPlaced: 4, powerStrapsConnected: true, drcPassed: true });
+    expect(validRes.passed).toBe(true);
+    expect(validRes.stars).toBe(3);
+  });
+});

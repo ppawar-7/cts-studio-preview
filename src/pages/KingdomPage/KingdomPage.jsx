@@ -1,3 +1,4 @@
+import { EXPANDED_LESSONS } from '../../activities/floorplanning/expanded/fpExpandedCurriculumData.js';
 /**
  * KingdomPage.jsx
  * ================
@@ -142,6 +143,18 @@ export default function KingdomPage({ isExploreMode = false }) {
       setActiveCheck(null);
     }
   }, [checkParam, kingdom, activeCheck]);
+
+
+  // ESC key closes active verification modal (Fix 07)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && activeCheck) {
+        handleCloseModal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeCheck]);
 
   // Run EDA verification simulation
   const handleRunSimulation = () => {
@@ -319,6 +332,30 @@ export default function KingdomPage({ isExploreMode = false }) {
         {(unlocked || isExplore) && (
           <>
             {/* Embedded Studio Companion Workspace */}
+            
+            {kingdom.id === 'floorplanning' && (
+              <div className="kingdom-external-lab-card fp-studio-banner" data-testid="fp-studio-banner" style={{ border: '2px solid #0284c7', background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08), rgba(30, 58, 95, 0.12))' }}>
+                <div className="kingdom-external-lab-info">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <h3>📐 Floorplanning Studio 2.0 (Dedicated CAD Workspace)</h3>
+                    <span className="badge badge--available">Full CAD Suite</span>
+                  </div>
+                  <p>
+                    Interactive multi-layer placement canvas, keepout halos, power grid (VDD/VSS rings, straps, vias), live DRC diagnostics, and IR-drop sign-off across 24 guided lessons.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <Link
+                    to={isExplore ? "/explore/studio/floorplanning" : "/studio/floorplanning"}
+                    className="btn btn--primary"
+                    style={{ fontWeight: 800 }}
+                  >
+                    📐 Open Floorplan Studio →
+                  </Link>
+                </div>
+              </div>
+            )}
+
             {kingdom.id === 'rtl-understanding' && (
               <div className="kingdom-external-lab-card">
                 <div className="kingdom-external-lab-info">
@@ -452,26 +489,118 @@ export default function KingdomPage({ isExploreMode = false }) {
 
             {/* ─── MAIN LEVELS SECTION ──────────────────────── */}
             <div className="kingdom-page__section-wrapper">
-              <div className="kingdom-page__section-title-row">
-                <h2 className="kingdom-page__levels-title">
-                  📚 Part 1: Core Concept Levels
-                </h2>
-                <span className="badge badge--available">
-                  {isExplore ? "5 Lessons Unlocked" : `${completedLevels}/${kingdom.levels.length} Complete`}
-                </span>
-              </div>
+              {kingdom.id === 'floorplanning' ? (
+                <details className="fp-curriculum-module fp-module-accordion" open>
+                  <summary className="fp-curriculum-module__header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontWeight: 800, color: '#0284c7' }}>Module 1: Core Fundamentals &amp; Placement Unlock</span>
+                      <span style={{ fontSize: '0.75rem', color: '#64748b' }}>(5 Lessons — Required to unlock Placement)</span>
+                    </div>
+                    <span style={{ fontSize: '0.78rem', color: '#0284c7', fontWeight: 700 }}>Expand / Collapse</span>
+                  </summary>
+                  <div className="kingdom-page__levels-list" style={{ padding: '0.75rem 0' }}>
+                    {kingdom.levels.map((level) => (
+                      <LevelCard
+                        key={level.id}
+                        kingdom={kingdom}
+                        level={level}
+                        isExploreMode={isExplore}
+                      />
+                    ))}
+                  </div>
+                </details>
+              ) : (
+                <>
+                  <div className="kingdom-page__section-title-row">
+                    <h2 className="kingdom-page__levels-title">
+                      📚 Part 1: Core Concept Levels
+                    </h2>
+                    <span className="badge badge--available">
+                      {isExplore ? "5 Lessons Unlocked" : `${completedLevels}/${kingdom.levels.length} Complete`}
+                    </span>
+                  </div>
 
-              <div className="kingdom-page__levels-list">
-                {kingdom.levels.map((level) => (
-                  <LevelCard
-                    key={level.id}
-                    kingdom={kingdom}
-                    level={level}
-                    isExploreMode={isExplore}
-                  />
-                ))}
-              </div>
+                  <div className="kingdom-page__levels-list">
+                    {kingdom.levels.map((level) => (
+                      <LevelCard
+                        key={level.id}
+                        kingdom={kingdom}
+                        level={level}
+                        isExploreMode={isExplore}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
+
+            
+            {/* ─── FLOORPLANNING 2.0 EXPANDED CURRICULUM MODULES (fp-6 to fp-24) ─── */}
+            {kingdom.id === 'floorplanning' && (
+              <div className="kingdom-page__section-wrapper" style={{ marginTop: '2.5rem' }}>
+                <div className="kingdom-page__section-title-row">
+                  <div>
+                    <h2 className="kingdom-page__levels-title">
+                      🎓 Part 2: Advanced Studio Mastery Curriculum (Modules 2 – 6)
+                    </h2>
+                    <p style={{ color: '#64748b', fontSize: '0.88rem', margin: '0.25rem 0 0' }}>
+                      19 in-depth lessons covering silicon die architecture, macro keepout halos, PDN power mesh synthesis, and tapeout signoff.
+                    </p>
+                  </div>
+                  <span className="badge badge--available">
+                    19 Advanced Lessons
+                  </span>
+                </div>
+
+                <div className="fp-curriculum-modules-list" style={{ marginTop: '1rem' }}>
+                  {[
+                    { num: 2, title: 'Module 2: Die & Core Architecture', range: ['fp-6', 'fp-7', 'fp-8', 'fp-9'] },
+                    { num: 3, title: 'Module 3: Advanced Hard Macro Placement', range: ['fp-10', 'fp-11', 'fp-12', 'fp-13'] },
+                    { num: 4, title: 'Module 4: I/O & Power Distribution Network (PDN)', range: ['fp-14', 'fp-15', 'fp-16', 'fp-17', 'fp-18'] },
+                    { num: 5, title: 'Module 5: Analysis & Optimization', range: ['fp-19', 'fp-20', 'fp-21', 'fp-22'] },
+                    { num: 6, title: 'Module 6: Master Floorplan Capstone', range: ['fp-23', 'fp-24'] },
+                  ].map((mod) => (
+                    <details key={mod.num} className="fp-curriculum-module fp-module-accordion" open>
+                      <summary className="fp-curriculum-module__header">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontWeight: 800, color: '#0284c7' }}>{mod.title}</span>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>({mod.range.length} Lessons)</span>
+                        </div>
+                        <span style={{ fontSize: '0.78rem', color: '#0284c7', fontWeight: 700 }}>Expand / Collapse</span>
+                      </summary>
+                      <div className="fp-curriculum-module__body">
+                        {mod.range.map((lvlId) => {
+                          const lData = EXPANDED_LESSONS[lvlId];
+                          const completed = Boolean(player.levelProgress?.[lvlId]?.completed);
+                          return (
+                            <div key={lvlId} className="fp-lesson-card">
+                              <div className="fp-lesson-card__header">
+                                <span className="fp-lesson-card__id">{lvlId.toUpperCase()}</span>
+                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{lData.duration}</span>
+                              </div>
+                              <h4 className="fp-lesson-card__title">{lData.title}</h4>
+                              <p className="fp-lesson-card__desc">{lData.description}</p>
+                              <div className="fp-lesson-card__footer">
+                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b' }}>
+                                  ⭐ +{lData.xpReward} XP
+                                </span>
+                                <Link
+                                  to={isExplore ? "/explore/kingdom/floorplanning/level/" + lvlId : "/kingdom/floorplanning/level/" + lvlId}
+                                  className="btn btn--secondary btn--sm"
+                                  style={{ fontSize: '0.75rem' }}
+                                >
+                                  {completed ? '✓ Review' : '▶ Start'}
+                                </Link>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* ─── SANITY CHECK SIDE QUESTS SECTION ─────────── */}
             {totalSanity > 0 && (
@@ -553,9 +682,12 @@ export default function KingdomPage({ isExploreMode = false }) {
                         <p className="sanity-card__full-name">{check.fullName}</p>
                         <p className="sanity-card__description">{check.description}</p>
 
-                        <div className="sanity-card__command">
-                          <code>$ {check.command}</code>
-                        </div>
+                        <details className="sanity-card__command-details" onClick={(e) => e.stopPropagation()}>
+                          <summary><code>$ {check.command.split(' ')[0]} ...</code></summary>
+                          <div className="sanity-card__command-full">
+                            <code>$ {check.command}</code>
+                          </div>
+                        </details>
 
                         <div className="sanity-card__footer">
                           {/* Honest Reward Label */}

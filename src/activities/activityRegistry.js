@@ -1,3 +1,5 @@
+import FPExpandedLessonChallenge from './floorplanning/expanded/FPExpandedLessonChallenge.jsx';
+import { EXPANDED_LESSONS } from './floorplanning/expanded/fpExpandedCurriculumData.js';
 /**
  * activityRegistry.js
  * ====================
@@ -486,6 +488,20 @@ const ACTIVITY_REGISTRY = {
 /**
  * Register a new activity into the runtime registry.
  */
+
+// Register Floorplanning 2.0 Studio Mastery Track (fp-6 through fp-24)
+Object.entries(EXPANDED_LESSONS).forEach(([id, lesson]) => {
+  ACTIVITY_REGISTRY[id] = {
+    levelId: id,
+    kingdomId: 'floorplanning',
+    title: `${lesson.title} — ${lesson.moduleTitle}`,
+    component: FPExpandedLessonChallenge,
+    validator: lesson.validate,
+    maxScore: lesson.xpReward,
+    starThresholds: lesson.starThresholds,
+  };
+});
+
 export function registerActivity(descriptor) {
   if (descriptor && descriptor.levelId) {
     ACTIVITY_REGISTRY[descriptor.levelId] = descriptor;

@@ -17,6 +17,7 @@ import LevelPage from './pages/LevelPage/LevelPage.jsx';
 import ExplorePage from './pages/ExplorePage/ExplorePage.jsx';
 import RTLStudioPage from './pages/StudioPage/RTLStudioPage.jsx';
 import STAStudioPage from './pages/StudioPage/STAStudioPage.jsx';
+import FloorplanStudioPage from './pages/FloorplanStudioPage/FloorplanStudioPage.jsx';
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
                   <Route path="/kingdom/:kingdomId/level/:levelId" element={<LevelPage />} />
                   <Route path="/studio/rtl" element={<RTLStudioPage />} />
                   <Route path="/studio/sta" element={<STAStudioPage />} />
+                  <Route path="/studio/floorplanning" element={<FloorplanStudioPage />} />
 
                   {/* Completely Separate Unlocked Explore Everything Mode Routes */}
                   <Route path="/explore" element={<ExplorePage />} />
@@ -47,6 +49,7 @@ export default function App() {
                   <Route path="/explore/kingdom/:kingdomId/level/:levelId" element={<LevelPage isExploreMode={true} />} />
                   <Route path="/explore/studio/rtl" element={<RTLStudioPage isExploreMode={true} />} />
                   <Route path="/explore/studio/sta" element={<STAStudioPage isExploreMode={true} />} />
+                  <Route path="/explore/studio/floorplanning" element={<FloorplanStudioPage isExploreMode={true} />} />
 
                   <Route path="/sanity-checks" element={<Navigate to="/world-map" replace />} />
                   <Route path="*" element={<Navigate to="/world-map" replace />} />

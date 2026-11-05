@@ -16,6 +16,7 @@ import {
   isLevelUnlocked,
 } from '../../logic/progressionEngine.js';
 import { KINGDOMS } from '../../data/kingdomsData.js';
+import { EXPANDED_LESSONS } from '../../activities/floorplanning/expanded/fpExpandedCurriculumData.js';
 import ActivityHost from '../../components/ActivityHost/ActivityHost.jsx';
 import { hasActivity } from '../../activities/activityRegistry.js';
 import './LevelPage.css';
@@ -40,7 +41,21 @@ export default function LevelPage({ isExploreMode = false }) {
 
   // Find kingdom and level
   const kingdom = KINGDOMS.find((k) => k.id === kingdomId);
-  const level = kingdom?.levels.find((l) => l.id === levelId);
+  let level = kingdom?.levels.find((l) => l.id === levelId);
+
+  // Fallback for Floorplanning 2.0 expanded lessons (fp-6 to fp-24)
+  if (!level && kingdomId === 'floorplanning' && EXPANDED_LESSONS[levelId]) {
+    const exp = EXPANDED_LESSONS[levelId];
+    level = {
+      id: exp.id,
+      name: exp.title,
+      title: exp.title,
+      description: exp.description,
+      xpReward: exp.xpReward || 35,
+      duration: exp.duration || '~10 min',
+      isExpanded: true,
+    };
+  }
 
   // States
   const [showHint, setShowHint] = useState(false);
@@ -51,7 +66,7 @@ export default function LevelPage({ isExploreMode = false }) {
     return <Navigate to={isExplore ? "/explore" : "/world-map"} replace />;
   }
 
-  const isUnlocked = isExplore || isLevelUnlocked(player, kingdom, level);
+  const isUnlocked = isExplore || level.isExpanded || isLevelUnlocked(player, kingdom, level);
   const isCompleted = player.levelProgress?.[level.id]?.completed ?? false;
   const currentLevelXP = player.levelProgress?.[level.id]?.xpEarned ?? 0;
   const currentLevelStars = player.levelProgress?.[level.id]?.stars ?? 0;

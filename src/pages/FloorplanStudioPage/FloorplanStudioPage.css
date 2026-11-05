@@ -1,0 +1,502 @@
+/**
+ * FloorplanStudioPage.css
+ * ========================
+ * Full-screen engineering studio layout for the Floorplanning Studio 2.0.
+ * Uses CSS Grid for a professional 4-panel layout:
+ *   [Toolbar] [Left Panel | Main Canvas | Right Panel] [Bottom Panel]
+ */
+
+/* ─── Studio Shell ─────────────────────────────────────────────────────────── */
+.fp-studio {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 600px;
+  background: #0a0f1e;
+  color: #e2e8f0;
+  font-family: 'Inter', system-ui, sans-serif;
+  overflow: hidden;
+}
+
+/* ─── Toolbar ──────────────────────────────────────────────────────────────── */
+.fp-studio__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #111827;
+  border-bottom: 1px solid #1e293b;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  min-height: 48px;
+  z-index: 10;
+}
+
+.fp-studio__toolbar-brand {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #38bdf8;
+  margin-right: 0.5rem;
+  white-space: nowrap;
+}
+
+.fp-studio__toolbar-sep {
+  width: 1px;
+  height: 24px;
+  background: #334155;
+  margin: 0 0.25rem;
+  flex-shrink: 0;
+}
+
+.fp-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 5px;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.fp-toolbar-btn:hover:not(:disabled) {
+  background: #2d3f56;
+  color: #f1f5f9;
+  border-color: #475569;
+}
+
+.fp-toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fp-toolbar-btn--primary {
+  background: #0369a1;
+  border-color: #0284c7;
+  color: #fff;
+}
+
+.fp-toolbar-btn--primary:hover:not(:disabled) {
+  background: #0284c7;
+}
+
+.fp-toolbar-btn--danger {
+  color: #fca5a5;
+  border-color: #7f1d1d;
+}
+
+.fp-toolbar-btn--active {
+  background: #1e3a5f;
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.fp-toolbar-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  min-width: 48px;
+}
+
+/* ─── Body (3-column) ──────────────────────────────────────────────────────── */
+.fp-studio__body {
+  display: grid;
+  grid-template-columns: 220px 1fr 260px;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ─── Left Panel — Design Explorer ────────────────────────────────────────── */
+.fp-studio__left {
+  background: #0f172a;
+  border-right: 1px solid #1e293b;
+  overflow-y: auto;
+  padding: 0.75rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.fp-explorer__section {
+  border-bottom: 1px solid #1e293b;
+  padding-bottom: 0.25rem;
+  margin-bottom: 0;
+}
+
+.fp-explorer__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+  user-select: none;
+}
+
+.fp-explorer__section-header:hover {
+  color: #94a3b8;
+  background: #111827;
+}
+
+.fp-explorer__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.75rem 0.3rem 1.25rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: background 0.1s, color 0.1s;
+}
+
+.fp-explorer__item:hover {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.fp-explorer__item--selected {
+  background: #1e3a5f;
+  color: #38bdf8;
+  border-left-color: #38bdf8;
+}
+
+.fp-explorer__item--error {
+  color: #fca5a5;
+}
+
+.fp-explorer__badge {
+  margin-left: auto;
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #334155;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.fp-explorer__badge--warn {
+  background: #78350f;
+  color: #fcd34d;
+}
+
+.fp-explorer__badge--error {
+  background: #7f1d1d;
+  color: #fca5a5;
+}
+
+/* ─── Main Canvas Area ─────────────────────────────────────────────────────── */
+.fp-studio__canvas-area {
+  background: #060c1a;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.fp-studio-canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+}
+
+.fp-studio-canvas--panning {
+  cursor: grabbing;
+}
+
+.fp-studio-canvas--crosshair {
+  cursor: crosshair;
+}
+
+.fp-studio-canvas__svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* No maxWidth — fills container */
+}
+
+.fp-canvas-status {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  font-size: 0.72rem;
+  color: #475569;
+  background: rgba(10, 15, 30, 0.8);
+  padding: 3px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* SVG layer legend */
+.fp-canvas-legend {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(10, 15, 30, 0.88);
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fp-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fp-legend-swatch {
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ─── Right Panel — Properties Inspector ───────────────────────────────────── */
+.fp-studio__right {
+  background: #0f172a;
+  border-left: 1px solid #1e293b;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.fp-inspector__header {
+  padding: 0.6rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+  border-bottom: 1px solid #1e293b;
+  flex-shrink: 0;
+}
+
+.fp-inspector__empty {
+  padding: 1rem 0.85rem;
+  font-size: 0.82rem;
+  color: #475569;
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.fp-prop-group {
+  border-bottom: 1px solid #1e293b;
+  padding: 0.6rem 0.85rem;
+}
+
+.fp-prop-group__title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.fp-prop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.fp-prop-label {
+  font-size: 0.78rem;
+  color: #64748b;
+  min-width: 60px;
+}
+
+.fp-prop-value {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  text-align: right;
+}
+
+.fp-prop-input {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #e2e8f0;
+  width: 80px;
+  text-align: right;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.fp-prop-input:focus {
+  outline: none;
+  border-color: #38bdf8;
+}
+
+/* ─── Bottom Panel — Analysis ─────────────────────────────────────────────── */
+.fp-studio__bottom {
+  background: #0f172a;
+  border-top: 1px solid #1e293b;
+  flex-shrink: 0;
+  min-height: 110px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.fp-analysis-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 0.5rem 1rem;
+  align-items: flex-start;
+}
+
+.fp-metric-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.4rem 0.75rem;
+  border-right: 1px solid #1e293b;
+  min-width: 140px;
+}
+
+.fp-metric-group:last-child {
+  border-right: none;
+}
+
+.fp-metric-group__title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #475569;
+  margin-bottom: 0.1rem;
+}
+
+.fp-metric {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.fp-metric__label {
+  font-size: 0.72rem;
+  color: #64748b;
+  min-width: 80px;
+}
+
+.fp-metric__value {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #94a3b8;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.fp-metric__value--ok {
+  color: #4ade80;
+}
+
+.fp-metric__value--warn {
+  color: #fbbf24;
+}
+
+.fp-metric__value--error {
+  color: #f87171;
+}
+
+/* ─── Violations / Diagnostics panel ──────────────────────────────────────── */
+.fp-diagnostics {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8rem;
+}
+
+.fp-violation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 5px;
+  margin-bottom: 0.3rem;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.fp-violation-item:hover {
+  background: #1e293b;
+}
+
+.fp-violation-item--error {
+  border-left: 3px solid #ef4444;
+}
+
+.fp-violation-item--warning {
+  border-left: 3px solid #f59e0b;
+}
+
+.fp-violation-item__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.fp-violation-item__text {
+  flex: 1;
+}
+
+.fp-violation-item__rule {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.fp-violation-item__detail {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+/* ─── Congestion Heatmap SVG overlay colors ────────────────────────────────── */
+.fp-cong-low { fill: rgba(74, 222, 128, 0.15); }
+.fp-cong-moderate { fill: rgba(251, 191, 36, 0.2); }
+.fp-cong-high { fill: rgba(249, 115, 22, 0.28); }
+.fp-cong-critical { fill: rgba(239, 68, 68, 0.38); }
+
+/* ─── Responsive adjustments ───────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .fp-studio__body {
+    grid-template-columns: 180px 1fr 220px;
+  }
+}
+
+@media (max-width: 768px) {
+  .fp-studio__body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  .fp-studio__left,
+  .fp-studio__right {
+    display: none;
+  }
+
+  .fp-studio__bottom {
+    min-height: 80px;
+  }
+}

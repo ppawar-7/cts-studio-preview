@@ -50,35 +50,65 @@ export default function PLIntroChallenge({ level, kingdom, onVerify, alreadyComp
         </div>
 
         <div className="dff-schematic-wrapper">
-          <svg viewBox="0 0 620 180" style={{ width: '100%', maxWidth: '620px' }}>
+          <svg viewBox="0 0 620 190" style={{ width: '100%', maxWidth: '620px', display: 'block' }}>
             {/* VDD Rail Top */}
             <line x1="20" y1="20" x2="600" y2="20" stroke="#ef4444" strokeWidth="4" />
-            <text x="30" y="15" fill="#ef4444" fontSize="10" fontWeight="700">VDD RAIL (Metal 1)</text>
+            <rect x="25" y="8" width="125" height="16" rx="2" fill="#1e293b" stroke="#ef4444" strokeWidth="0.8" />
+            <text x="87" y="19" fill="#ef4444" fontSize="8.5" fontWeight="700" textAnchor="middle">VDD RAIL (Metal 1)</text>
 
-            {/* Row 0 Cells */}
-            <rect x="60" y="22" width="80" height="60" fill="#1e293b" stroke="#38bdf8" strokeWidth="1.5" />
-            <text x="100" y="55" fill="#38bdf8" fontSize="11" fontWeight="700" textAnchor="middle">NAND2_X1</text>
+            {/* Row 0 Cells (R0) */}
+            <g className="cell-node">
+              <rect x="50" y="22" width="120" height="60" fill="#1e293b" stroke="#38bdf8" strokeWidth="1.5" rx="3" />
+              <text x="110" y="52" fill="#38bdf8" fontSize="10.5" fontWeight="700" textAnchor="middle">NAND2_X1</text>
+              <text x="110" y="66" fill="#94a3b8" fontSize="8" textAnchor="middle">Height: 1.4µm (R0)</text>
+            </g>
 
-            <rect x="140" y="22" width="120" height="60" fill="#1e293b" stroke="#34d399" strokeWidth="1.5" />
-            <text x="200" y="55" fill="#34d399" fontSize="11" fontWeight="700" textAnchor="middle">DFF_X1 (R0)</text>
+            <g className="cell-node">
+              <rect x="180" y="22" width="150" height="60" fill="#1e293b" stroke="#34d399" strokeWidth="1.5" rx="3" />
+              <text x="255" y="52" fill="#34d399" fontSize="10.5" fontWeight="700" textAnchor="middle">DFF_X1 (R0)</text>
+              <text x="255" y="66" fill="#94a3b8" fontSize="8" textAnchor="middle">Flip-Flop Cell</text>
+            </g>
 
-            <rect x="260" y="22" width="60" height="60" fill="#1e293b" stroke="#a78bfa" strokeWidth="1.5" />
-            <text x="290" y="55" fill="#a78bfa" fontSize="11" fontWeight="700" textAnchor="middle">INV_X1</text>
+            <g className="cell-node">
+              <rect x="340" y="22" width="100" height="60" fill="#1e293b" stroke="#a78bfa" strokeWidth="1.5" rx="3" />
+              <text x="390" y="52" fill="#a78bfa" fontSize="10.5" fontWeight="700" textAnchor="middle">INV_X1</text>
+              <text x="390" y="66" fill="#94a3b8" fontSize="8" textAnchor="middle">Inverter</text>
+            </g>
+
+            <g className="cell-node">
+              <rect x="450" y="22" width="130" height="60" fill="#1e293b" stroke="#f472b6" strokeWidth="1.5" rx="3" />
+              <text x="515" y="52" fill="#f472b6" fontSize="10.5" fontWeight="700" textAnchor="middle">BUF_X2 (R0)</text>
+              <text x="515" y="66" fill="#94a3b8" fontSize="8" textAnchor="middle">Clock Buffer</text>
+            </g>
 
             {/* Shared VSS Rail Middle */}
             <line x1="20" y1="84" x2="600" y2="84" stroke="#3b82f6" strokeWidth="4" />
-            <text x="30" y="96" fill="#3b82f6" fontSize="10" fontWeight="700">SHARED VSS RAIL (Metal 1)</text>
+            <rect x="25" y="76" width="160" height="16" rx="2" fill="#1e293b" stroke="#3b82f6" strokeWidth="0.8" />
+            <text x="105" y="87" fill="#60a5fa" fontSize="8.5" fontWeight="700" textAnchor="middle">SHARED VSS RAIL (Metal 1)</text>
 
             {/* Row 1 Cells (Mirrored / MX) */}
-            <rect x="80" y="86" width="100" height="60" fill="#1e293b" stroke="#fbbf24" strokeWidth="1.5" />
-            <text x="130" y="120" fill="#fbbf24" fontSize="11" fontWeight="700" textAnchor="middle">OR2_X1 (MX)</text>
+            <g className="cell-node">
+              <rect x="60" y="86" width="130" height="60" fill="#1e293b" stroke="#fbbf24" strokeWidth="1.5" rx="3" />
+              <text x="125" y="116" fill="#fbbf24" fontSize="10.5" fontWeight="700" textAnchor="middle">OR2_X1 (MX)</text>
+              <text x="125" y="130" fill="#94a3b8" fontSize="8" textAnchor="middle">Mirrored (MX)</text>
+            </g>
 
-            <rect x="180" y="86" width="140" height="60" fill="#1e293b" stroke="#34d399" strokeWidth="1.5" />
-            <text x="250" y="120" fill="#34d399" fontSize="11" fontWeight="700" textAnchor="middle">DFF_X1 (MX)</text>
+            <g className="cell-node">
+              <rect x="200" y="86" width="160" height="60" fill="#1e293b" stroke="#34d399" strokeWidth="1.5" rx="3" />
+              <text x="280" y="116" fill="#34d399" fontSize="10.5" fontWeight="700" textAnchor="middle">DFF_X1 (MX)</text>
+              <text x="280" y="130" fill="#94a3b8" fontSize="8" textAnchor="middle">Mirrored VDD/VSS</text>
+            </g>
+
+            <g className="cell-node">
+              <rect x="370" y="86" width="140" height="60" fill="#1e293b" stroke="#38bdf8" strokeWidth="1.5" rx="3" />
+              <text x="440" y="116" fill="#38bdf8" fontSize="10.5" fontWeight="700" textAnchor="middle">AND2_X1 (MX)</text>
+              <text x="440" y="130" fill="#94a3b8" fontSize="8" textAnchor="middle">Shared VSS Boundary</text>
+            </g>
 
             {/* VDD Rail Bottom */}
             <line x1="20" y1="148" x2="600" y2="148" stroke="#ef4444" strokeWidth="4" />
-            <text x="30" y="162" fill="#ef4444" fontSize="10" fontWeight="700">VDD RAIL (Metal 1)</text>
+            <rect x="25" y="152" width="125" height="16" rx="2" fill="#1e293b" stroke="#ef4444" strokeWidth="0.8" />
+            <text x="87" y="163" fill="#ef4444" fontSize="8.5" fontWeight="700" textAnchor="middle">VDD RAIL (Metal 1)</text>
           </svg>
         </div>
       </div>

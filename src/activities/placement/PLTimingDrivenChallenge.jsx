@@ -55,30 +55,40 @@ export default function PLTimingDrivenChallenge({ level, kingdom, onVerify, alre
         </div>
 
         <div className="dff-schematic-wrapper">
-          <svg viewBox="0 0 600 220" style={{ width: '100%', maxWidth: '600px' }}>
+          <svg viewBox="0 0 600 230" style={{ width: '100%', maxWidth: '600px', display: 'block' }}>
             {/* Core Box */}
-            <rect x="20" y="20" width="560" height="180" fill="#1e293b" stroke="#334155" />
+            <rect x="20" y="20" width="560" height="190" fill="#1e293b" stroke="#334155" rx="4" />
 
             {/* Flop A */}
-            <rect x="40" y="40" width="40" height="40" fill="#2563eb" stroke="#60a5fa" strokeWidth="2" />
-            <text x="60" y="65" fill="#ffffff" fontSize="10" fontWeight="700" textAnchor="middle">Flop A</text>
-            <text x="60" y="95" fill="#94a3b8" fontSize="9" textAnchor="middle">(20, 40)</text>
+            <g className="flop-node">
+              <rect x="40" y="40" width="70" height="44" fill="#1e3a5f" stroke="#60a5fa" strokeWidth="2" rx="3" />
+              <text x="75" y="60" fill="#ffffff" fontSize="10" fontWeight="700" textAnchor="middle">Flop A</text>
+              <text x="75" y="74" fill="#93c5fd" fontSize="8.5" textAnchor="middle">(20, 40)</text>
+            </g>
 
-            {/* Unoptimized Flop B at (340, 160) [offset: x=360, y=140] */}
-            <rect x="360" y="140" width="40" height="40" fill="#ef4444" stroke="#f87171" strokeWidth="2" strokeDasharray="3 3" />
-            <text x="380" y="165" fill="#ffffff" fontSize="10" fontWeight="700" textAnchor="middle">Flop B (Bad)</text>
-            <text x="380" y="195" fill="#f87171" fontSize="9" textAnchor="middle">(340, 240)</text>
+            {/* Optimized Flop B at (100, 40) [offset: x=180, y=40] */}
+            <g className="flop-node">
+              <rect x="180" y="40" width="76" height="44" fill="#14532d" stroke="#4ade80" strokeWidth="2" rx="3" />
+              <text x="218" y="60" fill="#ffffff" fontSize="10" fontWeight="700" textAnchor="middle">Flop B (Opt)</text>
+              <text x="218" y="74" fill="#86efac" fontSize="8.5" textAnchor="middle">(100, 40)</text>
+            </g>
 
-            {/* Long wire */}
-            <line x1="80" y1="60" x2="360" y2="160" stroke="#ef4444" strokeWidth="2" strokeDasharray="4 2" />
+            {/* Short wire between Flop A and Optimized Flop B */}
+            <line x1="110" y1="62" x2="180" y2="62" stroke="#4ade80" strokeWidth="3" />
+            <rect x="125" y="48" width="40" height="14" rx="2" fill="#0f172a" stroke="#4ade80" strokeWidth="0.8" />
+            <text x="145" y="58" fill="#4ade80" fontSize="7.5" fontWeight="700" textAnchor="middle">80 µm</text>
 
-            {/* Optimized Flop B at (120, 40) [offset: x=140, y=40] */}
-            <rect x="140" y="40" width="40" height="40" fill="#16a34a" stroke="#4ade80" strokeWidth="2" />
-            <text x="160" y="65" fill="#ffffff" fontSize="10" fontWeight="700" textAnchor="middle">Flop B (Opt)</text>
-            <text x="160" y="95" fill="#4ade80" fontSize="9" textAnchor="middle">(100, 40)</text>
+            {/* Unoptimized Flop B at (340, 240) [offset: x=440, y=140] */}
+            <g className="flop-node">
+              <rect x="440" y="140" width="76" height="44" fill="#450a0a" stroke="#f87171" strokeWidth="2" strokeDasharray="3 3" rx="3" />
+              <text x="478" y="160" fill="#ffffff" fontSize="10" fontWeight="700" textAnchor="middle">Flop B (Bad)</text>
+              <text x="478" y="174" fill="#fca5a5" fontSize="8.5" textAnchor="middle">(340, 240)</text>
+            </g>
 
-            {/* Short wire */}
-            <line x1="80" y1="60" x2="140" y2="60" stroke="#4ade80" strokeWidth="3" />
+            {/* Long wire to Unoptimized Flop B */}
+            <line x1="75" y1="84" x2="440" y2="162" stroke="#ef4444" strokeWidth="2" strokeDasharray="4 2" />
+            <rect x="235" y="125" width="105" height="16" rx="2" fill="#0f172a" stroke="#ef4444" strokeWidth="0.8" />
+            <text x="287" y="136" fill="#fca5a5" fontSize="8" fontWeight="700" textAnchor="middle">HPWL = 520 µm (Violated)</text>
           </svg>
         </div>
       </div>

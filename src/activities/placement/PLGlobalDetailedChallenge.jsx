@@ -49,7 +49,7 @@ export default function PLGlobalDetailedChallenge({ level, kingdom, onVerify, al
         <p className="combseq-desc">
           ASIC placement operates in two distinct stages:
           1. <strong>Global Placement:</strong> Relaxes discrete grid rules and treats cells as points connected by springs (quadratic optimization) to approximate optimal wirelength. Cells may overlap and sit off-grid.
-          2. <strong>Detailed Placement:</strong> Snaps every cell to the nearest legal site pitch and row boundary, completely eliminating overlaps while minimizing placement displacement ($\Delta x + \Delta y$).
+          2. <strong>Detailed Placement:</strong> Snaps every cell to the nearest legal site pitch and row boundary, completely eliminating overlaps while minimizing placement displacement (&Delta;x + &Delta;y).
         </p>
       </div>
 
@@ -73,11 +73,17 @@ export default function PLGlobalDetailedChallenge({ level, kingdom, onVerify, al
 
             {/* Rough Cell A (Off-grid: x=43, y=55) */}
             <rect x="43" y="55" width="30" height="40" fill="rgba(239, 68, 68, 0.4)" stroke="#ef4444" strokeWidth="2" strokeDasharray="4 2" />
-            <text x="58" y="78" fill="#f87171" fontSize="10" textAnchor="middle">Cell A (Rough)</text>
+            {/* Badge pill positioned cleanly above Cell A to eliminate text overlap */}
+            <rect x="20" y="14" width="76" height="18" rx="3" fill="#1e293b" stroke="#ef4444" strokeWidth="1" />
+            <text x="58" y="27" fill="#fca5a5" fontSize="8.5" fontWeight="700" textAnchor="middle">Cell A (Rough)</text>
+            <line x1="58" y1="32" x2="58" y2="55" stroke="#ef4444" strokeWidth="1" strokeDasharray="2 2" />
 
             {/* Rough Cell B (Overlapping/Off-pitch: x=78, y=38) */}
             <rect x="78" y="38" width="30" height="40" fill="rgba(245, 158, 11, 0.4)" stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 2" />
-            <text x="93" y="62" fill="#fbbf24" fontSize="10" textAnchor="middle">Cell B (Rough)</text>
+            {/* Badge pill positioned cleanly below Cell B to eliminate text overlap */}
+            <rect x="80" y="125" width="76" height="18" rx="3" fill="#1e293b" stroke="#f59e0b" strokeWidth="1" />
+            <text x="118" y="138" fill="#fcd34d" fontSize="8.5" fontWeight="700" textAnchor="middle">Cell B (Rough)</text>
+            <line x1="93" y1="78" x2="118" y2="125" stroke="#f59e0b" strokeWidth="1" strokeDasharray="2 2" />
           </svg>
         </div>
       </div>
