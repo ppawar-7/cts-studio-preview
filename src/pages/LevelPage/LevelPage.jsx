@@ -45,42 +45,45 @@ export default function LevelPage() {
   // States
   const [showHint, setShowHint] = useState(false);
   const [completionData, setCompletionData] = useState(null);
+  const [showStudioModal, setShowStudioModal] = useState(false);
 
   if (!kingdom || !level) return <Navigate to="/world-map" replace />;
 
-  const levelStatus = getLevelStatus(player, kingdom, level);
-  const alreadyCompleted = player.levelProgress[level.id]?.completed ?? false;
-  const currentLevelStars = player.levelProgress[level.id]?.stars ?? 0;
-  const currentLevelXP = player.levelProgress[level.id]?.xpEarned ?? 0;
+  const isUnlocked = isLevelUnlocked(player, kingdom, level);
+  const isCompleted = player.levelProgress?.[level.id]?.completed ?? false;
+  const currentLevelXP = player.levelProgress?.[level.id]?.xpEarned ?? 0;
+  const currentLevelStars = player.levelProgress?.[level.id]?.stars ?? 0;
 
-  // Block access to locked levels
-  if (levelStatus === 'locked') {
+  // Enforce access control
+  if (!isUnlocked) {
     return (
       <div className="level-page">
-        <div className="container" style={{ paddingTop: '4rem', textAlign: 'center' }}>
-          <span style={{ fontSize: '4rem' }}>🔒</span>
-          <h2 style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>Level Locked</h2>
-          <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.5rem' }}>
-            {level.pointsRequired > 0
-              ? `This level requires ${level.pointsRequired} XP in the ${kingdom.name} kingdom.`
-              : 'Complete the previous level first to unlock this one.'}
-          </p>
-          <Link to={`/kingdom/${kingdom.id}`} className="btn btn--primary">
-            ← Back to {kingdom.name}
-          </Link>
+        <div className="container" style={{ paddingTop: '4rem' }}>
+          <div className="level-page__locked-banner">
+            <span style={{ fontSize: '3rem' }}>🔒</span>
+            <h2>Level Locked</h2>
+            <p>
+              Complete the previous level in <strong>{kingdom.name}</strong> to unlock this challenge.
+            </p>
+            <Link to={`/kingdom/${kingdom.id}`} className="btn btn--primary">
+              Return to {kingdom.name}
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Handle verified activity completion (strictly deterministic)
+  const alreadyCompleted = isCompleted;
+
+  // Called when student passes an activity via ActivityHost
   const handleActivityVerify = (result) => {
     if (!result || !result.passed) {
       return;
     }
 
     const verifiedScore = Math.min(result.score, level.xpReward);
-    completeLevel(kingdom.id, level, verifiedScore);
+    completeLevel(kingdom.id, level, verifiedScore, result.artifacts || result.designData || result.metrics || result);
     setCompletionData({
       score: verifiedScore,
       stars: result.stars,
@@ -148,17 +151,18 @@ export default function LevelPage() {
                   <Link
                     to={`/kingdom/${nextKingdom.id}`}
                     className="btn btn--secondary btn--lg"
+                    onClick={() => setCompletionData(null)}
                   >
-                    🏰 Next Kingdom: {nextKingdom.name}
+                    👑 Next Kingdom: {nextKingdom.name} →
                   </Link>
-                  <Link to={`/kingdom/${kingdom.id}`} className="btn btn--ghost">
-                    ← Back to {kingdom.name}
+                  <Link to={`/kingdom/${kingdom.id}`} className="btn btn--primary btn--lg">
+                    🏰 Return to {kingdom.name}
                   </Link>
                 </>
               )}
               {!nextLevel && !nextKingdom && (
-                <Link to={`/kingdom/${kingdom.id}`} className="btn btn--ghost">
-                  ← Back to {kingdom.name}
+                <Link to="/world-map" className="btn btn--primary btn--lg">
+                  🏆 View World Map Completion
                 </Link>
               )}
             </div>
@@ -169,34 +173,25 @@ export default function LevelPage() {
   }
 
   return (
-    <div className="level-page">
-      {/* Header */}
+    <div
+      className="level-page"
+      style={{
+        '--kingdom-gradient': kingdom.gradient,
+        '--kingdom-color': kingdom.borderColor,
+      }}
+    >
+      {/* Top Banner / Breadcrumb */}
       <div className="level-page__header">
-        <div className="container">
-          {/* Breadcrumb */}
-          <div className="level-page__breadcrumb">
-            <Link to="/world-map">🗺️ World Map</Link>
-            <span className="level-page__breadcrumb-sep">›</span>
-            <Link to={`/kingdom/${kingdom.id}`}>{kingdom.emoji} {kingdom.name}</Link>
-            <span className="level-page__breadcrumb-sep">›</span>
-            <span>Level {level.order}</span>
-          </div>
+        <div className="container level-page__header-inner">
+          <Link to={`/kingdom/${kingdom.id}`} className="level-page__back">
+            ← Back to {kingdom.name}
+          </Link>
 
-          <div className="level-page__title-row">
-            <div>
-              <h1 className="level-page__level-title">
-                Level {level.order} — {level.title}
-              </h1>
-              <div className="level-page__meta">
-                <span>🏰 {kingdom.name}</span>
-                <span>⏱ {level.duration}</span>
-                <span>⭐ Up to {level.xpReward} XP</span>
-                {alreadyCompleted && (
-                  <span style={{ color: 'var(--color-accent)', fontWeight: 700 }}>
-                    ✓ Completed ({currentLevelXP} XP)
-                  </span>
-                )}
-              </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {/* Level badge */}
+            <div className="level-page__badge">
+              <span style={{ fontSize: '1.25rem' }}>{kingdom.emoji}</span>
+              <span>Level {level.order} of {kingdom.levels.length}</span>
             </div>
 
             {/* Stars if completed */}
@@ -277,32 +272,91 @@ export default function LevelPage() {
         </div>
 
         {/* Standalone Lab Studio Bridge */}
-        <div style={{ marginTop: '1.5rem', textAlign: 'center', padding: '0.85rem 1rem', background: '#0f172a', borderRadius: '8px', border: '1px solid #1e293b' }}>
-          <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-            {kingdom.id === 'rtl-understanding' && (
-              <>
-                Looking for open-ended circuit exploration with waveform viewers and Verilog export?{' '}
-                <a href="https://ppawar-7.github.io/rtl-playground/" target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', fontWeight: 600, textDecoration: 'underline' }}>
-                  Launch Standalone RTL Playground ↗
+        <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#0f172a', borderRadius: '8px', border: '1px solid #1e293b' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div style={{ fontSize: '0.86rem', color: '#94a3b8' }}>
+              {kingdom.id === 'rtl-understanding' && (
+                <>
+                  <strong style={{ color: '#f1f5f9' }}>⚡ RTL Studio Companion:</strong> Open-ended circuit simulator with live waveforms and Verilog generation.
+                </>
+              )}
+              {(kingdom.id === 'synthesis' || kingdom.id === 'placement' || kingdom.id === 'cts' || kingdom.id === 'routing') && (
+                <>
+                  <strong style={{ color: '#f1f5f9' }}>⏱️ STA Studio Companion:</strong> Multi-corner timing graph analyzer with setup/hold slack path tracing.
+                </>
+              )}
+              {(kingdom.id === 'floorplanning' || kingdom.id === 'filler-cells' || kingdom.id === 'gds') && (
+                <>
+                  <strong style={{ color: '#f1f5f9' }}>🛡️ Physical Design Sign-Off:</strong> Complete this level to generate verified layout parameters for stage sanity checks!
+                </>
+              )}
+            </div>
+
+            {(kingdom.id === 'rtl-understanding' || kingdom.id === 'synthesis' || kingdom.id === 'placement' || kingdom.id === 'cts' || kingdom.id === 'routing') && (
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--sm"
+                  onClick={() => setShowStudioModal(true)}
+                >
+                  ⚡ Open Studio Companion
+                </button>
+                <Link
+                  to={kingdom.id === 'rtl-understanding' ? '/studio/rtl' : `/studio/sta?stage=${kingdom.id}`}
+                  className="btn btn--ghost btn--sm"
+                >
+                  🖥️ Full Studio
+                </Link>
+                <a
+                  href={kingdom.id === 'rtl-understanding' ? 'https://ppawar-7.github.io/rtl-playground/' : 'https://ppawar-7.github.io/sta-playground/'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn--ghost btn--sm"
+                  style={{ color: '#38bdf8' }}
+                >
+                  External ↗
                 </a>
-              </>
+              </div>
             )}
-            {(kingdom.id === 'synthesis' || kingdom.id === 'placement' || kingdom.id === 'cts' || kingdom.id === 'routing') && (
-              <>
-                Want to analyze full static timing graphs, path slacks, and PVT corners?{' '}
-                <a href="https://ppawar-7.github.io/sta-playground/" target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', fontWeight: 600, textDecoration: 'underline' }}>
-                  Launch Standalone STA Playground ↗
-                </a>
-              </>
-            )}
-            {(kingdom.id === 'floorplanning' || kingdom.id === 'filler-cells' || kingdom.id === 'gds') && (
-              <>
-                Explore real ASIC sign-off standards: Complete this level's interactive challenge and verify the physical design sanity checks!
-              </>
-            )}
-          </span>
+          </div>
         </div>
       </div>
+
+      {/* Embedded Studio Companion Modal */}
+      {showStudioModal && (
+        <div className="sanity-modal-overlay" onClick={() => setShowStudioModal(false)}>
+          <div className="sanity-modal" style={{ maxWidth: '1100px', width: '95%' }} onClick={(e) => e.stopPropagation()}>
+            <div className="sanity-modal__header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.6rem' }}>{kingdom.id === 'rtl-understanding' ? '⚡' : '⏱️'}</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem' }}>
+                    {kingdom.id === 'rtl-understanding' ? 'RTL Playground Studio Companion' : 'STA Timing Studio Companion'}
+                  </h3>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                    {kingdom.name} · Level {level.order}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="sanity-modal__close"
+                onClick={() => setShowStudioModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="sanity-modal__body" style={{ padding: 0 }}>
+              <iframe
+                src={kingdom.id === 'rtl-understanding' ? '/studios/rtl/index.html' : '/studios/sta/index.html'}
+                title="Studio Companion"
+                style={{ width: '100%', height: '650px', border: 'none', display: 'block', background: '#050811' }}
+                sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

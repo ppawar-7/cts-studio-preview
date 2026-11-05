@@ -1,12 +1,12 @@
-# ASIC Physical Design Playground — Static Timing Analysis (STA) Integration
+# ASIC Physical Design Playground — Static Timing Analysis (STA) Studio Native Integration Architecture
 
-This document defines the architectural integration between **Game-Site** and the standalone **STA Playground** (`https://ppawar-7.github.io/sta-playground/`), with strict engineering disambiguation between Static Timing Analysis (STA) and Clock Tree Synthesis (CTS).
+This document defines the architectural integration between **Game-Site** and the standalone **STA Playground** (`ppawar-7/sta-playground`), including strict engineering disambiguation between Static Timing Analysis (STA) and Clock Tree Synthesis (CTS).
 
 ---
 
 ## 1. Fundamental Engineering Distinction: STA vs CTS
 
-A critical tenet of ASIC physical design pedagogy in PD Playground is the proper separation of analysis from implementation:
+A critical tenet of ASIC physical design pedagogy in PD Playground is the unambiguous separation of analysis from implementation:
 
 > [!IMPORTANT]
 > **STA is NOT CTS.**
@@ -15,68 +15,93 @@ A critical tenet of ASIC physical design pedagogy in PD Playground is the proper
 
 ---
 
-## 2. STA Across the ASIC Physical Design Flow
+## 2. Architectural Model: 4-Tier Integration Hierarchy
 
-STA is not confined to a single stage; it is an ongoing sign-off gate across four key kingdoms:
+PD Playground implements a **4-tier integration model** for Static Timing Analysis:
 
 ```mermaid
 flowchart TD
-    Syn["Kingdom 2: Logic Synthesis"] -->|"Pre-Layout STA (SDC, Gate Delays, Zero-Wire Load)"| PL["Kingdom 4: Placement"]
-    PL -->|"Trial-Route STA (Steiner Wire Delay Estimates)"| CTS["Kingdom 5: Clock Tree Synthesis"]
-    CTS -->|"Post-CTS STA (Real Clock Skew & Insertion Latency)"| RT["Kingdom 6: Routing"]
-    RT -->|"Post-Route Sign-off STA (Extracted SPEF Parasitics & Crosstalk)"| GDS["Kingdom 8: GDSII Tape-Out"]
-    
-    subgraph STA_Studio ["Standalone STA Playground (ppawar-7/sta-playground)"]
-        Graph["Static Timing Graph Engine"]
-        Corners["PVT Extreme Operating Corners (SS, TT, FF)"]
-        Slack["Setup & Hold Slack Path Tracing"]
-        Reports["Timing Path Detail & Histogram"]
+    subgraph Tier1 ["Tier 1: Stage-by-Stage Analytical Timing Checks (Game-Site Native)"]
+        Syn["Kingdom 2 (Synthesis): SDC Clock Definition & Gate Delays"]
+        Pl["Kingdom 4 (Placement): Half-Perimeter Wire Delay Estimates"]
+        Cts["Kingdom 5 (CTS): Propagated Clock Skew Setup/Hold Impact"]
+        Rt["Kingdom 6 (Routing): SPEF Distributed RC & Crosstalk Noise"]
     end
 
-    Syn -.-> STA_Studio
-    PL -.-> STA_Studio
-    CTS -.-> STA_Studio
-    RT -.-> STA_Studio
+    subgraph Tier2 ["Tier 2: In-Page Embedded Workspaces"]
+        InlineK["Kingdom Pages: Collapsible Inline Timing Studio"]
+        ModalL["Level Pages: Studio Companion Modal"]
+    end
+
+    subgraph Tier3 ["Tier 3: Dedicated Integrated Studio (/studio/sta)"]
+        G1["Stage Selector: Synthesis, Placement, CTS, Routing"]
+        G2["Timing Path Graph & Delay Histogram"]
+        G3["PVT Corner Derating & Operating Conditions"]
+        G4["Interactive Setup/Hold Slack Calculator"]
+    end
+
+    subgraph Tier4 ["Tier 4: Standalone Reference Laboratory"]
+        Ext["ppawar-7/sta-playground (GitHub Pages)"]
+    end
+
+    Tier1 -->|"Level Companion"| Tier2
+    Tier2 -->|"Dedicated View"| Tier3
+    Tier3 -.->|"External Reference"| Tier4
 ```
 
-### Stage-by-Stage STA Role
+---
 
-1. **Synthesis (Pre-Layout STA)**:
-   - Validates SDC clock period constraints ($T_{\text{period}}$), input arrival delays, and output required delays.
-   - Computes gate delays using standard cell library models (`.lib`) assuming ideal clock distribution and estimated wireload models.
+## 3. The Four Integration Tiers Defined
 
-2. **Placement (Trial-Route STA)**:
-   - Uses legalized cell coordinates to calculate Half-Perimeter Wirelength (HPWL) and FLUTE Steiner trees.
-   - Evaluates estimated interconnect delays ($R \cdot C$) to guide placement density and fix high-capacitance fanout violations before building the clock tree.
+### Tier 1: Stage-by-Stage Analytical Timing Checks
+- **Location**: Evaluated inside curriculum activities and verified by `src/engine/ctsEngine.js` and `src/engine/sanityCheckEngine.js`.
+- **Role**: Lightweight, deterministic timing calculations embedded within level activities:
+  - Synthesis: $T_{\text{clk}} \ge T_{\text{clk}\to\text{q}} + T_{\text{comb}} + T_{\text{setup}}$
+  - Placement: Wire capacitance and FLUTE Steiner estimation.
+  - CTS: Setup slack with real clock skew ($T_{\text{skew}} = T_{\text{capture}} - T_{\text{launch}}$):
+    $$\text{Slack}_{\text{setup}} = T_{\text{clk}} + T_{\text{skew}} - T_{\text{comb}} - T_{\text{setup}} - T_{\text{cq}}$$
+    $$\text{Slack}_{\text{hold}} = T_{\text{comb}} + T_{\text{cq}} - T_{\text{skew}} - T_{\text{hold}}$$
+  - Routing: Elmore delay $\tau = \sum R_i \cdot C_i$ and SPEF extraction.
 
-3. **CTS (Post-CTS STA)**:
-   - Evaluates timing margins with **actual physical clock propagation delay**.
-   - Propagated clocks replace ideal clock assertions.
-   - Analyzes how positive or negative clock skew ($T_{\text{skew}} = T_{\text{capture}} - T_{\text{launch}}$) directly affects setup vs hold margins:
-     $$\text{Setup Slack} = T_{\text{clk}} + T_{\text{skew}} - T_{\text{datapath}} - T_{\text{setup}}$$
-     $$\text{Hold Slack} = T_{\text{datapath}} - T_{\text{skew}} - T_{\text{hold}}$$
-   - Reveals the fundamental tradeoff: Positive skew helps setup margin but penalizes hold margin!
+### Tier 2: In-Page Embedded Studio Workspaces
+- **Location**: `src/pages/KingdomPage/KingdomPage.jsx` and `src/pages/LevelPage/LevelPage.jsx`
+- **Role**: Immediate visual access to the timing graph analyzer directly on Synthesis, Placement, CTS, and Routing pages without context switching.
 
-4. **Routing (Post-Route Sign-off STA)**:
-   - Replaces Steiner wire estimations with true 3D parasitic extraction (SPEF) from detailed routing geometry.
-   - Evaluates cross-coupling Miller capacitance ($C_{\text{cross}}$) for signal integrity (SI) dynamic delay pushout and noise glitch analysis.
+### Tier 3: Dedicated Integrated Studio Route
+- **Location**: `src/pages/StudioPage/STAStudioPage.jsx` (Route: `/studio/sta`)
+- **Role**: Full-screen, deep-dive Static Timing Analysis laboratory.
+- **Features**:
+  - Embedded iframe running the complete STA Playground React application served locally from `public/studios/sta/index.html`.
+  - Stage context selector buttons:
+    1. ⚙️ **Synthesis**: Pre-layout timing, ideal clock assertions, library cell delays.
+    2. 📍 **Placement**: Trial-route wire delays, cell density impact.
+    3. 🌳 **Clock Tree Synthesis**: Propagated clock networks, skew injection, arrival latency.
+    4. 🛣️ **Routing**: Post-route SPEF parasitics, crosstalk glitch noise.
+  - Prominent architectural note detailing the engineering boundary between CTS and STA.
+  - **Zero Network Latency**: 100% locally hosted and functional offline.
+
+### Tier 4: External Standalone Repository
+- **Location**: `https://ppawar-7.github.io/sta-playground/` (`ppawar-7/sta-playground`)
+- **Role**: Independent open-source repository. Development and specialized algorithms in the standalone project remain preserved and uncompromised.
 
 ---
 
-## 3. Standalone Lab Integration & Deep Links
+## 4. Stage-by-Stage Educational STA Matrix
 
-Game-Site integrates the standalone **STA Playground** (`ppawar-7/sta-playground`) as an external interactive laboratory:
-- **Kingdom Page Cards**: Displayed prominently in Synthesis, Placement, CTS, and Routing kingdoms with targeted descriptions explaining STA's role at that specific stage.
-- **Level Page Bridge Link**: Displayed at the bottom of timing levels, inviting students to trace complete multi-corner graphs in the standalone studio.
-- **Direct Link**: `https://ppawar-7.github.io/sta-playground/` opens in a separate browser tab, preserving the student's Game-Site session and progress.
+| ASIC Stage | Clock Model | Interconnect Model | Key Timing Equations & Verification Focus |
+| :--- | :--- | :--- | :--- |
+| **Logic Synthesis** | Ideal (0 ps skew, 0 ps latency) | Estimated fanout wireload | $T_{\text{clk}} \ge T_{\text{comb}} + T_{\text{setup}} + T_{\text{cq}}$. Validates cell drive strength and logic depth. |
+| **Placement** | Ideal | Estimated Steiner HPWL | Pin-to-pin RC delays. Validates cell legalization without critical path stretching. |
+| **Clock Tree Synthesis (CTS)** | Propagated (physical skew) | Steiner / early global routes | Setup vs hold tradeoff under skew: $\text{Slack}_{\text{setup}} = T_{\text{clk}} + T_{\text{skew}} - T_{\text{data}} - T_{\text{setup}}$. Hold: $\text{Slack}_{\text{hold}} = T_{\text{data}} - T_{\text{skew}} - T_{\text{hold}}$. |
+| **Global & Detailed Routing** | Propagated | Extracted SPEF ($R, C$) | Detailed wire parasitics, crosstalk delta-delay, and sign-off timing closure across SS/TT/FF corners. |
 
 ---
 
-## 4. Game-Site's Native Timing Challenges
+## 5. Offline Packaging & Isolation
 
-While STA Playground handles full-path graph traversal, Game-Site features native, mathematically rigorous timing exercises:
-- `syn-4`: Pre-layout setup slack calculation given clock period, cell delays, and flip-flop setup times.
-- `cts-1`: Clock skew and latency fundamentals; understanding launch vs capture arrival times.
-- `cts-2`: Quantitative setup and hold slack closure with nonzero clock skew and jitter.
-- `rt-4`: Signal integrity, wire coupling capacitance, and buffer insertion for slew control.
-- `gds-2`: Multi-corner sign-off auditing (ensuring both Setup WNS $\ge 0$ at Slow-Slow corner and Hold WNS $\ge 0$ at Fast-Fast corner).
+1. **Local Static Bundle**:
+   - Packaged directly into `public/studios/sta/` from `pd-playground-sta/dist`.
+   - Served cleanly at `/studios/sta/index.html` by Vite.
+2. **Iframe Isolation**:
+   - Configured with `sandbox="allow-scripts allow-same-origin allow-forms allow-modals"`.
+   - Completely offline with zero external network calls.

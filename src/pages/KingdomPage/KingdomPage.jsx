@@ -5,9 +5,9 @@
  * Renders any kingdom based on the :kingdomId URL parameter.
  * Features:
  * - Kingdom Hero & Stats
- * - Standalone Studio Lab Integration Link
+ * - Native Integrated Studio Lab Workspace (Inline & Dedicated Routes)
  * - Main Concept Levels
- * - Stage Sanity Check Side Quests (Certified via real ruledeck evaluation)
+ * - Stage Sanity Check Side Quests (Validating Real Student Designs)
  * - Interactive Sanity Check Verification Terminal Modal
  */
 
@@ -29,6 +29,7 @@ import {
 } from '../../logic/progressionEngine.js';
 import { KINGDOMS } from '../../data/kingdomsData.js';
 import { evaluateSanityCheck } from '../../engine/sanityCheckEngine.js';
+import { getStudentDesignForSanityCheck } from '../../logic/studentDesignContext.js';
 import './KingdomPage.css';
 
 export default function KingdomPage() {
@@ -39,7 +40,15 @@ export default function KingdomPage() {
   const [simulationDone, setSimulationDone] = useState(false);
   const [simulationLogs, setSimulationLogs] = useState([]);
   const [simulationPassed, setSimulationPassed] = useState(true);
-  const [isDefectMode, setIsDefectMode] = useState(false);
+  const [simulationCanCertify, setSimulationCanCertify] = useState(false);
+  
+  // Sanity check audit modes: 'student' (genuine design) vs 'demo' (preset drill)
+  const [auditMode, setAuditMode] = useState('student');
+  const [demoDefect, setDemoDefect] = useState(false);
+  const [studentAuditInfo, setStudentAuditInfo] = useState(null);
+
+  // In-page embedded studio workspace toggle
+  const [showInlineStudio, setShowInlineStudio] = useState(false);
 
   // Find kingdom by ID from central data
   const kingdom = KINGDOMS.find((k) => k.id === kingdomId);
@@ -78,12 +87,17 @@ export default function KingdomPage() {
 
   // Open interactive verification modal
   const handleOpenCheck = (check) => {
-    setIsDefectMode(false);
+    const auditInfo = getStudentDesignForSanityCheck(player, check.id);
+    setStudentAuditInfo(auditInfo);
+    setAuditMode('student');
+    setDemoDefect(false);
     setActiveCheck(check);
     setRunningSimulation(false);
-    const passed = isSanityCheckPassed(player, check.id);
-    setSimulationDone(passed);
+
+    const alreadyPassed = isSanityCheckPassed(player, check.id);
+    setSimulationDone(alreadyPassed);
     setSimulationPassed(true);
+    setSimulationCanCertify(alreadyPassed);
     setSimulationLogs([]);
   };
 
@@ -91,17 +105,32 @@ export default function KingdomPage() {
   const handleRunSimulation = () => {
     setRunningSimulation(true);
     setTimeout(() => {
-      const result = evaluateSanityCheck(activeCheck.id, { injectDefect: isDefectMode });
+      let result;
+      if (auditMode === 'student') {
+        result = evaluateSanityCheck(activeCheck.id, {
+          isStudentDesign: true,
+          hasStudentDesign: studentAuditInfo?.canCertify ?? false,
+          reason: studentAuditInfo?.reason,
+          designData: studentAuditInfo?.designData || {},
+        });
+      } else {
+        result = evaluateSanityCheck(activeCheck.id, {
+          isStudentDesign: false,
+          injectDefect: demoDefect,
+        });
+      }
+
       setSimulationLogs(result.logOutput || []);
       setSimulationPassed(result.passed);
+      setSimulationCanCertify(result.canCertify);
       setRunningSimulation(false);
       setSimulationDone(true);
-    }, 600);
+    }, 500);
   };
 
   // Sign off and certify check
   const handleCertifyCheck = () => {
-    if (activeCheck && simulationPassed) {
+    if (activeCheck && simulationPassed && simulationCanCertify) {
       passSanityCheck(kingdom.id, activeCheck, activeCheck.xpReward);
       setActiveCheck(null);
     }
@@ -187,47 +216,102 @@ export default function KingdomPage() {
           </div>
         )}
 
+        {/* Unlocked content */}
         {unlocked && (
           <>
-            {/* Standalone Lab Cross-Link Card */}
+            {/* Integrated Studio Laboratory Workspace Card */}
             {kingdom.id === 'rtl-understanding' && (
               <div className="kingdom-external-lab-card">
                 <div className="kingdom-external-lab-info">
-                  <h3>🚀 Full Standalone RTL Playground Suite</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <h3>⚡ RTL Playground Studio (Integrated Suite)</h3>
+                    <span className="badge badge--available">Native Embedding</span>
+                  </div>
                   <p>
-                    Explore 8-bit ALUs, sequential registers, counters, and Moore/Mealy State Machines with Verilog generation in the full standalone laboratory.
+                    Open-ended circuit creation, waveform viewer, 8-bit ALU/datapath designer, and Moore/Mealy FSM studio across 24 lessons.
                   </p>
                 </div>
-                <a
-                  href="https://ppawar-7.github.io/rtl-playground/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn--primary"
-                >
-                  Open RTL Studio Lab ↗
-                </a>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn--primary"
+                    onClick={() => setShowInlineStudio(!showInlineStudio)}
+                  >
+                    {showInlineStudio ? '▲ Collapse In-Page Studio' : '⚡ Open In-Page Studio'}
+                  </button>
+                  <Link to="/studio/rtl" className="btn btn--secondary">
+                    🖥️ Dedicated Studio Page
+                  </Link>
+                  <a
+                    href="https://ppawar-7.github.io/rtl-playground/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn--ghost"
+                  >
+                    External Tab ↗
+                  </a>
+                </div>
+
+                {/* Collapsible Inline Studio Iframe */}
+                {showInlineStudio && (
+                  <div style={{ width: '100%', marginTop: '1.25rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
+                    <iframe
+                      src="/studios/rtl/index.html"
+                      title="RTL Playground In-Page Studio"
+                      style={{ width: '100%', height: '700px', border: 'none', display: 'block', background: '#050811' }}
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
+                    />
+                  </div>
+                )}
               </div>
             )}
 
             {(kingdom.id === 'synthesis' || kingdom.id === 'placement' || kingdom.id === 'cts' || kingdom.id === 'routing') && (
               <div className="kingdom-external-lab-card">
                 <div className="kingdom-external-lab-info">
-                  <h3>⏱ Static Timing Analysis (STA) Playground</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <h3>⏱️ Static Timing Analysis (STA) Studio (Integrated Suite)</h3>
+                    <span className="badge badge--available">Native Embedding</span>
+                  </div>
                   <p>
-                    {kingdom.id === 'synthesis' && 'Analyze pre-layout setup/hold slack against SDC clock definitions and standard-cell gate delays in the standalone timing engine.'}
-                    {kingdom.id === 'placement' && 'Evaluate estimated wire delays and setup margins following cell legalization in the standalone timing engine.'}
-                    {kingdom.id === 'cts' && 'Understand how clock skew and insertion latency impact timing slack. (Important: CTS builds the clock-distribution tree, while STA verifies the resulting timing margins).'}
-                    {kingdom.id === 'routing' && 'Perform post-route sign-off STA with extracted parasitic RC net delays and crosstalk derating in the standalone timing engine.'}
+                    {kingdom.id === 'synthesis' && 'Pre-layout STA: Analyze setup/hold slack against SDC clock definitions and standard-cell delays.'}
+                    {kingdom.id === 'placement' && 'Placement STA: Evaluate estimated wire delays and setup margins following cell legalization.'}
+                    {kingdom.id === 'cts' && 'Post-CTS STA: Observe how real clock skew and insertion latency impact timing slack. (Note: CTS builds the physical clock tree; STA verifies timing).'}
+                    {kingdom.id === 'routing' && 'Post-route sign-off STA: Analyze extracted parasitic RC net delays and crosstalk derating.'}
                   </p>
                 </div>
-                <a
-                  href="https://ppawar-7.github.io/sta-playground/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn--primary"
-                >
-                  Open STA Timing Lab ↗
-                </a>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn--primary"
+                    onClick={() => setShowInlineStudio(!showInlineStudio)}
+                  >
+                    {showInlineStudio ? '▲ Collapse In-Page Studio' : '⚡ Open In-Page Studio'}
+                  </button>
+                  <Link to={`/studio/sta?stage=${kingdom.id}`} className="btn btn--secondary">
+                    🖥️ Dedicated Studio Page
+                  </Link>
+                  <a
+                    href="https://ppawar-7.github.io/sta-playground/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn--ghost"
+                  >
+                    External Tab ↗
+                  </a>
+                </div>
+
+                {/* Collapsible Inline Studio Iframe */}
+                {showInlineStudio && (
+                  <div style={{ width: '100%', marginTop: '1.25rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
+                    <iframe
+                      src="/studios/sta/index.html"
+                      title="STA Playground In-Page Studio"
+                      style={{ width: '100%', height: '700px', border: 'none', display: 'block', background: '#050811' }}
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -252,7 +336,7 @@ export default function KingdomPage() {
                   <span style={{ fontSize: '1.2rem' }}>🛡️</span>
                   <div>
                     <strong>Stage Sign-Off:</strong> Complete all core levels above, then verify all {totalSanity} Sanity Checks
-                    to earn full {kingdom.name} stage certification and unlock the completion bonus!
+                    to validate your actual design and earn the stage certification bonus!
                   </div>
                 </div>
               )}
@@ -285,7 +369,7 @@ export default function KingdomPage() {
                       🛡️ Part 2: Stage Sanity Checks (Side Quests)
                     </h2>
                     <p className="kingdom-page__sanity-subtitle">
-                      Complete each verification audit in order to certify stage sign-off and earn bonus XP.
+                      Validates your actual layout geometry and design constraints against authentic EDA ruledecks.
                     </p>
                   </div>
                   <span className={`badge ${allSanityPassed ? 'badge--completed' : 'badge--available'}`}>
@@ -313,12 +397,14 @@ export default function KingdomPage() {
                       <div
                         key={check.id}
                         className={`sanity-card ${isPassed ? 'sanity-card--passed' : ''} ${!isUnlocked && !isPassed ? 'sanity-card--locked' : ''}`}
+                        onClick={() => handleOpenCheck(check)}
+                        style={{ cursor: 'pointer' }}
                       >
                         <div className="sanity-card__header">
                           <span className="sanity-card__icon">{check.icon}</span>
                           <span className="sanity-card__category">{check.category}</span>
                           {isPassed && <span className="sanity-card__badge-pass">✓ CERTIFIED</span>}
-                          {!isUnlocked && !isPassed && <span className="sanity-card__badge-lock">🔒 LOCKED</span>}
+                          {!isUnlocked && !isPassed && <span className="sanity-card__badge-lock">🔒 PRACTICE ONLY</span>}
                         </div>
 
                         <h3 className="sanity-card__title">{check.name}</h3>
@@ -334,7 +420,7 @@ export default function KingdomPage() {
                           {isUnlocked && (
                             <button
                               className="btn btn--secondary btn--sm"
-                              onClick={() => handleOpenCheck(check)}
+                              onClick={(e) => { e.stopPropagation(); handleOpenCheck(check); }}
                             >
                               ▶ Inspect Audit
                             </button>
@@ -342,9 +428,17 @@ export default function KingdomPage() {
                           {isPassed && (
                             <button
                               className="btn btn--secondary btn--sm"
-                              onClick={() => handleOpenCheck(check)}
+                              onClick={(e) => { e.stopPropagation(); handleOpenCheck(check); }}
                             >
                               ✓ View Sign-Off
+                            </button>
+                          )}
+                          {!isUnlocked && !isPassed && (
+                            <button
+                              className="btn btn--secondary btn--sm"
+                              onClick={(e) => { e.stopPropagation(); handleOpenCheck(check); }}
+                            >
+                              🔬 Practice Drill
                             </button>
                           )}
                         </div>
@@ -387,58 +481,119 @@ export default function KingdomPage() {
                 {activeCheck.description}
               </p>
 
-              {/* Educational Disclosure */}
+              {/* Mode Selection Tabs: Student Design vs Demonstration */}
               <div style={{
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '8px 12px',
-                marginBottom: '1rem',
-                fontSize: '0.82rem',
-                color: '#64748b',
                 display: 'flex',
-                alignItems: 'center',
                 gap: '0.5rem',
+                marginBottom: '1rem',
+                borderBottom: '1px solid #e2e8f0',
+                paddingBottom: '0.5rem',
               }}>
-                <span style={{ fontSize: '1.1rem' }}>ℹ️</span>
-                <span>
-                  <strong>Educational Rule Check:</strong> Evaluates closed-form physical equations and boundary rules for educational pedagogy. Not a commercial foundry sign-off tool.
-                </span>
+                <button
+                  type="button"
+                  style={{
+                    padding: '0.45rem 0.9rem',
+                    fontSize: '0.84rem',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    border: '1px solid',
+                    borderColor: auditMode === 'student' ? '#0284c7' : '#cbd5e1',
+                    background: auditMode === 'student' ? '#0284c7' : '#f8fafc',
+                    color: auditMode === 'student' ? '#ffffff' : '#475569',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
+                    setAuditMode('student');
+                    setSimulationDone(false);
+                    setSimulationLogs([]);
+                  }}
+                >
+                  🎓 Student Design Verification (Sign-Off)
+                </button>
+
+                <button
+                  type="button"
+                  style={{
+                    padding: '0.45rem 0.9rem',
+                    fontSize: '0.84rem',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    border: '1px solid',
+                    borderColor: auditMode === 'demo' ? '#7c3aed' : '#cbd5e1',
+                    background: auditMode === 'demo' ? '#7c3aed' : '#f8fafc',
+                    color: auditMode === 'demo' ? '#ffffff' : '#475569',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
+                    setAuditMode('demo');
+                    setSimulationDone(false);
+                    setSimulationLogs([]);
+                  }}
+                >
+                  🔬 Demonstration &amp; Fault Drill (Practice Only)
+                </button>
               </div>
 
-              {/* Defect Injection Audit Controls */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem',
-                marginBottom: '1rem',
-                padding: '8px 14px',
-                background: isDefectMode ? '#fef2f2' : '#f1f5f9',
-                border: isDefectMode ? '1px solid #fecaca' : '1px solid #e2e8f0',
-                borderRadius: '8px',
-                fontSize: '0.86rem',
-                transition: 'all 0.2s ease',
-              }}>
-                <span style={{ fontWeight: 600, color: '#334155' }}>Audit Input Mode:</span>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: !isDefectMode ? 600 : 400, color: !isDefectMode ? '#1e293b' : '#64748b' }}>
-                  <input
-                    type="radio"
-                    name="sanity-defect-toggle"
-                    checked={!isDefectMode}
-                    onChange={() => { setIsDefectMode(false); setSimulationDone(false); }}
-                  />
-                  <span>✓ Nominal Clean Design</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: isDefectMode ? 600 : 400, color: isDefectMode ? '#b91c1c' : '#64748b' }}>
-                  <input
-                    type="radio"
-                    name="sanity-defect-toggle"
-                    checked={isDefectMode}
-                    onChange={() => { setIsDefectMode(true); setSimulationDone(false); }}
-                  />
-                  <span>⚠️ Inject Physical Defect (DRC Audit Drill)</span>
-                </label>
-              </div>
+              {/* Status Context Banner */}
+              {auditMode === 'student' ? (
+                <div style={{
+                  background: studentAuditInfo?.canCertify ? '#f0fdf4' : '#fffbeb',
+                  border: `1px solid ${studentAuditInfo?.canCertify ? '#bbf7d0' : '#fef3c7'}`,
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  marginBottom: '1rem',
+                  fontSize: '0.85rem',
+                  lineHeight: 1.5,
+                  color: studentAuditInfo?.canCertify ? '#166534' : '#92400e',
+                }}>
+                  {studentAuditInfo?.canCertify ? (
+                    <div>
+                      <strong>✓ Verified Student Design Ready:</strong> This check evaluates your layout parameters generated from <strong>{studentAuditInfo.requirement?.prerequisiteLevels.join(', ')}</strong>. Passing this audit certifies your design and awards +{activeCheck.xpReward} XP.
+                    </div>
+                  ) : (
+                    <div>
+                      <strong>⚠️ Prerequisite Design Required:</strong> {studentAuditInfo?.reason || 'Complete prerequisite levels first.'} Stage certification cannot be awarded until you complete the prerequisite level(s).
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{
+                  background: '#f5f3ff',
+                  border: '1px solid #ddd6fe',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  marginBottom: '1rem',
+                  fontSize: '0.85rem',
+                  lineHeight: 1.5,
+                  color: '#5b21b6',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <span>
+                      <strong>ℹ️ Demonstration Mode:</strong> Inspecting preset reference designs. Stage certification XP cannot be earned in this mode.
+                    </span>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.82rem' }}>
+                        <input
+                          type="radio"
+                          name="sanity-demo-defect"
+                          checked={!demoDefect}
+                          onChange={() => { setDemoDefect(false); setSimulationDone(false); }}
+                        />
+                        <span>Nominal Clean</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.82rem', color: '#b91c1c' }}>
+                        <input
+                          type="radio"
+                          name="sanity-demo-defect"
+                          checked={demoDefect}
+                          onChange={() => { setDemoDefect(true); setSimulationDone(false); }}
+                        />
+                        <span>Inject Fault</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* EDA Verification Terminal */}
               <div className="sanity-terminal">
@@ -465,15 +620,15 @@ export default function KingdomPage() {
                         [INIT] Command: {activeCheck.command}
                       </div>
                       <div className="sanity-terminal__line sanity-terminal__line--dim">
-                        [SCOPE] Evaluating physical design ruledeck criteria: {activeCheck.criteria}
+                        [SCOPE] Physical design ruledeck criteria: {activeCheck.criteria}
                       </div>
                       {simulationLogs.map((log, idx) => (
                         <div
                           key={idx}
                           className={`sanity-terminal__line ${
-                            log.includes('PASSED') || log.includes('Clean') || log.includes('MET')
+                            log.includes('PASSED') || log.includes('Clean') || log.includes('MET') || log.includes('CLEAN_PASS')
                               ? 'sanity-terminal__line--green'
-                              : log.includes('VIOLATION') || log.includes('OVERFLOW') || log.includes('FAIL')
+                              : log.includes('VIOLATION') || log.includes('OVERFLOW') || log.includes('FAIL') || log.includes('ABORT')
                               ? 'sanity-terminal__line--red'
                               : 'sanity-terminal__line--cyan'
                           }`}
@@ -495,7 +650,7 @@ export default function KingdomPage() {
                     onClick={handleRunSimulation}
                     disabled={runningSimulation}
                   >
-                    {runningSimulation ? '⏳ Running Ruledeck Verification...' : '⚡ Run Verification Audit'}
+                    {runningSimulation ? '⏳ Running Ruledeck Verification...' : `⚡ Run Verification Audit (${auditMode === 'student' ? 'Student Design' : 'Demonstration'})`}
                   </button>
                 ) : isSanityCheckPassed(player, activeCheck.id) ? (
                   <div style={{ width: '100%', textAlign: 'center' }}>
@@ -510,17 +665,38 @@ export default function KingdomPage() {
                       Close Audit Window
                     </button>
                   </div>
-                ) : simulationPassed ? (
+                ) : simulationPassed && simulationCanCertify ? (
                   <div style={{ width: '100%', textAlign: 'center' }}>
                     <div className="sanity-modal__passed-notice" style={{ marginBottom: '0.75rem' }}>
-                      ✓ <strong>Ruledeck Passed:</strong> Physical design criteria verified with zero violations.
+                      ✓ <strong>Student Design Certified:</strong> Your design layout satisfies all physical ruledeck criteria.
                     </div>
                     <button
                       type="button"
                       className="btn btn--primary btn--lg w-full"
                       onClick={handleCertifyCheck}
                     >
-                      🛡️ Sign-Off & Certify Stage Check (+{activeCheck.xpReward} XP)
+                      🛡️ Sign-Off &amp; Certify Stage Check (+{activeCheck.xpReward} XP)
+                    </button>
+                  </div>
+                ) : simulationPassed && !simulationCanCertify ? (
+                  <div style={{ width: '100%', textAlign: 'center' }}>
+                    <div style={{
+                      background: '#f5f3ff',
+                      border: '1px solid #ddd6fe',
+                      color: '#5b21b6',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      fontSize: '0.85rem',
+                      marginBottom: '0.75rem',
+                    }}>
+                      ℹ️ <strong>Demonstration Passed:</strong> Reference drill verified clean. Switch to "Student Design Verification" to certify your design for XP.
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--lg w-full"
+                      onClick={() => setActiveCheck(null)}
+                    >
+                      ✓ Practice Drill Complete (Close)
                     </button>
                   </div>
                 ) : (
@@ -542,7 +718,7 @@ export default function KingdomPage() {
                       className="btn btn--secondary btn--lg w-full"
                       onClick={() => setActiveCheck(null)}
                     >
-                      Close & Revise Design
+                      Close &amp; Revise Design
                     </button>
                   </div>
                 )}

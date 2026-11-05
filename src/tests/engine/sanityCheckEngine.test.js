@@ -290,4 +290,63 @@ describe('Sanity Check Engine — Comprehensive 26-Check Verification Suite', ()
       expect(resFail.passed).toBe(false);
     });
   });
+
+  // ─── 6. Student Design Verification vs Demonstration Drills ─────────
+  describe('Student Design Verification vs Demonstration Drills', () => {
+    it('rejects certification when student design is missing prerequisite layout', () => {
+      const res = evaluateSanityCheck('fp-drc', {}, {
+        isStudentDesign: true,
+        hasStudentDesign: false,
+        studentDesignReason: 'Prerequisite design missing: Complete fp-4, fp-5 first.',
+      });
+
+      expect(res.passed).toBe(false);
+      expect(res.canCertify).toBe(false);
+      expect(res.isDemonstration).toBe(false);
+      expect(res.logOutput.join(' ')).toContain('NO STUDENT DESIGN FOUND');
+    });
+
+    it('approves certification when student design satisfies design rules', () => {
+      const res = evaluateSanityCheck('fp-drc', { margin: 25.0, halo: 18.0 }, {
+        isStudentDesign: true,
+        hasStudentDesign: true,
+      });
+
+      expect(res.passed).toBe(true);
+      expect(res.canCertify).toBe(true);
+      expect(res.isDemonstration).toBe(false);
+      expect(res.logOutput.join(' ')).toContain('CLEAN_PASS');
+      expect(res.logOutput.join(' ')).toContain('Educational EDA Check');
+    });
+
+    it('rejects certification if student design violates design rules', () => {
+      const res = evaluateSanityCheck('fp-drc', { margin: 12.0, halo: 8.0 }, {
+        isStudentDesign: true,
+        hasStudentDesign: true,
+      });
+
+      expect(res.passed).toBe(false);
+      expect(res.canCertify).toBe(false);
+      expect(res.isDemonstration).toBe(false);
+      expect(res.logOutput.join(' ')).toContain('VIOLATION');
+    });
+
+    it('demonstration mode executes without certification rights (canCertify = false)', () => {
+      const res = evaluateSanityCheck('fp-drc', { margin: 25.0, halo: 18.0 }, {
+        isStudentDesign: false,
+      });
+
+      expect(res.passed).toBe(true);
+      expect(res.canCertify).toBe(false); // Practice drill cannot award certification XP
+      expect(res.isDemonstration).toBe(true);
+      expect(res.logOutput.join(' ')).toContain('DEMONSTRATION DRILL');
+    });
+
+    it('all evaluations include educational scope disclosures (not foundry-qualified)', () => {
+      const res = evaluateSanityCheck('rt-lvs', { shorts: 0 });
+      const logsCombined = res.logOutput.join(' ');
+      expect(logsCombined).toContain('Educational EDA Check');
+      expect(logsCombined).toContain('Not foundry-qualified signoff');
+    });
+  });
 });

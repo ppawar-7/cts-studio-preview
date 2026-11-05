@@ -286,7 +286,7 @@ export function computeStars(score, thresholds) {
 /**
  * Apply level completion to player state.
  */
-export function applyLevelCompletion(player, kingdomId, level, score) {
+export function applyLevelCompletion(player, kingdomId, level, score, artifacts = {}) {
   const kingdom = KINGDOMS.find((k) => k.id === kingdomId);
   const stars = computeStars(score, level.starThresholds);
   const xpEarned = Math.min(score, level.xpReward);
@@ -302,6 +302,7 @@ export function applyLevelCompletion(player, kingdomId, level, score) {
       stars: Math.max(stars, existingProgress?.stars ?? 0),
       xpEarned: Math.max(xpEarned, previousXP),
       verified: true,
+      artifacts: { ...(existingProgress?.artifacts || {}), ...artifacts },
       completedAt: new Date().toISOString(),
     },
   };

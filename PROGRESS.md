@@ -73,3 +73,26 @@ This document records the chronological development, architectural evolutions, b
   - Embedded direct launch links to `https://ppawar-7.github.io/rtl-playground/` and `https://ppawar-7.github.io/sta-playground/`.
 - **Complete Documentation Matrix**: Finalized all 12 root engineering documents.
 - **Private Repository Preparation**: Configured private remote and verified zero secrets/tokens.
+
+---
+
+## Milestone 6: Native Studio Embedding, Student Design Sanity Checks & 26-Check Verification
+- **Native Studio Embedding (Zero Cloud / Offline)**:
+  - Copied compiled standalone suites directly into `public/studios/rtl/` and `public/studios/sta/`.
+  - Created dedicated full-page routes: `/studio/rtl` (full 24-lesson simulator, schematic viewer, waveforms, ALU, FSM) and `/studio/sta` (timing graph analyzer, setup/hold histograms, stage context selectors).
+  - Added collapsible in-page studio workspaces on Kingdom pages and studio companion modals on Level pages.
+- **Student Design Context Schema & Sanity Check Engine**:
+  - Implemented `src/logic/studentDesignContext.js` mapping all 26 checks to prerequisite levels (`fp-4/5`, `pl-1..5`, `cts-2..5`, `rt-1..5`, `fc-1..5`).
+  - Gated sanity check certification behind genuine student design artifacts. Rejects audits if prerequisite levels are incomplete.
+  - Separated demonstration fault drills into practice-only mode (`canCertify: false`, zero certification XP).
+  - Appended educational EDA scope disclosures across all ruledecks.
+- **Test Matrix Expansion**:
+  - Created `src/tests/logic/studentDesignContext.test.js` (6 tests).
+  - Created `src/tests/engine/all26SanityChecksIndividual.test.js` (105 tests verifying all 26 checks across prerequisite rejection, demo isolation, defect injection, and valid sign-off).
+  - Vitest test suite expanded to **419 passed tests across 25 suites**.
+- **Browser E2E Verification**:
+  - Created `tests/test_studios_and_all_26_sanity_checks.cjs` verifying both embedded studios, prerequisite gating, demonstration drills, and genuine student design certification.
+- **Repository Provenance & Licensing**:
+  - Updated `README.md` with private clone URL (`https://github.com/ppawar-7/pd-playground-game-private.git`).
+  - Replaced unsupported MIT claims with accurate Source Provenance & Intellectual Property disclosure.
+

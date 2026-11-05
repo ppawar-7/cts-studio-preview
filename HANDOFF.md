@@ -8,6 +8,11 @@ This document serves as the primary developer handoff manual for future engineer
 
 ```
 Game-Site/
+├── public/
+│   └── studios/                    # 100% locally hosted standalone companion studio builds
+│       ├── rtl/                    # Complete 24-lesson RTL Playground static site bundle
+│       └── sta/                    # Complete Static Timing Analysis React application build
+│
 ├── src/
 │   ├── activities/                 # Native interactive activities for all 40 levels
 │   │   ├── rtl/                    # Kingdom 1: RTL Understanding (rtl-1 to rtl-5)
@@ -45,68 +50,56 @@ Game-Site/
 │   │   ├── kingdomsData.js         # The 8 kingdoms, 40 levels, and 26 sanity checks definitions
 │   │   └── playerDefaults.js       # Initial player schema (v2) and achievements catalog
 │   │
-│   ├── logic/                      # Pure functional progression rules
+│   ├── logic/                      # Pure functional progression rules & student design extraction
 │   │   ├── progressionEngine.js    # Unlock conditions, star mathematics, XP calculation
-│   │   └── storageMigration.js     # Schema v1 -> v2 migration logic
+│   │   ├── storageMigration.js     # Schema v1 -> v2 migration logic
+│   │   └── studentDesignContext.js # Prerequisite mapping and artifact extraction for 26 checks
 │   │
 │   ├── pages/                      # Top-level view routes
 │   │   ├── DashboardPage/          # Stats overview & progress matrix
 │   │   ├── KingdomPage/            # Part 1 Levels + Part 2 Sanity Checks + EDA Signoff Terminal
 │   │   ├── LandingPage/            # Landing splash & curriculum introduction
 │   │   ├── LevelPage/              # Level header, breadcrumb navigation, and ActivityHost mount
+│   │   ├── StudioPage/             # Native embedded studio routes (/studio/rtl and /studio/sta)
+│   │   │   ├── RTLStudioPage.jsx   # Dedicated full-page RTL studio view
+│   │   │   ├── STAStudioPage.jsx   # Dedicated full-page STA studio view
+│   │   │   └── StudioPage.css      # Responsive styles & dark studio theme
 │   │   └── WorldMapPage/           # The 8 ASIC kingdoms journey road
 │   │
-│   └── tests/                      # 23 Vitest test suites (303+ unit & integration tests)
+│   └── tests/                      # 25 Vitest test suites (419 unit & integration tests)
 │       ├── activities/             # Unit tests for level validators across all 8 kingdoms
-│       ├── components/             # ActivityHost tests
-│       ├── engine/                 # Domain engine mathematical unit tests
-│       └── logic/                  # Progression rules & curriculum unlock tests
+│       ├── components/             # Unit tests for ActivityHost
+│       ├── engine/                 # Mathematical correctness tests for 9 numerical engines & 26 checks
+│       └── logic/                  # Progression rules, unlock formulas, and schema migrations
 │
-├── tests/                          # Browser E2E verification scripts (Headless Chromium / CDP)
-│   ├── browser_resolver.cjs        # Cross-platform browser discovery (Chrome, Edge)
-│   ├── test_2star_progression_math.cjs # Zero-deadlock 2-star progression verification
-│   ├── test_full_40_browser_journey.cjs # Full 40-level authentic browser acceptance journey
-│   ├── test_all_40_activities_e2e.cjs # Complete 40-activity test suite
-│   ├── test_fresh_student_journey.cjs # Real fresh-student browser user-journey test
-│   └── test_full_platform_e2e.cjs  # Comprehensive 8-kingdom E2E test with screenshots
-│
-├── README.md                       # Platform overview & quick start
-├── SYSTEM_ARCHITECTURE.md          # Architecture, data flow, and engine interfaces
-├── GAME_ENGINE_SPEC.md             # Algorithmic specifications for all 9 domain engines
-├── RTL_INTEGRATION.md              # Architectural bridge to standalone RTL Playground
-├── STA_INTEGRATION.md              # STA positioning and strict CTS vs STA distinction
-├── ENGINEERING_MODELS.md           # Physical design formulas, derivations, and units
-├── LEARNING_CURRICULUM.md          # 40-level pedagogical roadmap & mirrored tools
-├── TEST_COVERAGE_MATRIX.md         # Mapping of 303 Vitest tests and browser E2E journeys
-├── PROGRESSION_RULES.md            # Unlock gates, scoring rubrics, and achievement triggers
-├── KNOWN_LIMITATIONS.md            # Transparent engineering disclosures & approximations
-├── PROGRESS.md                     # Chronological milestone log & hardening history
-└── HANDOFF.md                      # This handoff manual
+├── tests/                          # Standalone Node.js E2E & calibration scripts
+│   ├── browser_resolver.cjs        # Cross-platform browser executable locator
+│   ├── test_2star_progression_math.cjs # Proves deadlock-free 2-star progression across all 8 kingdoms
+│   ├── test_studios_and_all_26_sanity_checks.cjs # CDP browser E2E test for studios & all 26 checks
+│   └── test_full_40_browser_journey.cjs # Complete 40-level CDP browser journey
 ```
 
 ---
 
-## 2. Essential Commands
+## 2. Standard Developer Commands
 
-All commands should be executed from the `Game-Site` root directory:
-
-### Run Development Server
-```powershell
-npm run dev
-```
-Starts Vite dev server at `http://localhost:5173`.
-
-### Run Automated Unit & Integration Tests (Vitest)
+### Run Automated Vitest Suites
 ```powershell
 npm test
 ```
-Executes all 23 test suites (303 tests) headlessly with zero interactive prompts.
+Executes all 25 test suites (419 tests) headlessly with zero interactive prompts.
 
 ### Run Mathematical Progression Calibration Proof
 ```powershell
 node tests/test_2star_progression_math.cjs
 ```
-Verifies mathematically that 2-star scores ($score \ge 24\ \text{XP}$) continuously unlock all 40 levels and 8 kingdoms without deadlocks.
+Verifies mathematically that 2-star scores continuously unlock all 40 levels and 8 kingdoms without deadlocks.
+
+### Run Native Studios & 26 Sanity Checks E2E Test (CDP)
+```powershell
+node tests/test_studios_and_all_26_sanity_checks.cjs
+```
+Launches headless Chromium, validates `/studio/rtl` and `/studio/sta` embedded iframes, tests prerequisite gating, verifies demonstration fault isolation, and validates genuine student design sign-off.
 
 ### Run Full 40-Level Browser Acceptance Journey (CDP)
 ```powershell
@@ -148,13 +141,13 @@ To add or extend a level in any kingdom:
    ```javascript
    export function validatePl6(answers) {
      if (!answers) return { passed: false, score: 0, stars: 0, feedback: ['No solution provided.'] };
-     // Evaluate engineering criteria...
      const score = isCorrect ? 50 : 25;
      return {
        passed: score >= 25,
        score,
        stars: score === 50 ? 3 : 2,
        feedback: ['Thermal gradient verified.'],
+       artifacts: { peakTempC: 72.5 },
      };
    }
    ```
@@ -188,17 +181,29 @@ To add or extend a level in any kingdom:
      icon: '🌡️',
    }
    ```
-2. **Add Ruledeck Evaluation** in `src/engine/sanityCheckEngine.js`:
+2. **Define Student Design Requirements** in `src/logic/studentDesignContext.js`:
+   ```javascript
+   'pl-thermal': {
+     prerequisiteLevels: ['pl-6'],
+     title: 'Thermal Dissipation Compliance',
+     description: 'Validates standard cell thermal gradients.',
+     extractData: (player) => {
+       const pl6 = player.levelProgress?.['pl-6']?.artifacts || {};
+       return { peakTempC: pl6.peakTempC ?? 72.0 };
+     },
+   },
+   ```
+3. **Add Ruledeck Evaluation** in `src/engine/sanityCheckEngine.js`:
    ```javascript
    case 'pl-thermal': {
      logs.push('[THERMAL] Checking localized power dissipation & temperature gradient...');
-     const peakTemp = context.peakTemp || 72.4;
+     const peakTemp = data.peakTempC ?? (isDefect ? 92.5 : 72.4);
      const passed = peakTemp <= 85.0;
      logs.push(`[THERMAL] Peak Junction Temp: ${peakTemp} C (Limit: <= 85.0 C) -> ${passed ? 'PASSED' : 'THERMAL_RUNAWAY'}`);
      break;
    }
    ```
-3. **Add Test Case** in `src/tests/engine/sanityCheckEngine.test.js`.
+4. **Add Test Case** in `src/tests/engine/sanityCheckEngine.test.js` and `all26SanityChecksIndividual.test.js`.
 
 ---
 

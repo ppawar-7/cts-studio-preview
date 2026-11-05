@@ -35,8 +35,8 @@ function playerReducer(state, action) {
       return { ...state, name: action.payload };
 
     case 'COMPLETE_LEVEL': {
-      const { kingdomId, level, score } = action.payload;
-      return applyLevelCompletion(state, kingdomId, level, score);
+      const { kingdomId, level, score, artifacts } = action.payload;
+      return applyLevelCompletion(state, kingdomId, level, score, artifacts);
     }
 
     case 'PASS_SANITY_CHECK': {
@@ -90,8 +90,8 @@ export function PlayerProvider({ children }) {
     }
   }, [player, isHydrated]);
 
-  const completeLevel = useCallback((kingdomId, level, score) => {
-    dispatch({ type: 'COMPLETE_LEVEL', payload: { kingdomId, level, score } });
+  const completeLevel = useCallback((kingdomId, level, score, artifacts = {}) => {
+    dispatch({ type: 'COMPLETE_LEVEL', payload: { kingdomId, level, score, artifacts } });
   }, []);
 
   const passSanityCheck = useCallback((kingdomId, check, score = 25) => {
