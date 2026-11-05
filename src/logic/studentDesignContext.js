@@ -11,6 +11,7 @@
 import {
   ARTIFACT_STATUS,
   CHECK_CLASSIFICATION,
+  validateDesignArtifact,
   validateMeasurementsForCheck,
 } from './designArtifactContracts.js';
 
@@ -390,20 +391,46 @@ export function getStudentDesignForSanityCheck(player, checkId) {
   }
 
   // Check 2: Level marked completed, but missing design artifact envelope
-  const missingArtifacts = req.prerequisiteLevels.filter(
-    (lvlId) => !levelProgress[lvlId]?.artifacts || typeof levelProgress[lvlId].artifacts !== 'object'
-  );
+  for (const lvlId of req.prerequisiteLevels) {
+    const art = levelProgress[lvlId]?.artifacts;
+    if (!art || typeof art !== 'object') {
+      return {
+        canCertify: false,
+        isPracticeOnly: false,
+        missingPrerequisites: [lvlId],
+        status: ARTIFACT_STATUS.MISSING_ARTIFACT,
+        reason: `Prerequisite level ${lvlId} is marked completed, but design artifacts are missing. Replay and complete the challenge to generate geometry.`,
+        requirement: req,
+        designData: {},
+      };
+    }
 
-  if (missingArtifacts.length > 0) {
-    return {
-      canCertify: false,
-      isPracticeOnly: false,
-      missingPrerequisites: missingArtifacts,
-      status: ARTIFACT_STATUS.MISSING_ARTIFACT,
-      reason: `Prerequisite level ${missingArtifacts.join(', ')} is marked completed, but design artifacts are missing. Replay and complete the challenge to generate geometry.`,
-      requirement: req,
-      designData: {},
-    };
+    // Validate versioned artifact envelope if version/kind metadata is present
+    if (art.schemaVersion !== undefined || art.kind !== undefined || art.contractVersion !== undefined) {
+      const envelopeVal = validateDesignArtifact(art);
+      if (!envelopeVal.isValid) {
+        return {
+          canCertify: false,
+          isPracticeOnly: false,
+          missingPrerequisites: [],
+          status: ARTIFACT_STATUS.INVALID_ARTIFACT,
+          reason: `Artifact from ${lvlId} failed envelope provenance validation: ${envelopeVal.errors.join('; ')}`,
+          requirement: req,
+          designData: {},
+        };
+      }
+      if (art.sourceLevelId && art.sourceLevelId !== lvlId) {
+        return {
+          canCertify: false,
+          isPracticeOnly: false,
+          missingPrerequisites: [],
+          status: ARTIFACT_STATUS.INVALID_ARTIFACT,
+          reason: `Artifact sourceLevelId mismatch: expected "${lvlId}", got "${art.sourceLevelId}".`,
+          requirement: req,
+          designData: {},
+        };
+      }
+    }
   }
 
   // Check 3: Extract data and validate mandatory physical fields

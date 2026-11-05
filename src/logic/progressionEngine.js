@@ -15,6 +15,7 @@ import {
   getStudentDesignForSanityCheck,
 } from './studentDesignContext.js';
 import { CHECK_CLASSIFICATION } from './designArtifactContracts.js';
+import { evaluateSanityCheck } from '../engine/sanityCheckEngine.js';
 
 // ─── Player level thresholds (XP required to reach each player level) ──────
 const PLAYER_LEVEL_THRESHOLDS = [0, 50, 150, 300, 500, 750, 1050, 1400, 1800, 2250, 2800];
@@ -145,11 +146,12 @@ export function getKingdomCertifiableSanityChecks(kingdomId) {
 export function isSanityCheckPassed(player, checkId) {
   const progress = player?.sanityCheckProgress?.[checkId];
   if (!progress) return false;
+  if (progress.stale) return false;
   const req = SANITY_CHECK_REQUIREMENTS[checkId];
   if (req?.classification === CHECK_CLASSIFICATION.PRACTICE_ONLY) {
-    return Boolean(progress.drilled || progress.passed);
+    return Boolean((progress.drilled || progress.passed) && !progress.stale);
   }
-  return Boolean(progress.certified || progress.passed);
+  return Boolean(progress.certified && !progress.stale);
 }
 
 /**
@@ -167,7 +169,10 @@ export function countPassedKingdomSanityChecks(player, kingdomId) {
 export function areAllKingdomSanityChecksPassed(player, kingdomId) {
   const certifiableChecks = getKingdomCertifiableSanityChecks(kingdomId);
   if (!certifiableChecks.length) return true;
-  return certifiableChecks.every((c) => player?.sanityCheckProgress?.[c.id]?.certified === true);
+  return certifiableChecks.every((c) => {
+    const prog = player?.sanityCheckProgress?.[c.id];
+    return prog?.certified === true && !prog?.stale;
+  });
 }
 
 /**
@@ -216,7 +221,15 @@ export function isSanityCheckUnlocked(player, kingdomId, check) {
  * Get status of a sanity check: 'locked' | 'available' | 'passed'
  */
 export function getSanityCheckStatus(player, kingdomId, check) {
-  if (isSanityCheckPassed(player, check.id)) return 'passed';
+  const progress = player?.sanityCheckProgress?.[check.id];
+  if (progress?.stale) return 'stale';
+  if (isSanityCheckPassed(player, check.id)) {
+    const req = SANITY_CHECK_REQUIREMENTS[check.id];
+    if (req?.classification === CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK && progress?.certified) {
+      return 'certified';
+    }
+    return 'passed';
+  }
   if (isSanityCheckUnlocked(player, kingdomId, check)) return 'available';
   return 'locked';
 }
@@ -358,26 +371,55 @@ export function applyLevelCompletion(player, kingdomId, level, score, artifacts 
   // Revalidate affected certifications if design artifact changed
   const updatedSanityProgress = { ...(player.sanityCheckProgress || {}) };
   if (artifacts && typeof artifacts === 'object' && Object.keys(artifacts).length > 0) {
-    const candidatePlayer = {
-      ...player,
-      levelProgress: updatedLevelProgress,
-      studentDesignArtifacts: updatedArtifactsMap,
-    };
+    const prevArtifacts = existingProgress?.artifacts;
+    const isIdentical =
+      prevArtifacts &&
+      JSON.stringify(prevArtifacts) === JSON.stringify(cleanArtifacts);
 
-    for (const [chkId, chkReq] of Object.entries(SANITY_CHECK_REQUIREMENTS)) {
-      if (
-        chkReq.classification === CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK &&
-        chkReq.prerequisiteLevels.includes(level.id)
-      ) {
-        if (updatedSanityProgress[chkId]?.certified) {
-          const recheck = getStudentDesignForSanityCheck(candidatePlayer, chkId);
-          if (!recheck.canCertify) {
-            updatedSanityProgress[chkId] = {
-              ...updatedSanityProgress[chkId],
-              certified: false,
-              stale: true,
-              staleReason: recheck.reason,
-            };
+    if (!isIdentical) {
+      const candidatePlayer = {
+        ...player,
+        levelProgress: updatedLevelProgress,
+        studentDesignArtifacts: updatedArtifactsMap,
+      };
+
+      for (const [chkId, chkReq] of Object.entries(SANITY_CHECK_REQUIREMENTS)) {
+        if (
+          chkReq.classification === CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK &&
+          chkReq.prerequisiteLevels.includes(level.id)
+        ) {
+          if (updatedSanityProgress[chkId]?.certified) {
+            const recheck = getStudentDesignForSanityCheck(candidatePlayer, chkId);
+            if (!recheck.canCertify) {
+              updatedSanityProgress[chkId] = {
+                ...updatedSanityProgress[chkId],
+                certified: false,
+                stale: true,
+                staleReason: recheck.reason,
+              };
+            } else {
+              // Rerun actual engineering rule evaluation!
+              const evalResult = evaluateSanityCheck(chkId, {
+                isStudentDesign: true,
+                hasStudentDesign: true,
+                designData: recheck.designData,
+              });
+              if (!evalResult.passed) {
+                const violationLine = evalResult.logOutput?.find(
+                  (l) => l.includes('VIOLATION') || l.includes('OVER_BUDGET') || l.includes('FAIL')
+                );
+                const staleReason = violationLine
+                  ? violationLine.replace(/^\[[^\]]+\]\s*/, '')
+                  : 'Design inputs modified; no longer meet physical design thresholds.';
+
+                updatedSanityProgress[chkId] = {
+                  ...updatedSanityProgress[chkId],
+                  certified: false,
+                  stale: true,
+                  staleReason,
+                };
+              }
+            }
           }
         }
       }
@@ -396,7 +438,8 @@ export function applyLevelCompletion(player, kingdomId, level, score, artifacts 
 
   let kingdomXPBonus = 0;
   const prevKingdomCompleted = player.kingdomProgress?.[kingdomId]?.completed;
-  if (allLevelsCompleted && allSanityPassed && !prevKingdomCompleted) {
+  const prevBonusAwarded = player.kingdomProgress?.[kingdomId]?.bonusAwarded;
+  if (allLevelsCompleted && allSanityPassed && !prevKingdomCompleted && !prevBonusAwarded) {
     kingdomXPBonus = 50; // bonus XP for full kingdom completion
   }
 
@@ -404,6 +447,7 @@ export function applyLevelCompletion(player, kingdomId, level, score, artifacts 
     ...player.kingdomProgress,
     [kingdomId]: {
       completed: allLevelsCompleted && allSanityPassed,
+      bonusAwarded: Boolean(prevBonusAwarded || kingdomXPBonus > 0),
       totalXP: (player.kingdomProgress?.[kingdomId]?.totalXP ?? 0) + xpDelta + kingdomXPBonus,
     },
   };
@@ -483,7 +527,11 @@ export function applySanityCheckCompletion(player, arg2, arg3, arg4) {
   }
 
   const existing = player.sanityCheckProgress?.[checkId];
-  if (existing?.certified) return player; // Already certified - never award duplicate certification XP
+  if (existing?.certified && !existing?.stale) return player; // Already certified and current - no-op
+
+  // If this check was previously certified and already awarded score XP, preserve it without duplicate award
+  const alreadyAwardedScore = (existing?.score ?? 0) > 0;
+  const scoreToAward = alreadyAwardedScore ? 0 : score;
 
   const updatedSanityProgress = {
     ...player.sanityCheckProgress,
@@ -491,12 +539,12 @@ export function applySanityCheckCompletion(player, arg2, arg3, arg4) {
       passed: true,
       certified: true,
       stale: false,
-      score,
+      score: alreadyAwardedScore ? existing.score : score,
       completedAt: new Date().toISOString(),
     },
   };
 
-  const updatedTotalXP = player.totalXP + score;
+  const updatedTotalXP = player.totalXP + scoreToAward;
 
   const kingdom = KINGDOMS.find((k) => k.id === kingdomId);
   const allSanityPassed = areAllKingdomSanityChecksPassed(
@@ -507,7 +555,8 @@ export function applySanityCheckCompletion(player, arg2, arg3, arg4) {
 
   let kingdomXPBonus = 0;
   const prevKingdomCompleted = player.kingdomProgress?.[kingdomId]?.completed;
-  if (allLevelsDone && allSanityPassed && !prevKingdomCompleted) {
+  const prevBonusAwarded = player.kingdomProgress?.[kingdomId]?.bonusAwarded;
+  if (allLevelsDone && allSanityPassed && !prevKingdomCompleted && !prevBonusAwarded) {
     kingdomXPBonus = 50;
   }
 
@@ -515,7 +564,8 @@ export function applySanityCheckCompletion(player, arg2, arg3, arg4) {
     ...player.kingdomProgress,
     [kingdomId]: {
       completed: allLevelsDone && allSanityPassed,
-      totalXP: (player.kingdomProgress?.[kingdomId]?.totalXP ?? 0) + score + kingdomXPBonus,
+      bonusAwarded: Boolean(prevBonusAwarded || kingdomXPBonus > 0),
+      totalXP: (player.kingdomProgress?.[kingdomId]?.totalXP ?? 0) + scoreToAward + kingdomXPBonus,
     },
   };
 

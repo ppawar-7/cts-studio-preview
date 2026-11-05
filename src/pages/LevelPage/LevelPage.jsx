@@ -5,17 +5,15 @@
  * Streamlined single-view structure with registered activity hosting.
  *
  * Data-driven: reads kingdom + level from URL params and kingdomsData.js.
- * Level activities are loaded dynamically via ActivityHost and validated
- * deterministically before declaring completion.
+ * Supports both Normal Game progression mode (locks, stars, XP mutation)
+ * and Explore Everything Mode (instant open access, no XP mutation, ephemeral feedback).
  */
 
 import React, { useState } from 'react';
-import { useParams, Link, Navigate, useNavigate } from 'react-router-dom';
+import { useParams, Link, Navigate, useLocation } from 'react-router-dom';
 import { usePlayer } from '../../context/PlayerContext.jsx';
 import {
-  getLevelStatus,
   isLevelUnlocked,
-  computeStars,
 } from '../../logic/progressionEngine.js';
 import { KINGDOMS } from '../../data/kingdomsData.js';
 import ActivityHost from '../../components/ActivityHost/ActivityHost.jsx';
@@ -33,10 +31,12 @@ function StarDisplay({ stars }) {
   );
 }
 
-export default function LevelPage() {
+export default function LevelPage({ isExploreMode = false }) {
   const { kingdomId, levelId } = useParams();
+  const location = useLocation();
   const { player, completeLevel } = usePlayer();
-  const navigate = useNavigate();
+
+  const isExplore = Boolean(isExploreMode || location.pathname.startsWith('/explore'));
 
   // Find kingdom and level
   const kingdom = KINGDOMS.find((k) => k.id === kingdomId);
@@ -47,15 +47,17 @@ export default function LevelPage() {
   const [completionData, setCompletionData] = useState(null);
   const [showStudioModal, setShowStudioModal] = useState(false);
 
-  if (!kingdom || !level) return <Navigate to="/world-map" replace />;
+  if (!kingdom || !level) {
+    return <Navigate to={isExplore ? "/explore" : "/world-map"} replace />;
+  }
 
-  const isUnlocked = isLevelUnlocked(player, kingdom, level);
+  const isUnlocked = isExplore || isLevelUnlocked(player, kingdom, level);
   const isCompleted = player.levelProgress?.[level.id]?.completed ?? false;
   const currentLevelXP = player.levelProgress?.[level.id]?.xpEarned ?? 0;
   const currentLevelStars = player.levelProgress?.[level.id]?.stars ?? 0;
 
-  // Enforce access control
-  if (!isUnlocked) {
+  // Enforce access control in Normal Game mode
+  if (!isUnlocked && !isExplore) {
     return (
       <div className="level-page">
         <div className="container" style={{ paddingTop: '4rem' }}>
@@ -74,7 +76,7 @@ export default function LevelPage() {
     );
   }
 
-  const alreadyCompleted = isCompleted;
+  const alreadyCompleted = !isExplore && isCompleted;
 
   // Called when student passes an activity via ActivityHost
   const handleActivityVerify = (result) => {
@@ -82,10 +84,22 @@ export default function LevelPage() {
       return;
     }
 
+    if (isExplore) {
+      // Explore Mode: Ephemeral simulation feedback ONLY. NEVER mutate PlayerContext or award XP!
+      setCompletionData({
+        score: result.score,
+        stars: result.stars,
+        xpEarned: 0,
+        feedback: result.feedback || 'Simulation Completed — Explore Mode (Practice Result — No XP Awarded)',
+        isExplore: true,
+      });
+      return;
+    }
+
+    // Normal Game: Persist verified progress and XP delta
     const verifiedScore = Math.min(result.score, level.xpReward);
     const xpDelta = Math.max(0, verifiedScore - currentLevelXP);
 
-    // Pass validated design artifact or explicit metrics (never fallback soup)
     const artifactToPersist = result.artifacts || result.designData || {};
     completeLevel(kingdom.id, level, verifiedScore, artifactToPersist);
 
@@ -94,10 +108,12 @@ export default function LevelPage() {
       stars: result.stars,
       xpEarned: xpDelta,
       feedback: result.feedback,
+      isExplore: false,
     });
   };
 
-  // Find next level & next kingdom for navigation
+  // Find adjacent levels for navigation
+  const prevLevel = kingdom.levels.find((l) => l.order === level.order - 1);
   const nextLevel = kingdom.levels.find((l) => l.order === level.order + 1);
   const nextKingdom = KINGDOMS.find((k) => k.order === kingdom.order + 1);
 
@@ -107,10 +123,14 @@ export default function LevelPage() {
       <div className="level-page">
         <div className="container" style={{ paddingTop: '4rem' }}>
           <div className="level-page__complete-banner">
-            <span className="level-page__complete-emoji">🎉</span>
-            <h2 className="level-page__complete-title">Level Complete!</h2>
+            <span className="level-page__complete-emoji">{isExplore ? '🧭' : '🎉'}</span>
+            <h2 className="level-page__complete-title">
+              {isExplore ? 'Simulation Completed — Explore Mode' : 'Level Complete!'}
+            </h2>
             <p className="level-page__complete-xp">
-              {completionData.xpEarned > 0
+              {isExplore
+                ? 'Practice Result — No XP Awarded (Normal Game progress unchanged)'
+                : completionData.xpEarned > 0
                 ? `+${completionData.xpEarned} XP Verified & Earned`
                 : `Score Verified: ${completionData.score}/${level.xpReward} XP (Already Earned)`}
             </p>
@@ -122,52 +142,35 @@ export default function LevelPage() {
 
             <div className="level-page__complete-buttons">
               {nextLevel && (
-                hasActivity(nextLevel.id) ? (
-                  <>
-                    <Link
-                      to={`/kingdom/${kingdom.id}/level/${nextLevel.id}`}
-                      className="btn btn--primary btn--lg"
-                      onClick={() => setCompletionData(null)}
-                    >
-                      ▶ Next Level: {nextLevel.title}
-                    </Link>
-                    <Link to={`/kingdom/${kingdom.id}`} className="btn btn--ghost">
-                      ← Back to {kingdom.name}
-                    </Link>
-                  </>
-                ) : (
-                  <>
-                    <Link
-                      to={`/kingdom/${kingdom.id}`}
-                      className="btn btn--primary btn--lg"
-                    >
-                      🏰 Return to {kingdom.name}
-                    </Link>
-                    <Link
-                      to={`/kingdom/${kingdom.id}/level/${nextLevel.id}`}
-                      className="btn btn--secondary btn--lg"
-                      onClick={() => setCompletionData(null)}
-                    >
-                      Preview Level {nextLevel.order} (Coming Soon) ›
-                    </Link>
-                  </>
-                )
+                <Link
+                  to={isExplore ? `/explore/kingdom/${kingdom.id}/level/${nextLevel.id}` : `/kingdom/${kingdom.id}/level/${nextLevel.id}`}
+                  className="btn btn--primary btn--lg"
+                  onClick={() => setCompletionData(null)}
+                >
+                  ▶ Next Level: {nextLevel.title}
+                </Link>
               )}
-              {!nextLevel && nextKingdom && (
-                <>
-                  <Link
-                    to={`/kingdom/${nextKingdom.id}`}
-                    className="btn btn--secondary btn--lg"
-                    onClick={() => setCompletionData(null)}
-                  >
-                    👑 Next Kingdom: {nextKingdom.name} →
-                  </Link>
-                  <Link to={`/kingdom/${kingdom.id}`} className="btn btn--primary btn--lg">
-                    🏰 Return to {kingdom.name}
-                  </Link>
-                </>
+              <Link
+                to={isExplore ? `/explore/kingdom/${kingdom.id}` : `/kingdom/${kingdom.id}`}
+                className="btn btn--secondary btn--lg"
+              >
+                🏰 Return to {kingdom.name}
+              </Link>
+              {isExplore && (
+                <Link to="/explore" className="btn btn--ghost">
+                  🧭 Full Explore Catalog
+                </Link>
               )}
-              {!nextLevel && !nextKingdom && (
+              {!isExplore && !nextLevel && nextKingdom && (
+                <Link
+                  to={`/kingdom/${nextKingdom.id}`}
+                  className="btn btn--secondary btn--lg"
+                  onClick={() => setCompletionData(null)}
+                >
+                  👑 Next Kingdom: {nextKingdom.name} →
+                </Link>
+              )}
+              {!isExplore && !nextLevel && !nextKingdom && (
                 <Link to="/world-map" className="btn btn--primary btn--lg">
                   🏆 View World Map Completion
                 </Link>
@@ -190,7 +193,10 @@ export default function LevelPage() {
       {/* Top Banner / Breadcrumb */}
       <div className="level-page__header">
         <div className="container level-page__header-inner">
-          <Link to={`/kingdom/${kingdom.id}`} className="level-page__back">
+          <Link
+            to={isExplore ? `/explore/kingdom/${kingdom.id}` : `/kingdom/${kingdom.id}`}
+            className="level-page__back"
+          >
             ← Back to {kingdom.name}
           </Link>
 
@@ -201,8 +207,8 @@ export default function LevelPage() {
               <span>Level {level.order} of {kingdom.levels.length}</span>
             </div>
 
-            {/* Stars if completed */}
-            {alreadyCompleted && (
+            {/* Stars if completed in normal mode */}
+            {!isExplore && alreadyCompleted && (
               <div className="level-page__stars">
                 {[1, 2, 3].map((i) => (
                   <span
@@ -218,7 +224,37 @@ export default function LevelPage() {
       </div>
 
       <div className="container">
-        {alreadyCompleted && (
+        {/* Explore Mode Notification Banner */}
+        {isExplore && (
+          <div
+            style={{
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              color: '#1e40af',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              marginBottom: '1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.6rem',
+              fontSize: '0.86rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '1.2rem' }}>🧭</span>
+              <div>
+                <strong>Explore Mode Active:</strong> Free practice sandbox. Interactive simulations run ephemerally. Normal Game progress and XP are not modified.
+              </div>
+            </div>
+            <Link to="/explore" className="btn btn--ghost btn--sm" style={{ color: '#1d4ed8' }}>
+              Full Catalog ›
+            </Link>
+          </div>
+        )}
+
+        {!isExplore && alreadyCompleted && (
           <div className="level-page__feedback level-page__feedback--info" style={{ marginBottom: '1.5rem' }}>
             ✅ You have certified completion on this level ({currentLevelXP} XP, {currentLevelStars} Stars)! You can practice again to improve your score.
           </div>
@@ -244,7 +280,9 @@ export default function LevelPage() {
           <div className="level-page__activity-header">
             <span className="level-page__activity-badge">⚔️ Verified Engineering Challenge</span>
             <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-              Demonstrate mastery to earn up to <strong>{level.xpReward} XP</strong>
+              {isExplore
+                ? `Explore Sandbox Exercise (${level.xpReward} XP nominal value)`
+                : `Demonstrate mastery to earn up to ${level.xpReward} XP`}
             </span>
           </div>
 
@@ -254,6 +292,52 @@ export default function LevelPage() {
             onVerify={handleActivityVerify}
             alreadyCompleted={alreadyCompleted}
           />
+        </div>
+
+        {/* Previous / Next Level Navigation Controls */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: '1.5rem',
+            paddingTop: '1.25rem',
+            borderTop: '1px solid var(--color-border)',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+          }}
+        >
+          {prevLevel ? (
+            <Link
+              to={isExplore ? `/explore/kingdom/${kingdom.id}/level/${prevLevel.id}` : `/kingdom/${kingdom.id}/level/${prevLevel.id}`}
+              className="btn btn--secondary btn--sm"
+            >
+              ‹ Previous: {prevLevel.title}
+            </Link>
+          ) : (
+            <Link
+              to={isExplore ? `/explore/kingdom/${kingdom.id}` : `/kingdom/${kingdom.id}`}
+              className="btn btn--ghost btn--sm"
+            >
+              ← {kingdom.name} Overview
+            </Link>
+          )}
+
+          {nextLevel ? (
+            <Link
+              to={isExplore ? `/explore/kingdom/${kingdom.id}/level/${nextLevel.id}` : `/kingdom/${kingdom.id}/level/${nextLevel.id}`}
+              className="btn btn--primary btn--sm"
+            >
+              Next: {nextLevel.title} ›
+            </Link>
+          ) : (
+            <Link
+              to={isExplore ? `/explore/kingdom/${kingdom.id}` : `/kingdom/${kingdom.id}`}
+              className="btn btn--primary btn--sm"
+            >
+              🏰 Finish {kingdom.name} ›
+            </Link>
+          )}
         </div>
 
         {/* Quick Assistance / Hint */}
@@ -272,7 +356,7 @@ export default function LevelPage() {
                 💡 Key Hint for {level.title}:
               </p>
               <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                Analyze the engineering specifications carefully. Verify all required parameters, pin assignments, or logic states before submitting to achieve full 3-star certification!
+                Analyze the engineering specifications carefully. Verify all required parameters, pin assignments, or logic states before submitting to achieve full certification!
               </p>
             </div>
           )}
@@ -309,7 +393,7 @@ export default function LevelPage() {
                   ⚡ Open Studio Companion
                 </button>
                 <Link
-                  to={kingdom.id === 'rtl-understanding' ? '/studio/rtl' : `/studio/sta?stage=${kingdom.id}`}
+                  to={isExplore ? (kingdom.id === 'rtl-understanding' ? '/studio/rtl?from=explore' : `/studio/sta?stage=${kingdom.id}&from=explore`) : (kingdom.id === 'rtl-understanding' ? '/studio/rtl' : `/studio/sta?stage=${kingdom.id}`)}
                   className="btn btn--ghost btn--sm"
                 >
                   🖥️ Full Studio

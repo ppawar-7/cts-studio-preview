@@ -260,6 +260,25 @@ export function validateMeasurementsForCheck(checkId, measurements) {
     } else if (typeof val === 'number') {
       if (!Number.isFinite(val)) {
         errors.push(`Field "${field}" is not a finite number.`);
+      } else if (
+        (field.includes('margin') ||
+          field.includes('halo') ||
+          field.includes('viaEnclosure') ||
+          field.includes('droop') ||
+          field.includes('leakage') ||
+          field.includes('Congestion') ||
+          field.includes('emptySites') ||
+          field.includes('drcErrors') ||
+          field.includes('baseDrcViolations') ||
+          field.includes('shorts') ||
+          field.includes('offRailCells') ||
+          field.includes('glitchVoltage') ||
+          field.includes('powerMw') ||
+          field.includes('skewPs') ||
+          field.includes('latencyPs')) &&
+        val < 0
+      ) {
+        errors.push(`Field "${field}" must be non-negative (received: ${val}).`);
       }
     } else if (field === 'cells') {
       if (!Array.isArray(val) || val.length === 0) {

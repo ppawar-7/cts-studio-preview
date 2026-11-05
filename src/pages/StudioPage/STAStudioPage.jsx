@@ -4,14 +4,22 @@
  * Full-scale native embedded view of the standalone Static Timing Analysis (STA) Playground.
  * Integrates the graph-based timing path tracer, setup/hold slack histograms,
  * and PVT operating corner analyzer directly within Game-Site.
+ * Supports clean bidirectional return navigation to both Normal Game and Explore Mode.
  */
 
 import React, { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import './StudioPage.css';
 
-export default function STAStudioPage() {
+export default function STAStudioPage({ isExploreMode = false }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const isExplore = Boolean(
+    isExploreMode ||
+    searchParams.get('from') === 'explore' ||
+    location.pathname.startsWith('/explore')
+  );
+
   const stage = searchParams.get('stage') || 'cts';
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -62,12 +70,17 @@ export default function STAStudioPage() {
       <div className="studio-page__header">
         <div className="container studio-page__header-inner">
           <div className="studio-page__title-area">
-            <Link to={`/kingdom/${currentStage.kingdom}`} className="studio-page__back-link">
-              ← Return to {currentStage.label.split(' ')[0]} Kingdom
+            <Link
+              to={isExplore ? "/explore" : `/kingdom/${currentStage.kingdom}`}
+              className="studio-page__back-link"
+            >
+              {isExplore ? "← Return to Explore Mode" : `← Return to ${currentStage.label.split(' ')[0]} Kingdom`}
             </Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
               <h1 className="studio-page__title">⏱️ Static Timing Analysis (STA) Studio (Integrated)</h1>
-              <span className="badge badge--available">Full Standalone Suite</span>
+              <span className="badge badge--available">
+                {isExplore ? "Explore Sandbox" : "Full Standalone Suite"}
+              </span>
             </div>
             <p className="studio-page__subtitle">
               Native embedded environment running the complete multi-corner timing graph analyzer, setup/hold slack calculator, and PVT derating engine locally with zero cloud dependencies.
@@ -79,99 +92,73 @@ export default function STAStudioPage() {
               type="button"
               className="btn btn--secondary btn--sm"
               onClick={() => setIsFullscreen(!isFullscreen)}
-              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
             >
-              {isFullscreen ? '↙️ Collapse' : '⛶ Fullscreen'}
+              {isFullscreen ? 'Exit Fullscreen' : '⛶ Fullscreen'}
             </button>
             <a
               href="https://ppawar-7.github.io/sta-playground/"
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn--ghost btn--sm"
-              title="Open standalone deployment in a new browser tab"
+              style={{ color: '#38bdf8' }}
             >
               External Tab ↗
             </a>
           </div>
         </div>
-      </div>
 
-      {/* Stage Context Bar */}
-      <div className="studio-page__tabs-bar">
-        <div className="container studio-page__tabs-inner">
-          <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-            Educational Timing Context:
-          </span>
-          {stages.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className={`studio-tab-btn ${stage === s.id ? 'active' : ''}`}
-              onClick={() => setSearchParams({ stage: s.id })}
-            >
-              <span>{s.emoji}</span> {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Stage-Specific Educational Context Guide Banner */}
-      {!isFullscreen && (
-        <div className="container" style={{ paddingTop: '0.75rem', paddingBottom: '0.5rem' }}>
-          <div style={{
-            background: 'rgba(15, 23, 42, 0.85)',
-            border: '1px solid #1e293b',
-            borderLeft: '4px solid #38bdf8',
-            borderRadius: '6px',
-            padding: '0.85rem 1.25rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.35rem',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-              <strong style={{ color: '#f8fafc', fontSize: '0.95rem' }}>
-                {currentStage.emoji} Stage Sign-off Focus: {currentStage.focusTitle}
-              </strong>
-              <span className="badge badge--available" style={{ fontSize: '0.75rem' }}>
-                {currentStage.metricTarget}
-              </span>
+        {/* Physical Design Lifecycle Stage Bar */}
+        <div className="container">
+          <div className="studio-stage-nav">
+            <span className="studio-stage-nav__label">ASIC Flow Verification Stage:</span>
+            <div className="studio-stage-chips">
+              {stages.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`studio-stage-chip ${stage === s.id ? 'studio-stage-chip--active' : ''}`}
+                  onClick={() => setSearchParams(isExplore ? { stage: s.id, from: 'explore' } : { stage: s.id })}
+                >
+                  <span>{s.emoji}</span> {s.label}
+                </button>
+              ))}
             </div>
-            <p style={{ color: '#94a3b8', fontSize: '0.86rem', margin: 0, lineHeight: 1.5 }}>
-              {currentStage.focusDesc}
-            </p>
-            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-              ℹ️ Note: The embedded laboratory below is the comprehensive multi-corner STA simulator. Use the graph controls to inspect timing paths and examine PVT derating margins.
-            </span>
           </div>
         </div>
-      )}
-
-      {/* Embedded Studio Iframe Container */}
-      <div className="studio-page__canvas-container">
-        <iframe
-          src="/studios/sta/index.html"
-          title="STA Playground Embedded Studio"
-          className="studio-page__iframe"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
-        />
       </div>
 
-      {/* Disambiguation & Architecture Footnote */}
-      {!isFullscreen && (
-        <div className="container studio-page__footer-note">
-          <div className="studio-disclosure-box">
-            <strong>Important ASIC Engineering Distinction:</strong>
-            <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.25rem' }}>
-              <li>
-                <strong>Clock Tree Synthesis (CTS)</strong> builds the physical clock distribution network (buffer insertion, clock mesh, and H-Tree balancing).
-              </li>
-              <li>
-                <strong>Static Timing Analysis (STA)</strong> checks setup and hold constraints across extreme PVT corners. STA verifies timing; it does not construct clock trees.
-              </li>
-            </ul>
+      {/* Stage Pedagogical Focus Banner */}
+      <div className="container studio-page__focus-container">
+        <div className="studio-focus-banner">
+          <div className="studio-focus-banner__left">
+            <span className="studio-focus-badge">{currentStage.emoji} {currentStage.focusTitle}</span>
+            <p className="studio-focus-desc">{currentStage.focusDesc}</p>
+          </div>
+          <div className="studio-focus-banner__right">
+            <span className="studio-metric-target">{currentStage.metricTarget}</span>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Main Studio Iframe Body */}
+      <div className="studio-page__body studio-page__canvas-container">
+        <div className="container studio-page__iframe-container" style={{ width: '100%', height: '100%' }}>
+          <iframe
+            key={stage}
+            src={`/studios/sta/index.html?stage=${stage}`}
+            title="Standalone STA Playground"
+            className="studio-iframe studio-page__iframe"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
+          />
+        </div>
+      </div>
+
+      {/* Local Hosting Disclosure Note */}
+      <div className="container studio-page__footer-note">
+        <div className="studio-disclosure-box">
+          <strong>Pedagogical Static Timing Analysis Studio:</strong> Full multi-corner timing analyzer running 100% locally in your browser. Delay calculations, path tracing, and setup/hold slack histograms are computed client-side with zero external cloud dependencies.
+        </div>
+      </div>
     </div>
   );
 }

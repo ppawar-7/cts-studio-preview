@@ -2,11 +2,12 @@
  * LevelCard.jsx
  * ==============
  * Reusable card for individual levels inside a kingdom.
- * Shows lock state, star rating, XP reward, and links to the level.
+ * Supports both Normal Game progression mode (locks, stars, requirements)
+ * and Explore Everything Mode (instant open access, no locks).
  */
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { usePlayer } from '../../context/PlayerContext.jsx';
 import { getLevelStatus } from '../../logic/progressionEngine.js';
 import { hasActivity } from '../../activities/activityRegistry.js';
@@ -24,9 +25,13 @@ function Stars({ count, earned }) {
   );
 }
 
-export default function LevelCard({ kingdom, level }) {
+export default function LevelCard({ kingdom, level, isExploreMode = false }) {
   const { player } = usePlayer();
-  const status = getLevelStatus(player, kingdom, level);
+  const location = useLocation();
+  const isExplore = Boolean(isExploreMode || location.pathname.startsWith('/explore'));
+
+  const normalStatus = getLevelStatus(player, kingdom, level);
+  const status = isExplore ? 'available' : normalStatus;
   const progress = player.levelProgress[level.id];
   const earnedStars = progress?.stars ?? 0;
   const isComingSoon = !hasActivity(level.id);
@@ -34,11 +39,15 @@ export default function LevelCard({ kingdom, level }) {
   const numberClass = `level-card__number level-card__number--${status}`;
   const cardClass = `level-card level-card--${status}`;
 
+  const linkTarget = isExplore
+    ? `/explore/kingdom/${kingdom.id}/level/${level.id}`
+    : `/kingdom/${kingdom.id}/level/${level.id}`;
+
   const inner = (
     <>
       {/* Level number circle */}
       <div className={numberClass}>
-        {status === 'locked' ? '🔒' : status === 'completed' ? '✓' : level.order}
+        {!isExplore && status === 'locked' ? '🔒' : status === 'completed' ? '✓' : level.order}
       </div>
 
       {/* Title + description */}
@@ -51,33 +60,30 @@ export default function LevelCard({ kingdom, level }) {
 
       {/* Right: stars, XP, duration */}
       <div className="level-card__right">
-        {status === 'completed' && <Stars count={3} earned={earnedStars} />}
+        {!isExplore && status === 'completed' && <Stars count={3} earned={earnedStars} />}
         {status === 'available' && isComingSoon ? (
           <span className="level-card__coming-soon-badge">
             Unlocked — Coming Soon
           </span>
         ) : (
-          <span className="level-card__xp">⭐ +{level.xpReward} XP</span>
+          <span className="level-card__xp">
+            {isExplore ? `⭐ ${level.xpReward} XP` : `⭐ +${level.xpReward} XP`}
+          </span>
         )}
-        {status === 'locked' && level.pointsRequired > 0 && (
+        {!isExplore && status === 'locked' && level.pointsRequired > 0 && (
           <span className="level-card__lock-hint">Needs {level.pointsRequired} XP</span>
         )}
-        {status !== 'locked' && (
-          <span className="level-card__duration">⏱ {level.duration}</span>
-        )}
+        <span className="level-card__duration">⏱ {level.duration}</span>
       </div>
     </>
   );
 
-  if (status === 'locked') {
+  if (!isExplore && status === 'locked') {
     return <div className={cardClass}>{inner}</div>;
   }
 
   return (
-    <Link
-      to={`/kingdom/${kingdom.id}/level/${level.id}`}
-      className={cardClass}
-    >
+    <Link to={linkTarget} className={cardClass}>
       {inner}
     </Link>
   );

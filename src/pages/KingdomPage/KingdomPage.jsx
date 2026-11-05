@@ -6,13 +6,14 @@
  * Features:
  * - Kingdom Hero & Stats
  * - Native Integrated Studio Lab Workspace (Inline & Dedicated Routes)
- * - Main Concept Levels
- * - Stage Sanity Check Side Quests (Validating Real Student Designs)
+ * - Main Concept Levels (Supports Normal Game Progression & Explore Mode)
+ * - Stage Sanity Check Side Quests (15 Certifiable Checks & 11 Practice Drills)
  * - Interactive Sanity Check Verification Terminal Modal
+ * - Stale Revalidation Awareness & Transparent Educational Scopes
  */
 
 import React, { useState } from 'react';
-import { useParams, Link, Navigate } from 'react-router-dom';
+import { useParams, Link, Navigate, useLocation } from 'react-router-dom';
 import { usePlayer } from '../../context/PlayerContext.jsx';
 import LevelCard from '../../components/LevelCard/LevelCard.jsx';
 import {
@@ -24,24 +25,29 @@ import {
   areAllKingdomLevelsCompleted,
   areAllKingdomSanityChecksPassed,
   getSanityCheckStatus,
-  isSanityCheckUnlocked,
   isSanityCheckPassed,
+  getKingdomCertifiableSanityChecks,
 } from '../../logic/progressionEngine.js';
 import { KINGDOMS } from '../../data/kingdomsData.js';
 import { evaluateSanityCheck } from '../../engine/sanityCheckEngine.js';
-import { getStudentDesignForSanityCheck } from '../../logic/studentDesignContext.js';
+import { SANITY_CHECK_REQUIREMENTS, getStudentDesignForSanityCheck } from '../../logic/studentDesignContext.js';
+import { CHECK_CLASSIFICATION } from '../../logic/designArtifactContracts.js';
 import './KingdomPage.css';
 
-export default function KingdomPage() {
+export default function KingdomPage({ isExploreMode = false }) {
   const { kingdomId } = useParams();
+  const location = useLocation();
   const { player, passSanityCheck } = usePlayer();
+
+  const isExplore = Boolean(isExploreMode || location.pathname.startsWith('/explore'));
+
   const [activeCheck, setActiveCheck] = useState(null);
   const [runningSimulation, setRunningSimulation] = useState(false);
   const [simulationDone, setSimulationDone] = useState(false);
   const [simulationLogs, setSimulationLogs] = useState([]);
   const [simulationPassed, setSimulationPassed] = useState(true);
   const [simulationCanCertify, setSimulationCanCertify] = useState(false);
-  
+
   // Sanity check audit modes: 'student' (genuine design) vs 'demo' (preset drill)
   const [auditMode, setAuditMode] = useState('student');
   const [demoDefect, setDemoDefect] = useState(false);
@@ -53,11 +59,11 @@ export default function KingdomPage() {
   // Find kingdom by ID from central data
   const kingdom = KINGDOMS.find((k) => k.id === kingdomId);
 
-  // 404 → redirect to world map
-  if (!kingdom) return <Navigate to="/world-map" replace />;
+  // 404 → redirect to appropriate home
+  if (!kingdom) return <Navigate to={isExplore ? "/explore" : "/world-map"} replace />;
 
   const status = getKingdomStatus(player, kingdomId);
-  const unlocked = isKingdomUnlocked(player, kingdomId);
+  const unlocked = isExplore || isKingdomUnlocked(player, kingdomId);
   const kingdomXP = getKingdomXP(player, kingdomId);
 
   // Levels info
@@ -72,13 +78,16 @@ export default function KingdomPage() {
   const passedSanity = countPassedKingdomSanityChecks(player, kingdomId);
   const allSanityPassed = areAllKingdomSanityChecksPassed(player, kingdomId);
 
+  const certifiableChecks = getKingdomCertifiableSanityChecks(kingdomId);
+  const certifiableCount = certifiableChecks.length;
+  const practiceCount = totalSanity - certifiableCount;
+
   // Total weighted progress
   const totalItems = kingdom.levels.length + totalSanity;
   const completedItems = completedLevels + passedSanity;
   const progressPercent = Math.round((completedItems / totalItems) * 100);
 
   // Next kingdom info
-  const nextKingdom = KINGDOMS.find((k) => k.order === kingdom.order + 1);
   const prevKingdom = KINGDOMS.find((k) => k.order === kingdom.order - 1);
   const prevKingdomXP = prevKingdom ? getKingdomXP(player, prevKingdom.id) : 0;
   const xpNeeded = prevKingdom
@@ -89,15 +98,16 @@ export default function KingdomPage() {
   const handleOpenCheck = (check) => {
     const auditInfo = getStudentDesignForSanityCheck(player, check.id);
     setStudentAuditInfo(auditInfo);
-    setAuditMode(auditInfo?.isPracticeOnly ? 'demo' : 'student');
+    // In explore mode or practice checks, default to demo mode
+    setAuditMode(isExplore || auditInfo?.isPracticeOnly ? 'demo' : 'student');
     setDemoDefect(false);
     setActiveCheck(check);
     setRunningSimulation(false);
 
-    const alreadyPassed = isSanityCheckPassed(player, check.id);
+    const alreadyPassed = !isExplore && isSanityCheckPassed(player, check.id);
     setSimulationDone(alreadyPassed);
     setSimulationPassed(true);
-    setSimulationCanCertify(alreadyPassed && !auditInfo?.isPracticeOnly);
+    setSimulationCanCertify(alreadyPassed && !auditInfo?.isPracticeOnly && !isExplore);
     setSimulationLogs([]);
   };
 
@@ -106,7 +116,7 @@ export default function KingdomPage() {
     setRunningSimulation(true);
     setTimeout(() => {
       let result;
-      if (auditMode === 'student') {
+      if (!isExplore && auditMode === 'student') {
         result = evaluateSanityCheck(activeCheck.id, {
           isStudentDesign: true,
           hasStudentDesign: Boolean(studentAuditInfo?.canCertify && !studentAuditInfo?.isPracticeOnly),
@@ -122,16 +132,32 @@ export default function KingdomPage() {
 
       setSimulationLogs(result.logOutput || []);
       setSimulationPassed(result.passed);
-      setSimulationCanCertify(result.canCertify);
+      setSimulationCanCertify(!isExplore && result.canCertify);
       setRunningSimulation(false);
       setSimulationDone(true);
-    }, 500);
+    }, 400);
   };
 
-  // Sign off and certify check
+  // Sign off and certify check (Normal Game mode only)
   const handleCertifyCheck = () => {
+    if (isExplore) {
+      setActiveCheck(null);
+      return;
+    }
     if (activeCheck && simulationPassed && simulationCanCertify) {
       passSanityCheck(kingdom.id, activeCheck, activeCheck.xpReward);
+      setActiveCheck(null);
+    }
+  };
+
+  // Complete a practice-only drill
+  const handleCompletePracticeDrill = () => {
+    if (isExplore) {
+      setActiveCheck(null);
+      return;
+    }
+    if (activeCheck) {
+      passSanityCheck(kingdom.id, activeCheck, 0);
       setActiveCheck(null);
     }
   };
@@ -148,8 +174,11 @@ export default function KingdomPage() {
       <div className="kingdom-page__hero">
         <div className="container kingdom-page__hero-inner">
           {/* Back button */}
-          <Link to="/world-map" className="kingdom-page__back">
-            ← Back to World Map
+          <Link
+            to={isExplore ? "/explore" : "/world-map"}
+            className="kingdom-page__back"
+          >
+            {isExplore ? "← Back to Explore Catalog" : "← Back to World Map"}
           </Link>
 
           <div className="kingdom-page__header">
@@ -159,9 +188,17 @@ export default function KingdomPage() {
             <div style={{ flex: 1 }}>
               {/* Status badge */}
               <div style={{ marginBottom: '0.4rem' }}>
-                {status === 'locked' && <span className="badge badge--locked">🔒 Locked</span>}
-                {status === 'available' && <span className="badge badge--available">▶ In Progress</span>}
-                {status === 'completed' && <span className="badge badge--completed">✓ Stage Certified</span>}
+                {isExplore ? (
+                  <span className="badge badge--available" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+                    🧭 Explore Sandbox
+                  </span>
+                ) : (
+                  <>
+                    {status === 'locked' && <span className="badge badge--locked">🔒 Locked</span>}
+                    {status === 'available' && <span className="badge badge--available">▶ In Progress</span>}
+                    {status === 'completed' && <span className="badge badge--completed">✓ Stage Certified</span>}
+                  </>
+                )}
               </div>
 
               <h1 className="kingdom-page__title">{kingdom.name}</h1>
@@ -177,20 +214,20 @@ export default function KingdomPage() {
             {/* Quick stats widget */}
             <div className="kingdom-page__stats-card">
               <div className="kingdom-page__stat-item">
-                <span className="kingdom-page__stat-label">Kingdom XP</span>
+                <span className="kingdom-page__stat-label">{isExplore ? "Nominal XP" : "Kingdom XP"}</span>
                 <span className="kingdom-page__stat-value">{kingdomXP} XP</span>
               </div>
               <div className="kingdom-page__stat-item">
                 <span className="kingdom-page__stat-label">Levels</span>
                 <span className="kingdom-page__stat-value">
-                  {completedLevels}/{kingdom.levels.length}
+                  {isExplore ? `5 Available` : `${completedLevels}/${kingdom.levels.length}`}
                 </span>
               </div>
               {totalSanity > 0 && (
                 <div className="kingdom-page__stat-item">
                   <span className="kingdom-page__stat-label">Sanity Checks</span>
                   <span className="kingdom-page__stat-value">
-                    {passedSanity}/{totalSanity}
+                    {isExplore ? `${totalSanity} Checks` : `${passedSanity}/${totalSanity}`}
                   </span>
                 </div>
               )}
@@ -200,8 +237,38 @@ export default function KingdomPage() {
       </div>
 
       <div className="container">
-        {/* Unlock warning if locked */}
-        {!unlocked && (
+        {/* Explore Mode Active Banner */}
+        {isExplore && (
+          <div
+            style={{
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              color: '#1e40af',
+              padding: '12px 18px',
+              borderRadius: '10px',
+              marginBottom: '1.75rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+              fontSize: '0.9rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ fontSize: '1.5rem' }}>🧭</span>
+              <div>
+                <strong>Explore Sandbox Active:</strong> All 5 lessons and {totalSanity} sanity checks in {kingdom.name} are unlocked for free browsing. Simulations run ephemerally and Normal Game progress remains isolated.
+              </div>
+            </div>
+            <Link to="/explore" className="btn btn--secondary btn--sm">
+              All Kingdoms ›
+            </Link>
+          </div>
+        )}
+
+        {/* Unlock warning if locked in Normal Game mode */}
+        {!unlocked && !isExplore && (
           <div className="kingdom-page__lock-banner">
             <span style={{ fontSize: '2rem' }}>🔒</span>
             <div>
@@ -217,14 +284,14 @@ export default function KingdomPage() {
         )}
 
         {/* Unlocked content */}
-        {unlocked && (
+        {(unlocked || isExplore) && (
           <>
-            {/* Integrated Studio Laboratory Workspace Card */}
+            {/* Embedded Studio Companion Workspace */}
             {kingdom.id === 'rtl-understanding' && (
               <div className="kingdom-external-lab-card">
                 <div className="kingdom-external-lab-info">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                    <h3>⚡ RTL Playground Studio (Integrated Suite)</h3>
+                    <h3>⚡ RTL Digital Logic Studio (Integrated Suite)</h3>
                     <span className="badge badge--available">Native Embedding</span>
                   </div>
                   <p>
@@ -239,7 +306,10 @@ export default function KingdomPage() {
                   >
                     {showInlineStudio ? '▲ Collapse In-Page Studio' : '⚡ Open In-Page Studio'}
                   </button>
-                  <Link to="/studio/rtl" className="btn btn--secondary">
+                  <Link
+                    to={isExplore ? "/studio/rtl?from=explore" : "/studio/rtl"}
+                    className="btn btn--secondary"
+                  >
                     🖥️ Dedicated Studio Page
                   </Link>
                   <a
@@ -288,7 +358,10 @@ export default function KingdomPage() {
                   >
                     {showInlineStudio ? '▲ Collapse In-Page Studio' : '⚡ Open In-Page Studio'}
                   </button>
-                  <Link to={`/studio/sta?stage=${kingdom.id}`} className="btn btn--secondary">
+                  <Link
+                    to={isExplore ? `/studio/sta?stage=${kingdom.id}&from=explore` : `/studio/sta?stage=${kingdom.id}`}
+                    className="btn btn--secondary"
+                  >
                     🖥️ Dedicated Studio Page
                   </Link>
                   <a
@@ -315,32 +388,35 @@ export default function KingdomPage() {
               </div>
             )}
 
-            {/* Progress bar */}
-            <div className="kingdom-page__progress-section">
-              <div className="kingdom-page__progress-header">
-                <h2 style={{ fontSize: '1.1rem' }}>Stage Progress</h2>
-                <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-                  {progressPercent}% complete ({completedItems}/{totalItems} tasks)
-                </span>
-              </div>
-              <div className="progress-bar" style={{ height: '12px' }}>
-                <div
-                  className={`progress-bar__fill ${status === 'completed' ? 'progress-bar__fill--green' : ''}`}
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-
-              {/* Stage sign-off gatekeeper info */}
-              {totalSanity > 0 && (
-                <div className="kingdom-page__gatekeeper-note">
-                  <span style={{ fontSize: '1.2rem' }}>🛡️</span>
-                  <div>
-                    <strong>Stage Sign-Off:</strong> Complete all core levels above, then verify all {totalSanity} Sanity Checks
-                    to validate your actual design and earn the stage certification bonus!
-                  </div>
+            {/* Progress bar in normal mode */}
+            {!isExplore && (
+              <div className="kingdom-page__progress-section">
+                <div className="kingdom-page__progress-header">
+                  <h2 style={{ fontSize: '1.1rem' }}>Stage Progress</h2>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                    {progressPercent}% complete ({completedItems}/{totalItems} tasks)
+                  </span>
                 </div>
-              )}
-            </div>
+                <div className="progress-bar" style={{ height: '12px' }}>
+                  <div
+                    className={`progress-bar__fill ${status === 'completed' ? 'progress-bar__fill--green' : ''}`}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+
+                {/* Stage sign-off gatekeeper info */}
+                {certifiableCount > 0 && (
+                  <div className="kingdom-page__gatekeeper-note">
+                    <span style={{ fontSize: '1.2rem' }}>🛡️</span>
+                    <div>
+                      <strong>Stage Certification:</strong> Complete all {kingdom.levels.length} core levels above,
+                      then verify all {certifiableCount} Certifiable Educational Checks to certify your layout geometry
+                      and earn the +50 XP stage completion bonus! ({practiceCount} additional practice drills are available for fault exploration).
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ─── MAIN LEVELS SECTION ──────────────────────── */}
             <div className="kingdom-page__section-wrapper">
@@ -349,13 +425,18 @@ export default function KingdomPage() {
                   📚 Part 1: Core Concept Levels
                 </h2>
                 <span className="badge badge--available">
-                  {completedLevels}/{kingdom.levels.length} Complete
+                  {isExplore ? "5 Lessons Unlocked" : `${completedLevels}/${kingdom.levels.length} Complete`}
                 </span>
               </div>
 
               <div className="kingdom-page__levels-list">
                 {kingdom.levels.map((level) => (
-                  <LevelCard key={level.id} kingdom={kingdom} level={level} />
+                  <LevelCard
+                    key={level.id}
+                    kingdom={kingdom}
+                    level={level}
+                    isExploreMode={isExplore}
+                  />
                 ))}
               </div>
             </div>
@@ -366,18 +447,22 @@ export default function KingdomPage() {
                 <div className="kingdom-page__section-title-row">
                   <div>
                     <h2 className="kingdom-page__sanity-title">
-                      🛡️ Part 2: Stage Sanity Checks (Side Quests)
+                      🛡️ Part 2: Stage Sanity Checks (Rule Verification)
                     </h2>
                     <p className="kingdom-page__sanity-subtitle">
-                      Validates your actual layout geometry and design constraints against authentic EDA ruledecks.
+                      Educational physical design rule checks evaluate your layout geometry against analytical EDA models.
                     </p>
                   </div>
                   <span className={`badge ${allSanityPassed ? 'badge--completed' : 'badge--available'}`}>
-                    {allSanityPassed ? '✓ All Passed' : `${passedSanity}/${totalSanity} Passed`}
+                    {isExplore
+                      ? `${certifiableCount} Certifiable · ${practiceCount} Drills`
+                      : allSanityPassed
+                      ? '✓ All Certified'
+                      : `${passedSanity}/${totalSanity} Passed`}
                   </span>
                 </div>
 
-                {!levelsDone && (
+                {!isExplore && !levelsDone && (
                   <div className="kingdom-page__sanity-locked-alert">
                     <span>🔒</span>
                     <div>
@@ -389,22 +474,47 @@ export default function KingdomPage() {
 
                 <div className="kingdom-page__sanity-grid">
                   {sanityChecks.map((check) => {
-                    const checkStatus = getSanityCheckStatus(player, kingdom.id, check);
-                    const isPassed = checkStatus === 'passed';
-                    const isUnlocked = checkStatus === 'available';
+                    const req = SANITY_CHECK_REQUIREMENTS[check.id];
+                    const isCertifiable = req?.classification === CHECK_CLASSIFICATION.CERTIFIABLE_EDUCATIONAL_CHECK;
+                    const isPractice = req?.classification === CHECK_CLASSIFICATION.PRACTICE_ONLY;
+
+                    const checkStatus = isExplore ? 'available' : getSanityCheckStatus(player, kingdom.id, check);
+                    const isStale = !isExplore && checkStatus === 'stale';
+                    const isCertified = !isExplore && checkStatus === 'certified';
+                    const isDrilled = !isExplore && checkStatus === 'passed';
+                    const isUnlocked = isExplore || checkStatus === 'available' || isCertified || isDrilled || isStale;
 
                     return (
                       <div
                         key={check.id}
-                        className={`sanity-card ${isPassed ? 'sanity-card--passed' : ''} ${!isUnlocked && !isPassed ? 'sanity-card--locked' : ''}`}
+                        className={`sanity-card ${isCertified ? 'sanity-card--passed' : ''} ${isStale ? 'sanity-card--stale' : ''} ${!isUnlocked ? 'sanity-card--locked' : ''}`}
                         onClick={() => handleOpenCheck(check)}
                         style={{ cursor: 'pointer' }}
                       >
                         <div className="sanity-card__header">
                           <span className="sanity-card__icon">{check.icon}</span>
                           <span className="sanity-card__category">{check.category}</span>
-                          {isPassed && <span className="sanity-card__badge-pass">✓ CERTIFIED</span>}
-                          {!isUnlocked && !isPassed && <span className="sanity-card__badge-lock">🔒 PRACTICE ONLY</span>}
+
+                          {/* Honest Badges */}
+                          {isExplore ? (
+                            isCertifiable ? (
+                              <span className="sanity-card__badge-available">🧭 EXPLORE AUDIT</span>
+                            ) : (
+                              <span className="sanity-card__badge-practice">🔬 PRACTICE DRILL</span>
+                            )
+                          ) : isStale ? (
+                            <span className="sanity-card__badge-stale">⚠️ REVISION NEEDED (STALE)</span>
+                          ) : isCertified ? (
+                            <span className="sanity-card__badge-pass">✓ CERTIFIED</span>
+                          ) : isDrilled ? (
+                            <span className="sanity-card__badge-practice">✓ DRILLED</span>
+                          ) : isPractice ? (
+                            <span className="sanity-card__badge-practice">🔬 PRACTICE DRILL</span>
+                          ) : isUnlocked ? (
+                            <span className="sanity-card__badge-available">▶ READY FOR AUDIT</span>
+                          ) : (
+                            <span className="sanity-card__badge-lock">🔒 LOCKED</span>
+                          )}
                         </div>
 
                         <h3 className="sanity-card__title">{check.name}</h3>
@@ -416,29 +526,62 @@ export default function KingdomPage() {
                         </div>
 
                         <div className="sanity-card__footer">
-                          <span className="sanity-card__reward">⭐ +{check.xpReward} XP</span>
-                          {isUnlocked && (
+                          {/* Honest Reward Label */}
+                          {isPractice ? (
+                            <span className="sanity-card__reward">Practice Only (0 XP)</span>
+                          ) : isExplore ? (
+                            <span className="sanity-card__reward">Explore Sandbox (0 XP)</span>
+                          ) : isStale ? (
+                            <span className="sanity-card__reward" style={{ color: '#d97706' }}>⚠️ Needs Revalidation</span>
+                          ) : isCertified ? (
+                            <span className="sanity-card__reward">⭐ +{check.xpReward} XP (Earned)</span>
+                          ) : (
+                            <span className="sanity-card__reward">⭐ +{check.xpReward} XP</span>
+                          )}
+
+                          {/* Action Button */}
+                          {isExplore ? (
                             <button
                               className="btn btn--secondary btn--sm"
                               onClick={(e) => { e.stopPropagation(); handleOpenCheck(check); }}
                             >
-                              ▶ Inspect Audit
+                              ▶ Run Verification
                             </button>
-                          )}
-                          {isPassed && (
+                          ) : isStale ? (
+                            <button
+                              className="btn btn--secondary btn--sm"
+                              style={{ borderColor: '#f59e0b', color: '#b45309' }}
+                              onClick={(e) => { e.stopPropagation(); handleOpenCheck(check); }}
+                            >
+                              ⚠️ Revalidate Check
+                            </button>
+                          ) : isCertified ? (
                             <button
                               className="btn btn--secondary btn--sm"
                               onClick={(e) => { e.stopPropagation(); handleOpenCheck(check); }}
                             >
                               ✓ View Sign-Off
                             </button>
-                          )}
-                          {!isUnlocked && !isPassed && (
+                          ) : isDrilled ? (
                             <button
                               className="btn btn--secondary btn--sm"
                               onClick={(e) => { e.stopPropagation(); handleOpenCheck(check); }}
                             >
-                              🔬 Practice Drill
+                              ✓ View Drill
+                            </button>
+                          ) : isUnlocked ? (
+                            <button
+                              className="btn btn--secondary btn--sm"
+                              onClick={(e) => { e.stopPropagation(); handleOpenCheck(check); }}
+                            >
+                              {isPractice ? '🔬 Practice Drill' : '▶ Inspect Audit'}
+                            </button>
+                          ) : (
+                            <button
+                              className="btn btn--secondary btn--sm"
+                              onClick={(e) => { e.stopPropagation(); handleOpenCheck(check); }}
+                            >
+                              🔒 Locked
                             </button>
                           )}
                         </div>
@@ -465,6 +608,7 @@ export default function KingdomPage() {
                   </h2>
                   <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                     {kingdom.name} · Step #{activeCheck.order} · {activeCheck.category}
+                    {isExplore && " · [Explore Sandbox]"}
                   </span>
                 </div>
               </div>
@@ -481,61 +625,100 @@ export default function KingdomPage() {
                 {activeCheck.description}
               </p>
 
-              {/* Mode Selection Tabs: Student Design vs Demonstration */}
-              <div style={{
-                display: 'flex',
-                gap: '0.5rem',
-                marginBottom: '1rem',
-                borderBottom: '1px solid #e2e8f0',
-                paddingBottom: '0.5rem',
-              }}>
-                <button
-                  type="button"
-                  style={{
-                    padding: '0.45rem 0.9rem',
-                    fontSize: '0.84rem',
-                    fontWeight: 700,
-                    borderRadius: '6px',
-                    border: '1px solid',
-                    borderColor: auditMode === 'student' ? '#0284c7' : '#cbd5e1',
-                    background: auditMode === 'student' ? '#0284c7' : '#f8fafc',
-                    color: auditMode === 'student' ? '#ffffff' : '#475569',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => {
-                    setAuditMode('student');
-                    setSimulationDone(false);
-                    setSimulationLogs([]);
-                  }}
-                >
-                  🎓 Student Design Verification (Sign-Off)
-                </button>
+              {/* Mode Selection Tabs */}
+              {!isExplore && (
+                <div style={{
+                  display: 'flex',
+                  gap: '0.5rem',
+                  marginBottom: '1rem',
+                  borderBottom: '1px solid #e2e8f0',
+                  paddingBottom: '0.5rem',
+                }}>
+                  <button
+                    type="button"
+                    style={{
+                      padding: '0.45rem 0.9rem',
+                      fontSize: '0.84rem',
+                      fontWeight: 700,
+                      borderRadius: '6px',
+                      border: '1px solid',
+                      borderColor: auditMode === 'student' ? '#0284c7' : '#cbd5e1',
+                      background: auditMode === 'student' ? '#0284c7' : '#f8fafc',
+                      color: auditMode === 'student' ? '#ffffff' : '#475569',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => {
+                      setAuditMode('student');
+                      setSimulationDone(false);
+                      setSimulationLogs([]);
+                    }}
+                  >
+                    🎓 Student Design Verification (Sign-Off)
+                  </button>
 
-                <button
-                  type="button"
-                  style={{
-                    padding: '0.45rem 0.9rem',
-                    fontSize: '0.84rem',
-                    fontWeight: 700,
-                    borderRadius: '6px',
-                    border: '1px solid',
-                    borderColor: auditMode === 'demo' ? '#7c3aed' : '#cbd5e1',
-                    background: auditMode === 'demo' ? '#7c3aed' : '#f8fafc',
-                    color: auditMode === 'demo' ? '#ffffff' : '#475569',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => {
-                    setAuditMode('demo');
-                    setSimulationDone(false);
-                    setSimulationLogs([]);
-                  }}
-                >
-                  🔬 Demonstration &amp; Fault Drill (Practice Only)
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    style={{
+                      padding: '0.45rem 0.9rem',
+                      fontSize: '0.84rem',
+                      fontWeight: 700,
+                      borderRadius: '6px',
+                      border: '1px solid',
+                      borderColor: auditMode === 'demo' ? '#7c3aed' : '#cbd5e1',
+                      background: auditMode === 'demo' ? '#7c3aed' : '#f8fafc',
+                      color: auditMode === 'demo' ? '#ffffff' : '#475569',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => {
+                      setAuditMode('demo');
+                      setSimulationDone(false);
+                      setSimulationLogs([]);
+                    }}
+                  >
+                    🔬 Demonstration &amp; Fault Drill (Practice Only)
+                  </button>
+                </div>
+              )}
 
               {/* Status Context Banner */}
-              {auditMode === 'student' ? (
+              {isExplore ? (
+                <div style={{
+                  background: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  marginBottom: '1rem',
+                  fontSize: '0.85rem',
+                  lineHeight: 1.5,
+                  color: '#1e40af',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <span>
+                      <strong>🧭 Explore Sandbox Mode:</strong> Reference design evaluation. Stage certification XP is not awarded and Normal Game progress remains isolated.
+                    </span>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.82rem' }}>
+                        <input
+                          type="radio"
+                          name="sanity-explore-defect"
+                          checked={!demoDefect}
+                          onChange={() => { setDemoDefect(false); setSimulationDone(false); }}
+                        />
+                        <span>Nominal Clean</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.82rem', color: '#b91c1c' }}>
+                        <input
+                          type="radio"
+                          name="sanity-explore-defect"
+                          checked={demoDefect}
+                          onChange={() => { setDemoDefect(true); setSimulationDone(false); }}
+                        />
+                        <span>Inject Fault</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              ) : auditMode === 'student' ? (
                 <div style={{
                   background: studentAuditInfo?.canCertify ? '#f0fdf4' : (studentAuditInfo?.isPracticeOnly ? '#f5f3ff' : '#fffbeb'),
                   border: `1px solid ${studentAuditInfo?.canCertify ? '#bbf7d0' : (studentAuditInfo?.isPracticeOnly ? '#ddd6fe' : '#fef3c7')}`,
@@ -548,7 +731,7 @@ export default function KingdomPage() {
                 }}>
                   {studentAuditInfo?.isPracticeOnly ? (
                     <div>
-                      <strong>🔬 Educational Drill:</strong> {studentAuditInfo?.reason}
+                      <strong>🔬 Educational Practice Drill:</strong> {studentAuditInfo?.reason}
                     </div>
                   ) : studentAuditInfo?.canCertify ? (
                     <div>
@@ -605,7 +788,9 @@ export default function KingdomPage() {
                   <span className="sanity-terminal__dot sanity-terminal__dot--red" />
                   <span className="sanity-terminal__dot sanity-terminal__dot--yellow" />
                   <span className="sanity-terminal__dot sanity-terminal__dot--green" />
-                  <span className="sanity-terminal__title">Educational Rule Check Terminal — {activeCheck.fullName}</span>
+                  <span className="sanity-terminal__title">
+                    Educational Rule Check Terminal — {activeCheck.fullName} {isExplore ? '(Explore Mode)' : ''}
+                  </span>
                 </div>
                 <div className="sanity-terminal__content">
                   <div className="sanity-terminal__line">
@@ -657,10 +842,25 @@ export default function KingdomPage() {
                   >
                     {runningSimulation ? '⏳ Evaluating Ruledeck...' : `▶ Run EDA Verification: ${activeCheck.name}`}
                   </button>
+                ) : isExplore ? (
+                  <div style={{ width: '100%', textAlign: 'center' }}>
+                    <div className="sanity-modal__passed-notice" style={{ marginBottom: '0.75rem' }}>
+                      {simulationPassed
+                        ? '✓ Reference Example Passed — Explore Mode (Practice Result — No XP Awarded)'
+                        : '⚠️ Fault Detected in Defect Injection Run — Explore Mode'}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--lg w-full"
+                      onClick={() => setActiveCheck(null)}
+                    >
+                      Close Audit Window (Explore Mode)
+                    </button>
+                  </div>
                 ) : isSanityCheckPassed(player, activeCheck.id) ? (
                   <div style={{ width: '100%', textAlign: 'center' }}>
                     <div className="sanity-modal__passed-notice" style={{ marginBottom: '0.75rem' }}>
-                      ✓ <strong>Stage Check Previously Certified:</strong> This rule check is permanently certified.
+                      ✓ <strong>Stage Check Verified:</strong> This rule check is certified and current.
                     </div>
                     <button
                       type="button"
@@ -694,12 +894,12 @@ export default function KingdomPage() {
                       fontSize: '0.85rem',
                       marginBottom: '0.75rem',
                     }}>
-                      ℹ️ <strong>Demonstration Passed:</strong> Reference drill verified clean. Switch to "Student Design Verification" to certify your design for XP.
+                      ℹ️ <strong>Demonstration Passed:</strong> Reference drill verified clean. Practice drills award 0 certification XP.
                     </div>
                     <button
                       type="button"
                       className="btn btn--secondary btn--lg w-full"
-                      onClick={() => setActiveCheck(null)}
+                      onClick={handleCompletePracticeDrill}
                     >
                       ✓ Practice Drill Complete (Close)
                     </button>
