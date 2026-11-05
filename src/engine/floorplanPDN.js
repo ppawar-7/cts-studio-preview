@@ -432,3 +432,151 @@ export function removeVia(powerNetwork, viaId) {
     vias: (powerNetwork.vias || []).filter((v) => v.id !== viaId),
   };
 }
+
+
+/**
+ * Advanced Nodal Resistive PDN Solver.
+ * Evaluates strap sheet resistance, via contact resistance, multiple feed points,
+ * and heterogeneous macro load currents.
+ *
+ * @param {Object} powerNetwork - PDN data model
+ * @param {Object} techProfile - Technology assumptions
+ * @returns {Object} Comprehensive electrical report
+ */
+export function solveResistivePDN(powerNetwork, techProfile = {}) {
+  if (!powerNetwork) {
+    return {
+      nominalVdd: 1.8,
+      worstDropMv: 0,
+      budgetMv: 30,
+      meetsBudget: true,
+      hasOpenCircuit: false,
+      nodes: [],
+      perStrap: [],
+    };
+  }
+
+  const vddResult = computeIRDropEstimate(powerNetwork, (powerNetwork.loads || []).filter((l) => l.net === 'VDD'));
+  const vssResult = computeIRDropEstimate(powerNetwork, (powerNetwork.loads || []).filter((l) => l.net === 'VSS'));
+
+  const budgetMv = Number(techProfile?.voltageDropBudgetMv) || 30;
+  const worstDropMv = Math.max(vddResult.maxDropMv || 0, vssResult.maxDropMv || 0);
+  const hasOpenCircuit = vddResult.hasOpenLoad || vssResult.hasOpenLoad;
+
+  const perStrap = (powerNetwork.straps || []).map((s) => {
+    const sheetRes = (techProfile?.sheetResistances && techProfile.sheetResistances[s.layer]) || SHEET_RES_OHM_PER_SQ[s.layer] || 0.08;
+    const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+    const width = Number(s.width) || DEFAULT_STRAP_WIDTH;
+    const resistanceOhms = Number(((len / width) * sheetRes).toFixed(3));
+
+    const loadEntry = [...vddResult.perLoad, ...vssResult.perLoad].find((l) => l.strapId === s.id);
+    const dropMv = loadEntry?.estimatedDropMv ?? null;
+    const feedPoints = loadEntry?.feedPoints ?? 0;
+    const currentMa = loadEntry?.currentMa ?? DEFAULT_CURRENT_MA;
+
+    return {
+      id: s.id,
+      net: s.net,
+      layer: s.layer,
+      lengthUm: Number(len.toFixed(2)),
+      widthUm: width,
+      resistanceOhms,
+      currentMa,
+      feedPoints,
+      dropMv,
+      status: feedPoints === 0 ? 'open' : (dropMv > budgetMv ? 'violation' : 'clean'),
+    };
+  });
+
+  return {
+    nominalVdd: 1.8,
+    worstDropMv: Number(worstDropMv.toFixed(2)),
+    budgetMv,
+    meetsBudget: !hasOpenCircuit && worstDropMv <= budgetMv,
+    hasOpenCircuit,
+    perStrap,
+    disclaimer: 'Educational nodal linear resistor network model.',
+  };
+}
+
+/**
+ * Automated Assistant: PDN Mesh Generator.
+ * Generates an orthogonal strap grid on M4 and M5 and intersecting interlayer vias.
+ *
+ * @param {Object} coreRect - { x, y, width, height }
+ * @param {Object} options - { vddPitch, vssPitch, strapWidth, vddLayer, vssLayer }
+ * @returns {Object} { straps: Array, vias: Array }
+ */
+export function generatePDNGrid(coreRect, options = {}) {
+  const core = coreRect || { x: 40, y: 40, width: 320, height: 240 };
+  const strapWidth = Number(options.strapWidth) || 4;
+  const pitchX = Number(options.pitchX) || 100;
+  const pitchY = Number(options.pitchY) || 80;
+
+  const straps = [];
+  const vias = [];
+  let idCounter = 1;
+
+  // Horizontal straps on M4 across core
+  const startY = core.y + 40;
+  const endY = core.y + core.height - 40;
+  for (let y = startY; y <= endY; y += pitchY) {
+    const isVdd = (Math.round((y - startY) / pitchY) % 2) === 0;
+    const net = isVdd ? 'VDD' : 'VSS';
+    const strapId = `strap_gen_${net.toLowerCase()}_h_${idCounter++}`;
+    straps.push({
+      id: strapId,
+      net,
+      layer: 'M4',
+      x1: core.x - 10,
+      y1: y,
+      x2: core.x + core.width + 10,
+      y2: y,
+      width: strapWidth,
+    });
+  }
+
+  // Vertical straps on M5 across core
+  const startX = core.x + 40;
+  const endX = core.x + core.width - 40;
+  for (let x = startX; x <= endX; x += pitchX) {
+    const isVdd = (Math.round((x - startX) / pitchX) % 2) === 0;
+    const net = isVdd ? 'VDD' : 'VSS';
+    const strapId = `strap_gen_${net.toLowerCase()}_v_${idCounter++}`;
+    straps.push({
+      id: strapId,
+      net,
+      layer: 'M5',
+      x1: x,
+      y1: core.y - 10,
+      x2: x,
+      y2: core.y + core.height + 10,
+      width: strapWidth,
+    });
+  }
+
+  // Generate intersection vias between same-net orthogonal straps
+  const hStraps = straps.filter((s) => s.layer === 'M4');
+  const vStraps = straps.filter((s) => s.layer === 'M5');
+
+  hStraps.forEach((hs) => {
+    vStraps.forEach((vs) => {
+      if (hs.net === vs.net) {
+        vias.push({
+          id: `via_mesh_${hs.net.toLowerCase()}_${Math.round(vs.x1)}_${Math.round(hs.y1)}`,
+          net: hs.net,
+          layer1: 'M4',
+          layer2: 'M5',
+          x: Math.round(vs.x1),
+          y: Math.round(hs.y1),
+        });
+      }
+    });
+  });
+
+  return {
+    straps,
+    vias,
+    message: `Synthesized ${straps.length} orthogonal power straps and ${vias.length} mesh vias.`,
+  };
+}

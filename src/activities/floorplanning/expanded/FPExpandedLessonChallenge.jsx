@@ -1,7 +1,7 @@
 /**
  * FPExpandedLessonChallenge.jsx
  * ==============================
- * Interactive curriculum challenge component for Floorplanning 2.0 (fp-6 through fp-24).
+ * Interactive curriculum challenge component for Floorplanning Kingdom 3.0 (fp-6 through fp-36).
  * Driven by fpExpandedCurriculumData.js.
  */
 
@@ -165,7 +165,6 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
                 />
               </div>
             </div>
-
           </div>
         )}
 
@@ -232,23 +231,6 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
           </div>
         )}
 
-        {/* FP-18 IR Drop */}
-        {lesson.id === 'fp-18' && (
-          <div className="card combseq-card">
-            <h4 className="dff-challenge__section-title">Step 1: Calculate Voltage Droop (Load Current: 20 mA, Grid Resistance: 1.5 &Omega;)</h4>
-            <div style={{ marginTop: '0.75rem' }}>
-              <label className="accum-port-label">Static IR-Drop (V = I × R) (mV):</label>
-              <input
-                type="number"
-                placeholder="e.g. 30"
-                className="syn-opt-input"
-                value={formData.calculatedDrop || ''}
-                onChange={(e) => handleFieldChange('calculatedDrop', e.target.value)}
-              />
-            </div>
-          </div>
-        )}
-
         {/* FP-14 Pin pitch: real coordinates checked by the Studio's pin-spacing rule */}
         {lesson.id === 'fp-14' && (
           <div className="card combseq-card">
@@ -270,27 +252,49 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
           </div>
         )}
 
-        {/* FP-24 Master Capstone: graded on the saved Studio project */}
-        {lesson.id === 'fp-24' && (
+        {/* FP-18 IR Drop */}
+        {lesson.id === 'fp-18' && (
+          <div className="card combseq-card">
+            <h4 className="dff-challenge__section-title">Step 1: Calculate Voltage Droop (Load Current: 20 mA, Grid Resistance: 1.5 &Omega;)</h4>
+            <div style={{ marginTop: '0.75rem' }}>
+              <label className="accum-port-label">Static IR-Drop (V = I × R) (mV):</label>
+              <input
+                type="number"
+                placeholder="e.g. 30"
+                className="syn-opt-input"
+                value={formData.calculatedDrop || ''}
+                onChange={(e) => handleFieldChange('calculatedDrop', e.target.value)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Capstone Projects (FP-24 & FP-36): graded on the saved Studio project */}
+        {(lesson.id === 'fp-24' || lesson.id === 'fp-36' || lesson.requiresStudioProject) && (
           <div className="card combseq-card" data-testid="capstone-panel">
-            <h4 className="dff-challenge__section-title">🏆 Sign-off of your saved Studio project</h4>
+            <h4 className="dff-challenge__section-title">
+              🏆 {lesson.id === 'fp-36' ? 'Expert SoC Capstone: Tapeout Sign-off' : 'Master Capstone: Saved Studio Project Sign-off'}
+            </h4>
             {!studioProject ? (
               <p className="dff-challenge__subtext">
                 No saved project found {isExplore ? 'in this Explore session' : 'for your Normal Game Studio'}.
-                Open the <Link to={studioPath}>Floorplan Studio</Link>, load a 4-macro benchmark, repair it, press <strong>Save</strong>, then return here.
+                Open the <Link to={studioPath}>Floorplan Studio</Link>, architect your {lesson.minMacros || 4}+ macro design, verify DRC and IR drop, press <strong>Save</strong>, then return here.
               </p>
             ) : (
               <>
                 <p className="dff-challenge__subtext">
-                  Project <strong>{studioProject.name}</strong>: {capstoneReport.metrics.macroCount} macros,
-                  utilization {capstoneReport.metrics.nominalUtilization}%, worst IR drop {capstoneReport.metrics.maxIRDropMv} mV.
+                  Project <strong>{studioProject.name}</strong>: {capstoneReport?.metrics?.macroCount ?? 0} macros,
+                  utilization {capstoneReport?.metrics?.nominalUtilization ?? 0}%, worst IR drop {capstoneReport?.metrics?.maxIRDropMv ?? 0} mV.
                 </p>
                 <ul className="fp-capstone-checklist" style={{ listStyle: 'none', padding: 0, margin: '0.75rem 0 0', display: 'grid', gap: '0.35rem' }}>
-                  <li>{capstoneReport.metrics.macroCount >= (lesson.minMacros || 4) ? '✅' : '❌'} At least {lesson.minMacros || 4} hard macros</li>
-                  <li>{capstoneReport.errorCount === 0 ? '✅' : '❌'} 0 errors (DRC, pin pitch, PDN continuity, shorts, utilization)</li>
-                  <li>{capstoneReport.warningCount === 0 ? '✅' : '❌'} 0 warnings (halo conflicts, missing vias)</li>
+                  <li>{(capstoneReport?.metrics?.macroCount ?? 0) >= (lesson.minMacros || 4) ? '✅' : '❌'} At least {lesson.minMacros || 4} hard macros (Current: {capstoneReport?.metrics?.macroCount ?? 0})</li>
+                  <li>{(capstoneReport?.errorCount ?? 1) === 0 ? '✅' : '❌'} 0 errors (DRC, boundary, pin pitch, PDN continuity, shorts)</li>
+                  <li>{(capstoneReport?.warningCount ?? 1) === 0 ? '✅' : '❌'} 0 warnings (halo conflicts, missing vias)</li>
+                  {lesson.id === 'fp-36' && (
+                    <li>{(capstoneReport?.metrics?.maxIRDropMv ?? 999) <= 30 ? '✅' : '❌'} Static IR drop ≤ 30 mV (Current: {capstoneReport?.metrics?.maxIRDropMv ?? 0} mV)</li>
+                  )}
                 </ul>
-                {capstoneReport.violations.length > 0 && (
+                {capstoneReport && capstoneReport.violations.length > 0 && (
                   <ul style={{ marginTop: '0.6rem', fontSize: '0.85rem', color: '#b45309' }}>
                     {capstoneReport.violations.slice(0, 6).map((v, i) => (
                       <li key={i}><strong>{v.rule}:</strong> {v.message}</li>
@@ -305,7 +309,7 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
           </div>
         )}
 
-        {/* Lesson-specific concept checks (each lesson has its own questions and distractors) */}
+        {/* Lesson-specific concept checks */}
         {Array.isArray(lesson.questions) && lesson.questions.length > 0 && (
           <div className="card combseq-card">
             <h4 className="dff-challenge__section-title">Concept Check: {lesson.title}</h4>

@@ -35,6 +35,51 @@ import { SANITY_CHECK_REQUIREMENTS, getStudentDesignForSanityCheck } from '../..
 import { CHECK_CLASSIFICATION } from '../../logic/designArtifactContracts.js';
 import './KingdomPage.css';
 
+const FP_MODULES = [
+  {
+    num: 2,
+    title: 'Module 2: Die & Core Architecture',
+    desc: 'Core boundary aspect ratios, macro halo keepouts, utilization budgeting, and row channel generation.',
+    range: ['fp-6', 'fp-7', 'fp-8', 'fp-9'],
+  },
+  {
+    num: 3,
+    title: 'Module 3: Macro Engineering',
+    desc: 'Orientation transforms, pin access channels, flyline wirelength optimization, and multi-macro legal placement.',
+    range: ['fp-10', 'fp-11', 'fp-12', 'fp-13'],
+  },
+  {
+    num: 4,
+    title: 'Module 4: I/O and Power Fundamentals',
+    desc: 'I/O pad pitch legalizer, edge distribution, VDD/VSS mesh rings, horizontal/vertical straps, and stacked vias.',
+    range: ['fp-14', 'fp-15', 'fp-16', 'fp-17', 'fp-18'],
+  },
+  {
+    num: 5,
+    title: 'Module 5: Analysis, Optimization & First Master Project',
+    desc: 'Nodal resistive IR drop simulation, 2D routing congestion analysis, Pareto candidate trade-offs, and FP-24 First Capstone.',
+    range: ['fp-19', 'fp-20', 'fp-21', 'fp-22', 'fp-23', 'fp-24'],
+  },
+  {
+    num: 6,
+    title: 'Module 6: Open-Ended Design Authoring',
+    desc: 'Interactive component creation: macro master instantiation, custom pin placement, routing blockage types, and custom straps.',
+    range: ['fp-25', 'fp-26', 'fp-27', 'fp-28'],
+  },
+  {
+    num: 7,
+    title: 'Module 7: Advanced Power & Optimization',
+    desc: 'Dynamic strap pitch vs IR drop tradeoffs, automated PDN mesh synthesis, assisted macro legalization, assisted pin legalization, and candidate Pareto frontiers.',
+    range: ['fp-29', 'fp-30', 'fp-31', 'fp-32', 'fp-33'],
+  },
+  {
+    num: 8,
+    title: 'Module 8: Advanced Engineering Handoff',
+    desc: 'Automated DRC repair assistants, physical design sign-off reports (LEF/DEF/JSON), and the FP-36 Final Capstone SoC.',
+    range: ['fp-34', 'fp-35', 'fp-36'],
+  },
+];
+
 export default function KingdomPage({ isExploreMode = false }) {
   const { kingdomId } = useParams();
   const location = useLocation();
@@ -75,6 +120,16 @@ export default function KingdomPage({ isExploreMode = false }) {
   ).length;
   const levelsDone = areAllKingdomLevelsCompleted(player, kingdomId);
 
+  // Expanded Floorplanning lessons count (31 expanded + 5 core = 36 total)
+  const expandedLessonsList = kingdomId === 'floorplanning' ? Object.keys(EXPANDED_LESSONS) : [];
+  const expandedCompleted = kingdomId === 'floorplanning'
+    ? expandedLessonsList.filter((id) => player.levelProgress?.[id]?.completed).length
+    : 0;
+  const totalDisplayLevels = kingdomId === 'floorplanning'
+    ? kingdom.levels.length + expandedLessonsList.length
+    : kingdom.levels.length;
+  const totalDisplayCompleted = completedLevels + expandedCompleted;
+
   // Sanity checks info
   const sanityChecks = getKingdomSanityChecks(kingdomId);
   const totalSanity = sanityChecks.length;
@@ -86,8 +141,8 @@ export default function KingdomPage({ isExploreMode = false }) {
   const practiceCount = totalSanity - certifiableCount;
 
   // Total weighted progress
-  const totalItems = kingdom.levels.length + totalSanity;
-  const completedItems = completedLevels + passedSanity;
+  const totalItems = totalDisplayLevels + totalSanity;
+  const completedItems = totalDisplayCompleted + passedSanity;
   const progressPercent = Math.round((completedItems / totalItems) * 100);
 
   // Next kingdom info
@@ -265,7 +320,9 @@ export default function KingdomPage({ isExploreMode = false }) {
               <div className="kingdom-page__stat-item">
                 <span className="kingdom-page__stat-label">Levels</span>
                 <span className="kingdom-page__stat-value">
-                  {isExplore ? `5 Available` : `${completedLevels}/${kingdom.levels.length}`}
+                  {kingdom.id === 'floorplanning'
+                    ? (isExplore ? '36 Lessons' : `${totalDisplayCompleted}/36`)
+                    : (isExplore ? `${kingdom.levels.length} Available` : `${completedLevels}/${kingdom.levels.length}`)}
                 </span>
               </div>
               {totalSanity > 0 && (
@@ -303,7 +360,7 @@ export default function KingdomPage({ isExploreMode = false }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <span style={{ fontSize: '1.5rem' }}>🧭</span>
               <div>
-                <strong>Explore Sandbox Active:</strong> All 5 lessons and {totalSanity} sanity checks in {kingdom.name} are unlocked for free browsing. Simulations run ephemerally and Normal Game progress remains isolated.
+                <strong>Explore Sandbox Active:</strong> All {kingdom.id === 'floorplanning' ? 36 : kingdom.levels.length} lessons and {totalSanity} sanity checks in {kingdom.name} are unlocked for free browsing. Simulations run ephemerally and Normal Game progress remains isolated.
               </div>
             </div>
             <Link to="/explore" className="btn btn--secondary btn--sm">
@@ -337,11 +394,11 @@ export default function KingdomPage({ isExploreMode = false }) {
               <div className="kingdom-external-lab-card fp-studio-banner" data-testid="fp-studio-banner" style={{ border: '2px solid #0284c7', background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08), rgba(30, 58, 95, 0.12))' }}>
                 <div className="kingdom-external-lab-info">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                    <h3>📐 Floorplanning Studio 2.0 (Dedicated CAD Workspace)</h3>
-                    <span className="badge badge--available">Full CAD Suite</span>
+                    <h3>📐 Floorplanning Studio 3.0 (Professional CAD Workspace)</h3>
+                    <span className="badge badge--available">Full EDA CAD Suite</span>
                   </div>
                   <p>
-                    Interactive multi-layer placement canvas, keepout halos, power grid (VDD/VSS rings, straps, vias), live DRC diagnostics, and IR-drop sign-off across 24 guided lessons.
+                    Professional physical design environment: interactive component creation (macros, pins, blockages, straps, vias), automated EDA assistants (macro legalizer, pin legalizer, PDN grid synthesizer), nodal resistive IR drop solver, 2D congestion analyzer, measurement ruler, and Pareto candidate comparison across 36 lessons.
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -350,7 +407,7 @@ export default function KingdomPage({ isExploreMode = false }) {
                     className="btn btn--primary"
                     style={{ fontWeight: 800 }}
                   >
-                    📐 Open Floorplan Studio →
+                    📐 Open Floorplan Studio 3.0 →
                   </Link>
                 </div>
               </div>
@@ -535,69 +592,86 @@ export default function KingdomPage({ isExploreMode = false }) {
             </div>
 
             
-            {/* ─── FLOORPLANNING 2.0 EXPANDED CURRICULUM MODULES (fp-6 to fp-24) ─── */}
+            {/* ─── FLOORPLANNING 3.0 COMPLETE CURRICULUM MODULES (Modules 2 – 8) ─── */}
             {kingdom.id === 'floorplanning' && (
               <div className="kingdom-page__section-wrapper" style={{ marginTop: '2.5rem' }}>
                 <div className="kingdom-page__section-title-row">
                   <div>
                     <h2 className="kingdom-page__levels-title">
-                      🎓 Part 2: Advanced Studio Mastery Curriculum (Modules 2 – 6)
+                      🎓 Part 2: Comprehensive Engineering Curriculum (Modules 2 – 8)
                     </h2>
                     <p style={{ color: '#64748b', fontSize: '0.88rem', margin: '0.25rem 0 0' }}>
-                      19 in-depth lessons covering silicon die architecture, macro keepout halos, PDN power mesh synthesis, and tapeout signoff.
+                      31 in-depth engineering lessons covering die architecture, macro legalization, PDN synthesis, resistive IR drop analysis, congestion routing, open-ended authoring, and capstones.
                     </p>
                   </div>
                   <span className="badge badge--available">
-                    19 Advanced Lessons
+                    31 Engineering Lessons
                   </span>
                 </div>
 
                 <div className="fp-curriculum-modules-list" style={{ marginTop: '1rem' }}>
-                  {[
-                    { num: 2, title: 'Module 2: Die & Core Architecture', range: ['fp-6', 'fp-7', 'fp-8', 'fp-9'] },
-                    { num: 3, title: 'Module 3: Advanced Hard Macro Placement', range: ['fp-10', 'fp-11', 'fp-12', 'fp-13'] },
-                    { num: 4, title: 'Module 4: I/O & Power Distribution Network (PDN)', range: ['fp-14', 'fp-15', 'fp-16', 'fp-17', 'fp-18'] },
-                    { num: 5, title: 'Module 5: Analysis & Optimization', range: ['fp-19', 'fp-20', 'fp-21', 'fp-22'] },
-                    { num: 6, title: 'Module 6: Master Floorplan Capstone', range: ['fp-23', 'fp-24'] },
-                  ].map((mod) => (
-                    <details key={mod.num} className="fp-curriculum-module fp-module-accordion" open>
-                      <summary className="fp-curriculum-module__header">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontWeight: 800, color: '#0284c7' }}>{mod.title}</span>
-                          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>({mod.range.length} Lessons)</span>
+                  {FP_MODULES.map((mod) => {
+                    const modCompletedCount = mod.range.filter((lvlId) => player.levelProgress?.[lvlId]?.completed).length;
+                    return (
+                      <details key={mod.num} className="fp-curriculum-module fp-module-accordion" open>
+                        <summary className="fp-curriculum-module__header">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 800, color: '#0284c7' }}>{mod.title}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>({mod.range.length} Lessons)</span>
+                            <span className="fp-module-progress-chip">
+                              {modCompletedCount}/{mod.range.length} Done
+                            </span>
+                          </div>
+                          <span style={{ fontSize: '0.78rem', color: '#0284c7', fontWeight: 700 }}>Expand / Collapse</span>
+                        </summary>
+                        <p style={{ padding: '0.5rem 1.25rem 0', margin: 0, fontSize: '0.82rem', color: '#64748b' }}>
+                          {mod.desc}
+                        </p>
+                        <div className="fp-curriculum-module__body">
+                          {mod.range.map((lvlId) => {
+                            const lData = EXPANDED_LESSONS[lvlId];
+                            if (!lData) return null;
+                            const completed = Boolean(player.levelProgress?.[lvlId]?.completed);
+                            const isCapstone24 = lvlId === 'fp-24';
+                            const isCapstone36 = lvlId === 'fp-36';
+                            const isCapstone = isCapstone24 || isCapstone36;
+
+                            return (
+                              <div
+                                key={lvlId}
+                                className={`fp-lesson-card ${isCapstone ? 'fp-lesson-card--capstone' : ''}`}
+                              >
+                                <div className="fp-lesson-card__header">
+                                  <span className="fp-lesson-card__id">{lvlId.toUpperCase()}</span>
+                                  {isCapstone24 && (
+                                    <span className="fp-capstone-badge">🏆 Capstone 1</span>
+                                  )}
+                                  {isCapstone36 && (
+                                    <span className="fp-capstone-badge fp-capstone-badge--gold">👑 Final SoC Capstone</span>
+                                  )}
+                                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{lData.duration}</span>
+                                </div>
+                                <h4 className="fp-lesson-card__title">{lData.title}</h4>
+                                <p className="fp-lesson-card__desc">{lData.description}</p>
+                                <div className="fp-lesson-card__footer">
+                                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b' }}>
+                                    ⭐ +{lData.xpReward} XP
+                                  </span>
+                                  <Link
+                                    to={isExplore ? "/explore/kingdom/floorplanning/level/" + lvlId : "/kingdom/floorplanning/level/" + lvlId}
+                                    className={`btn ${completed ? 'btn--secondary' : isCapstone ? 'btn--primary' : 'btn--secondary'} btn--sm`}
+                                    style={{ fontSize: '0.75rem' }}
+                                  >
+                                    {completed ? '✓ Review' : isCapstone ? '🚀 Launch Capstone' : '▶ Start'}
+                                  </Link>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                        <span style={{ fontSize: '0.78rem', color: '#0284c7', fontWeight: 700 }}>Expand / Collapse</span>
-                      </summary>
-                      <div className="fp-curriculum-module__body">
-                        {mod.range.map((lvlId) => {
-                          const lData = EXPANDED_LESSONS[lvlId];
-                          const completed = Boolean(player.levelProgress?.[lvlId]?.completed);
-                          return (
-                            <div key={lvlId} className="fp-lesson-card">
-                              <div className="fp-lesson-card__header">
-                                <span className="fp-lesson-card__id">{lvlId.toUpperCase()}</span>
-                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{lData.duration}</span>
-                              </div>
-                              <h4 className="fp-lesson-card__title">{lData.title}</h4>
-                              <p className="fp-lesson-card__desc">{lData.description}</p>
-                              <div className="fp-lesson-card__footer">
-                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b' }}>
-                                  ⭐ +{lData.xpReward} XP
-                                </span>
-                                <Link
-                                  to={isExplore ? "/explore/kingdom/floorplanning/level/" + lvlId : "/kingdom/floorplanning/level/" + lvlId}
-                                  className="btn btn--secondary btn--sm"
-                                  style={{ fontSize: '0.75rem' }}
-                                >
-                                  {completed ? '✓ Review' : '▶ Start'}
-                                </Link>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </details>
-                  ))}
+                      </details>
+                    );
+                  })}
                 </div>
               </div>
             )}

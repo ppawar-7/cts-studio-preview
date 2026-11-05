@@ -4,6 +4,7 @@
  * Single source of truth for floorplan rule checking. Used by:
  *   - Floorplan Studio diagnostics panel (live violations list)
  *   - FP-24 capstone grading (evaluates the student's real Studio project)
+ *   - FP-36 advanced SoC capstone grading
  *
  * Pure function: same project in → same report out. All units µm / µm² / mV.
  */
@@ -24,7 +25,7 @@ import {
 import { computeCongestionMap } from './floorplanCongestion.js';
 
 /**
- * @param {Object} project - FloorplanProject (schema v1)
+ * @param {Object} project - FloorplanProject
  * @returns {{ clean: boolean, errorCount: number, warningCount: number, violations: Array, metrics: Object, analysis: Object }}
  */
 export function evaluateFloorplanSignoff(project) {
@@ -152,6 +153,19 @@ export function evaluateFloorplanSignoff(project) {
     });
   });
 
+  // Static IR-drop budget check
+  const voltageBudget = Number(constraints.voltageDropBudgetMv) || 30;
+  if (typeof irDrop.maxDropMv === 'number' && irDrop.maxDropMv > voltageBudget) {
+    list.push({
+      rule: 'Power Grid Static IR Drop',
+      severity: 'warning',
+      targetId: 'ring_vdd',
+      targetType: 'ring',
+      message: `Worst modeled IR drop (${irDrop.maxDropMv.toFixed(1)} mV) exceeds the ${voltageBudget} mV budget.`,
+      suggestion: 'Add parallel power straps or feed vias to reduce grid impedance.',
+    });
+  }
+
   // ── Area budget ──────────────────────────────────────────────────────────
   const utilization = computeUtilization(core.width * core.height, project.standardCellAreaUm2, macros, project.blockages, core);
   const maxUtil = Number(constraints.maxUtilization) || 100;
@@ -178,6 +192,18 @@ export function evaluateFloorplanSignoff(project) {
 
   const hpwl = computeHPWL(project.nets, macros, project.pins, core, project.die);
   const congestion = computeCongestionMap(project, 8, 8);
+
+  // Critical routing track overflow check
+  if (congestion.maxRatio >= 1.0) {
+    list.push({
+      rule: 'Routing Channel Congestion Overflow',
+      severity: 'warning',
+      targetId: null,
+      targetType: 'congestion',
+      message: `Critical routing track overflow detected (Worst ratio: ${congestion.maxRatio}).`,
+      suggestion: 'Spread macros apart or remove channel blockages to relieve wire demand.',
+    });
+  }
 
   const errorCount = list.filter((v) => v.severity === 'error').length;
   const warningCount = list.length - errorCount;

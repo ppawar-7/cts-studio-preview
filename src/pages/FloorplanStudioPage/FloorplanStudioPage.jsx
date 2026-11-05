@@ -1,18 +1,20 @@
 /**
  * FloorplanStudioPage.jsx
  * =======================
- * Dedicated, deep interactive engineering studio for Floorplanning Kingdom 2.0.
+ * Dedicated, deep interactive engineering studio for Floorplanning Kingdom 3.0.
  * Accessible at `/studio/floorplanning` and `/explore/studio/floorplanning`.
  *
  * Full ASIC CAD environment with:
- * - 4-panel professional layout
- * - Interactive multi-layer canvas (pan, zoom, drag-and-drop, grid snapping)
- * - Complete design hierarchy explorer
- * - Context-aware properties inspector
- * - Live DRC, connectivity, missing-via, and routability analytical engines
+ * - 4-panel professional layout + 8-tab bottom analytics dock
+ * - Interactive multi-layer canvas (pan, zoom, drag-and-drop, grid snapping, distance ruler)
+ * - Complete design hierarchy explorer (Macros, Pins, PDN, Blockages, Nets, Masters)
+ * - Context-aware properties inspector for all physical entities
+ * - Automated EDA Design Assistants (Macro Legalizer, Pin Legalizer, PDN Grid Generator)
+ * - Candidate snapshot comparison & Pareto trade-off explorer
+ * - Live DRC, connectivity, missing-via, IR drop, and routability analytical engines
  * - Undo/Redo history stack
- * - Export/Import JSON artifacts
- * - Benchmark presets (Small Controller, Dual SRAM, Small SoC)
+ * - Export/Import JSON artifacts & ASCII Handoff Reports
+ * - 6 Benchmark Presets (Scenario A through F)
  */
 
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
@@ -22,7 +24,7 @@ import DesignExplorer from './components/DesignExplorer.jsx';
 import StudioCanvas from './components/StudioCanvas.jsx';
 import PropertiesInspector from './components/PropertiesInspector.jsx';
 import AnalysisPanel from './components/AnalysisPanel.jsx';
-import DiagnosticsPanel from './components/DiagnosticsPanel.jsx';
+import CandidateCompareModal from './components/CandidateCompareModal.jsx';
 
 import {
   createDefaultProject,
@@ -32,16 +34,26 @@ import {
   EXAMPLE_SMALL_CONTROLLER,
   EXAMPLE_DUAL_SRAM_CONTROLLER,
   EXAMPLE_SMALL_SOC_SUBSYSTEM,
+  SCENARIO_SIMPLE_CONTROL,
+  SCENARIO_DUAL_SRAM,
+  SCENARIO_FOUR_MACRO,
+  SCENARIO_SMALL_SOC,
+  SCENARIO_BROKEN_PDN,
+  SCENARIO_CONGESTION_STRESS,
 } from '../../engine/floorplanProjectModel.js';
 
-import { transformMacroOrientation } from '../../engine/floorplanGeometry.js';
-import { addVia, removeVia } from '../../engine/floorplanPDN.js';
+import {
+  transformMacroOrientation,
+  assistedMacroLegalization,
+  assistedPinLegalization,
+} from '../../engine/floorplanGeometry.js';
+import { addVia, removeVia, generatePDNGrid } from '../../engine/floorplanPDN.js';
 import { evaluateFloorplanSignoff } from '../../engine/floorplanSignoff.js';
+import { createCandidateSnapshot } from '../../engine/floorplanCandidates.js';
 
 import './FloorplanStudioPage.css';
 
 export const STORAGE_KEY = 'pdplayground_floorplan_v1';
-// Explore mode keeps its own, session-scoped copy so practice never touches the Normal Game project.
 export const EXPLORE_STORAGE_KEY = 'pdplayground_floorplan_explore_v1';
 
 function readStoredProject(isExplore) {
@@ -67,7 +79,7 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
   const projectRef = useRef(project);
   projectRef.current = project;
 
-  // Size the studio to the space below the app navbar so the analysis panel is never clipped.
+  // Fit studio to viewport
   const studioRef = useRef(null);
   useLayoutEffect(() => {
     const fit = () => {
@@ -101,7 +113,12 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
   const [showPowerNetwork, setShowPowerNetwork] = useState(true);
   const [showCongestion, setShowCongestion] = useState(false);
   const [showBlockages, setShowBlockages] = useState(true);
-  const [showDiagnosticsTab, setShowDiagnosticsTab] = useState(false);
+  const [showFlylines, setShowFlylines] = useState(true);
+  const [measureMode, setMeasureMode] = useState(false);
+
+  // Candidate comparison
+  const [candidates, setCandidates] = useState([]);
+  const [isCandidateModalOpen, setIsCandidateModalOpen] = useState(false);
 
   // Update project helper with history recording
   const updateProject = useCallback((updater) => {
@@ -128,7 +145,7 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     setProject(next);
   }, [redoStack, project]);
 
-  // Save: Normal Game → localStorage; Explore → this browser session only.
+  // Save
   const handleSave = useCallback(() => {
     try {
       if (isExplore) {
@@ -143,7 +160,7 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     }
   }, [project, isExplore]);
 
-  // Export JSON file
+  // Export JSON
   const handleExport = useCallback(() => {
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(serializeProject(project));
     const dlAnchor = document.createElement('a');
@@ -152,7 +169,7 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     dlAnchor.click();
   }, [project]);
 
-  // Import JSON string
+  // Import JSON
   const handleImport = useCallback((jsonStr) => {
     try {
       const parsed = deserializeProject(jsonStr);
@@ -166,22 +183,28 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     }
   }, [updateProject, requestFit]);
 
-  // New Blank Project
+  // New Project
   const handleNewProject = useCallback(() => {
     if (window.confirm('Create a new blank floorplan project? Any unsaved edits will be lost.')) {
-      updateProject(createDefaultProject('New Design', 'beginner'));
+      updateProject(createDefaultProject('New Design', 'empty'));
       setSelectedId(null);
       setSelectedType(null);
       requestFit();
     }
   }, [updateProject, requestFit]);
 
-  // Load Preset
+  // Load Preset / Scenario
   const handleLoadPreset = useCallback((presetKey) => {
     let preset = null;
-    if (presetKey === 'small-controller') preset = EXAMPLE_SMALL_CONTROLLER;
+    if (presetKey === 'scenario-a') preset = SCENARIO_SIMPLE_CONTROL;
+    else if (presetKey === 'small-controller') preset = EXAMPLE_SMALL_CONTROLLER;
+    else if (presetKey === 'scenario-b') preset = SCENARIO_DUAL_SRAM;
     else if (presetKey === 'dual-sram') preset = EXAMPLE_DUAL_SRAM_CONTROLLER;
+    else if (presetKey === 'scenario-c') preset = SCENARIO_FOUR_MACRO;
+    else if (presetKey === 'scenario-d') preset = SCENARIO_SMALL_SOC;
     else if (presetKey === 'small-soc') preset = EXAMPLE_SMALL_SOC_SUBSYSTEM;
+    else if (presetKey === 'scenario-e') preset = SCENARIO_BROKEN_PDN;
+    else if (presetKey === 'scenario-f') preset = SCENARIO_CONGESTION_STRESS;
 
     if (preset) {
       updateProject(migrateProject(JSON.parse(JSON.stringify(preset))));
@@ -199,7 +222,7 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     }));
   }, []);
 
-  // Commit a finished canvas drag as ONE undo step (snapshot = project before the drag).
+  // Commit drag as one undo step
   const handleCommitMacroDrag = useCallback((macroId, from) => {
     const current = projectRef.current;
     const before = {
@@ -210,13 +233,12 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     setRedoStack([]);
   }, []);
 
-  // Update Macro properties (Inspector)
+  // Update Macro
   const handleUpdateMacro = useCallback((macroId, patch) => {
     updateProject((prev) => ({
       ...prev,
       macros: prev.macros.map((m) => {
         if (m.id !== macroId) return m;
-        // Transform from the macro's CURRENT orientation, then apply the remaining fields.
         const base = patch.orientation && patch.orientation !== (m.orientation || 'R0')
           ? transformMacroOrientation(m, patch.orientation)
           : m;
@@ -226,7 +248,37 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     }));
   }, [updateProject]);
 
-  // Update Pin properties
+  // Add Macro
+  const handleAddMacro = useCallback((newMacro) => {
+    updateProject((prev) => ({
+      ...prev,
+      macros: [...prev.macros, newMacro],
+    }));
+    setSelectedType('macro');
+    setSelectedId(newMacro.id);
+  }, [updateProject]);
+
+  // Duplicate Macro
+  const handleDuplicateMacro = useCallback((macroId) => {
+    const m = project.macros.find((x) => x.id === macroId);
+    if (!m) return;
+    const dup = {
+      ...JSON.parse(JSON.stringify(m)),
+      id: `${m.id}_copy_${Date.now() % 1000}`,
+      name: `${m.name || m.id}_copy`,
+      x: m.x + 20,
+      y: m.y + 20,
+      fixed: false,
+    };
+    updateProject((prev) => ({
+      ...prev,
+      macros: [...prev.macros, dup],
+    }));
+    setSelectedType('macro');
+    setSelectedId(dup.id);
+  }, [project, updateProject]);
+
+  // Update Pin
   const handleUpdatePin = useCallback((pinId, patch) => {
     updateProject((prev) => ({
       ...prev,
@@ -234,26 +286,57 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     }));
   }, [updateProject]);
 
-  // Delete element
-  const handleDeleteSelected = useCallback((type, id) => {
-    if (type === 'macro') {
-      updateProject((prev) => ({
-        ...prev,
-        macros: prev.macros.filter((m) => m.id !== id),
-      }));
-      setSelectedId(null);
-      setSelectedType(null);
-    } else if (type === 'via') {
-      updateProject((prev) => ({
-        ...prev,
-        powerNetwork: removeVia(prev.powerNetwork, id),
-      }));
-      setSelectedId(null);
-      setSelectedType(null);
-    }
+  // Add Pin
+  const handleAddPin = useCallback((newPin) => {
+    updateProject((prev) => ({
+      ...prev,
+      pins: [...(prev.pins || []), newPin],
+    }));
+    setSelectedType('pin');
+    setSelectedId(newPin.id);
   }, [updateProject]);
 
-  // Add Via helper
+  // Blockages
+  const handleAddBlockage = useCallback((newBlk) => {
+    updateProject((prev) => ({
+      ...prev,
+      blockages: [...(prev.blockages || []), newBlk],
+    }));
+    setSelectedType('blockage');
+    setSelectedId(newBlk.id);
+  }, [updateProject]);
+
+  const handleUpdateBlockage = useCallback((blkId, patch) => {
+    updateProject((prev) => ({
+      ...prev,
+      blockages: (prev.blockages || []).map((b) => (b.id === blkId ? { ...b, ...patch } : b)),
+    }));
+  }, [updateProject]);
+
+  // Straps
+  const handleAddStrap = useCallback((newStrap) => {
+    updateProject((prev) => ({
+      ...prev,
+      powerNetwork: {
+        ...prev.powerNetwork,
+        straps: [...(prev.powerNetwork?.straps || []), newStrap],
+      },
+    }));
+    setSelectedType('strap');
+    setSelectedId(newStrap.id);
+  }, [updateProject]);
+
+  const handleUpdateStrap = useCallback((strapId, patch) => {
+    updateProject((prev) => ({
+      ...prev,
+      powerNetwork: {
+        ...prev.powerNetwork,
+        straps: (prev.powerNetwork?.straps || []).map((s) => (s.id === strapId ? { ...s, ...patch } : s)),
+      },
+    }));
+  }, [updateProject]);
+
+  // Vias
   const handleAddVia = useCallback((via) => {
     updateProject((prev) => ({
       ...prev,
@@ -261,7 +344,105 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     }));
   }, [updateProject]);
 
-  // ─── LIVE EDA ANALYSIS (single shared rule deck, also used by FP-24) ─────
+  // Boundaries
+  const handleUpdateDie = useCallback((patch) => {
+    updateProject((prev) => ({
+      ...prev,
+      die: { ...prev.die, ...patch },
+    }));
+  }, [updateProject]);
+
+  const handleUpdateCore = useCallback((patch) => {
+    updateProject((prev) => ({
+      ...prev,
+      core: { ...prev.core, ...patch },
+    }));
+  }, [updateProject]);
+
+  // Delete Entity
+  const handleDeleteSelected = useCallback((type, id) => {
+    if (type === 'macro') {
+      updateProject((prev) => ({
+        ...prev,
+        macros: prev.macros.filter((m) => m.id !== id),
+      }));
+    } else if (type === 'pin') {
+      updateProject((prev) => ({
+        ...prev,
+        pins: (prev.pins || []).filter((p) => p.id !== id),
+      }));
+    } else if (type === 'blockage') {
+      updateProject((prev) => ({
+        ...prev,
+        blockages: (prev.blockages || []).filter((b) => b.id !== id),
+      }));
+    } else if (type === 'strap') {
+      updateProject((prev) => ({
+        ...prev,
+        powerNetwork: {
+          ...prev.powerNetwork,
+          straps: (prev.powerNetwork?.straps || []).filter((s) => s.id !== id),
+        },
+      }));
+    } else if (type === 'via') {
+      updateProject((prev) => ({
+        ...prev,
+        powerNetwork: removeVia(prev.powerNetwork, id),
+      }));
+    }
+    setSelectedId(null);
+    setSelectedType(null);
+  }, [updateProject]);
+
+  // Automated Design Assistants
+  const handleLegalizeMacros = useCallback(() => {
+    const legalized = assistedMacroLegalization(project);
+    updateProject((prev) => ({
+      ...prev,
+      macros: legalized.macros,
+    }));
+    alert(`Assisted Macro Legalizer: Realigned ${legalized.movedCount} macro(s) into legal non-overlapping sites.`);
+  }, [project, updateProject]);
+
+  const handleLegalizePins = useCallback(() => {
+    const legalized = assistedPinLegalization(project);
+    updateProject((prev) => ({
+      ...prev,
+      pins: legalized.pins,
+    }));
+    alert(`Assisted Pin Legalizer: Adjusted ${legalized.adjustedCount} pin(s) to satisfy pitch spacing.`);
+  }, [project, updateProject]);
+
+  const handleGeneratePDNGrid = useCallback(() => {
+    const generated = generatePDNGrid(project);
+    updateProject((prev) => ({
+      ...prev,
+      powerNetwork: generated,
+    }));
+    alert(`PDN Grid Assistant: Synthesized ${generated.straps.length} power straps and ${generated.vias.length} interlayer vias.`);
+  }, [project, updateProject]);
+
+  // Candidate snapshots
+  const handleSnapshotCandidate = useCallback(() => {
+    const promptRes = window.prompt ? window.prompt('Enter a label for this design candidate snapshot:', `Candidate ${candidates.length + 1} (${project.name})`) : null;
+    const name = (promptRes && promptRes.trim()) ? promptRes.trim() : `Candidate ${candidates.length + 1}`;
+    const snap = createCandidateSnapshot(project, name);
+    setCandidates((c) => [...c, snap]);
+    if (window.alert) window.alert(`Snapshot "${name}" saved! View side-by-side in Candidate tab or modal.`);
+  }, [project, candidates.length]);
+
+  const handleLoadCandidate = useCallback((candProject) => {
+    updateProject(JSON.parse(JSON.stringify(candProject)));
+    setSelectedId(null);
+    setSelectedType(null);
+    requestFit();
+  }, [updateProject, requestFit]);
+
+  const handleDeleteCandidate = useCallback((index) => {
+    setCandidates((c) => c.filter((_, idx) => idx !== index));
+  }, []);
+
+  // ─── LIVE EDA ANALYSIS ─────
   const signoff = useMemo(() => evaluateFloorplanSignoff(project), [project]);
   const utilization = signoff.analysis.utilization;
   const hpwl = signoff.analysis.hpwl;
@@ -280,7 +461,7 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
   // Keyboard navigation & Shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
@@ -292,8 +473,8 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
       } else if (e.key === 'Escape') {
         setSelectedId(null);
         setSelectedType(null);
+        setMeasureMode(false);
       } else if (selectedType === 'macro' && selectedId) {
-        // Arrow key nudging
         const delta = snapToGrid ? gridSize : 1;
         if (e.key === 'ArrowLeft') {
           e.preventDefault();
@@ -349,6 +530,18 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
         onToggleBlockages={() => setShowBlockages(!showBlockages)}
         isExploreMode={isExplore}
         onReturnToKingdom={handleReturnToKingdom}
+        onAddMacro={handleAddMacro}
+        onAddPin={handleAddPin}
+        onAddBlockage={handleAddBlockage}
+        onAddStrap={handleAddStrap}
+        onAddVia={handleAddVia}
+        onLegalizeMacros={handleLegalizeMacros}
+        onLegalizePins={handleLegalizePins}
+        onGeneratePDNGrid={handleGeneratePDNGrid}
+        measureMode={measureMode}
+        onToggleMeasure={() => setMeasureMode((m) => !m)}
+        onOpenCandidateCompare={() => setIsCandidateModalOpen(true)}
+        onSnapshotCandidate={handleSnapshotCandidate}
       />
 
       {/* 2. BODY (3-COLUMN LAYOUT) */}
@@ -365,6 +558,8 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
           violations={violations}
           onSelectViolation={handleSelectViolation}
           onAddVia={handleAddVia}
+          onDeleteSelected={handleDeleteSelected}
+          onDuplicateMacro={handleDuplicateMacro}
         />
 
         {/* Center: Interactive SVG Canvas */}
@@ -386,6 +581,8 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
             showCongestion={showCongestion}
             congestionMap={congestionMap}
             showBlockages={showBlockages}
+            showFlylines={showFlylines}
+            measureMode={measureMode}
             zoom={zoom}
             onZoomChange={setZoom}
           />
@@ -398,20 +595,43 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
           selectedType={selectedType}
           onUpdateMacro={handleUpdateMacro}
           onUpdatePin={handleUpdatePin}
+          onUpdateBlockage={handleUpdateBlockage}
+          onUpdateStrap={handleUpdateStrap}
+          onUpdateDie={handleUpdateDie}
+          onUpdateCore={handleUpdateCore}
           onDeleteSelected={handleDeleteSelected}
+          onDuplicateMacro={handleDuplicateMacro}
           violations={violations}
           onSelectViolation={handleSelectViolation}
           onAddVia={handleAddVia}
         />
       </div>
 
-      {/* 3. BOTTOM PANEL: LIVE METRICS & ANALYSIS */}
+      {/* 3. BOTTOM PANEL: PROFESSIONAL 8-TAB DOCK */}
       <AnalysisPanel
+        project={project}
         utilization={utilization}
         maxUtilization={project.constraints?.maxUtilization}
         hpwl={hpwl}
         pdnAnalysis={pdnAnalysis}
         congestionMap={congestionMap}
+        signoff={signoff}
+        candidates={candidates}
+        onSnapshotCandidate={handleSnapshotCandidate}
+        onLoadCandidate={handleLoadCandidate}
+        onDeleteCandidate={handleDeleteCandidate}
+        onSelectViolation={handleSelectViolation}
+        onAddVia={handleAddVia}
+      />
+
+      {/* Candidate Comparison Modal */}
+      <CandidateCompareModal
+        isOpen={isCandidateModalOpen}
+        onClose={() => setIsCandidateModalOpen(false)}
+        candidates={candidates}
+        onSnapshotCurrent={handleSnapshotCandidate}
+        onLoadCandidate={handleLoadCandidate}
+        onDeleteCandidate={handleDeleteCandidate}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 /**
  * floorplanningExpandedActivities.test.js
  * =======================================
- * Validates that all 19 expanded Floorplanning 2.0 activities (fp-6 through fp-24)
+ * Validates that all 31 expanded Floorplanning 3.0 activities (fp-6 through fp-36)
  * are properly registered in activityRegistry and their validators function deterministically.
  */
 
@@ -9,11 +9,11 @@ import { describe, it, expect } from 'vitest';
 import { getActivity, hasActivity } from '../../activities/activityRegistry.js';
 import { EXPANDED_LESSONS } from '../../activities/floorplanning/expanded/fpExpandedCurriculumData.js';
 
-describe('Floorplanning 2.0 Expanded Activities (fp-6 through fp-24)', () => {
+describe('Floorplanning 3.0 Expanded Activities (fp-6 through fp-36)', () => {
   const lessonIds = Object.keys(EXPANDED_LESSONS);
 
-  it('all 19 expanded lessons are defined in EXPANDED_LESSONS', () => {
-    expect(lessonIds.length).toBe(19);
+  it('all 31 expanded lessons are defined in EXPANDED_LESSONS', () => {
+    expect(lessonIds.length).toBe(31);
   });
 
   lessonIds.forEach((id) => {
@@ -63,11 +63,15 @@ describe('Floorplanning 2.0 Expanded Activities (fp-6 through fp-24)', () => {
     expect(validRes.stars).toBeGreaterThanOrEqual(2);
   });
 
-  // Review change: the capstone previously passed on three self-attested checkboxes.
-  // It now grades the student's saved Studio project (see src/tests/review/floorplanCurriculumReview.test.js).
   it('fp-24 rejects self-attested checkboxes without a Studio project', () => {
     const act = getActivity('fp-24');
     const res = act.validator({ macrosPlaced: 4, powerStrapsConnected: true, drcPassed: true });
+    expect(res.passed).toBe(false);
+  });
+
+  it('fp-36 rejects self-attested checkboxes without a Studio project', () => {
+    const act = getActivity('fp-36');
+    const res = act.validator({ macrosPlaced: 6, drcClean: true, socSignoffQuiz: 'all-signoff-gates' });
     expect(res.passed).toBe(false);
   });
 });

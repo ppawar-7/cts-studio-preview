@@ -12,21 +12,21 @@
  * - Zoom/pan are applied with a <g transform="translate(pan) scale(zoom)">.
  * - All pointer → world conversions use the inner group's screen CTM, so drag,
  *   pan and wheel-zoom stay 1:1 with the cursor at any window size, zoom or
- *   letterbox (the previous implementation mixed CSS pixels with viewBox units).
+ *   letterbox.
  *
- * Interaction
- * -----------
- * - Pointer events (mouse, pen, touch) with pointer capture.
- * - Drag a macro: live position updates, one undo step committed on release.
- * - Drag empty space / die / core: pan. A press without movement selects.
- * - Wheel: zoom about the cursor (native non-passive listener).
- * - Labels are sized in screen pixels (converted to world units) so they stay
- *   readable for any die size and never depend on a hard-coded 1000×700 viewBox.
+ * Features
+ * --------
+ * - Multi-layer rendering (Die, Core, Rows, Congestion, Blockages, PDN, Macros, Pins, Flylines).
+ * - Interactive distance measurement ruler tool (Euclidean & Manhattan distance).
+ * - Blockage crosshatch patterns for hard blockages vs soft blockages.
+ * - Net flylines between connected pins and macros.
+ * - Macro transformed pins display.
  */
 
 import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
-import { snapToGrid } from '../../../engine/floorplanGeometry.js';
+import { snapToGrid, transformMacroPin } from '../../../engine/floorplanGeometry.js';
 import { getCongestionColor } from '../../../engine/floorplanCongestion.js';
+import { MACRO_MASTERS_LIBRARY } from '../../../engine/floorplanProjectModel.js';
 
 const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 6;
@@ -35,7 +35,7 @@ const PIN_MARK_LONG_PX = 12;
 const PIN_MARK_SHORT_PX = 7;
 const MACRO_FONT_PX = 12;
 const MACRO_MIN_FONT_PX = 9;
-const CHAR_W = 0.6; // average glyph advance as a fraction of font size
+const CHAR_W = 0.6;
 const DRAG_THRESHOLD_PX = 3;
 
 // Notch corner per orientation (marks the macro's pin-1 / origin corner).
@@ -92,6 +92,8 @@ export default function StudioCanvas({
   showCongestion = false,
   congestionMap = null,
   showBlockages = true,
+  showFlylines = true,
+  measureMode = false,
   zoom = 1,
   onZoomChange,
   fitToken = 0,
@@ -104,8 +106,22 @@ export default function StudioCanvas({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const gesture = useRef(null);
-  const wheelZoomRef = useRef(null); // zoom value set by the wheel handler (pan already adjusted)
+  const wheelZoomRef = useRef(null);
   const prevZoomRef = useRef(zoom);
+
+  // Measurement tool state
+  const [measureStart, setMeasureStart] = useState(null);
+  const [measureHover, setMeasureHover] = useState(null);
+  const [measureEnd, setMeasureEnd] = useState(null);
+
+  // Reset measure on mode disable
+  useEffect(() => {
+    if (!measureMode) {
+      setMeasureStart(null);
+      setMeasureHover(null);
+      setMeasureEnd(null);
+    }
+  }, [measureMode]);
 
   const die = project?.die || { x: 0, y: 0, width: 500, height: 400 };
   const dieX = Number(die.x) || 0;
@@ -119,10 +135,10 @@ export default function StudioCanvas({
   const vias = power.vias || [];
   const blockages = project?.blockages || [];
   const rows = project?.placementRows || [];
+  const nets = project?.nets || [];
 
   const canvasW = Math.max(1, size.width);
   const canvasH = Math.max(1, size.height);
-  // Phones get slightly smaller (still ≥10 px) pin labels so the die keeps more of the width.
   const pinFontPx = canvasW < 520 ? 10 : PIN_FONT_PX;
 
   // ── Fit: solve for px-per-µm so die + outward pin labels fill the canvas ──
@@ -153,10 +169,8 @@ export default function StudioCanvas({
     };
   }, [canvasW, canvasH, die.width, die.height, dieX, dieY, pins, pinFontPx]);
 
-  // Pixel → world size helpers (labels scale with zoom like the geometry does)
   const px = useCallback((n) => n / view.ppu, [view.ppu]);
 
-  // Toolbar zoom (+/−) keeps the viewport centre fixed. Wheel zoom handles its own pan.
   useEffect(() => {
     const prev = prevZoomRef.current;
     prevZoomRef.current = zoom;
@@ -170,13 +184,11 @@ export default function StudioCanvas({
     }));
   }, [zoom, view.vbX, view.vbY, view.vbW, view.vbH]);
 
-  // Fit view: reset pan whenever the parent asks (Fit button / project change).
-  // Declared after the zoom effect so its reset wins when both fire together.
   useEffect(() => {
     setPan({ x: 0, y: 0 });
   }, [fitToken]);
 
-  /** Client (CSS px) → world µm, through the live transform of the zoom/pan group. */
+  /** Client (CSS px) → world µm */
   const clientToWorld = useCallback((clientX, clientY) => {
     const g = groupRef.current;
     const svg = svgRef.current;
@@ -188,7 +200,7 @@ export default function StudioCanvas({
     return { x: w.x, y: w.y };
   }, []);
 
-  /** Client (CSS px) → SVG user units (before zoom/pan). */
+  /** Client (CSS px) → SVG user units */
   const clientToUser = useCallback((clientX, clientY) => {
     const svg = svgRef.current;
     if (!svg || !svg.getScreenCTM) return { x: 0, y: 0 };
@@ -199,7 +211,7 @@ export default function StudioCanvas({
     return { x: u.x, y: u.y };
   }, []);
 
-  // ── Wheel zoom about the cursor (non-passive so preventDefault works) ────
+  // ── Wheel zoom about the cursor ────
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
   const panRef = useRef(pan);
@@ -240,6 +252,26 @@ export default function StudioCanvas({
 
   const handlePointerDown = (e) => {
     if (e.button !== undefined && e.button !== 0) return;
+
+    // Measurement tool interaction
+    if (measureMode) {
+      const w = clientToWorld(e.clientX, e.clientY);
+      const pt = {
+        x: enableSnap ? snapToGrid(w.x, gridSize) : Number(w.x.toFixed(1)),
+        y: enableSnap ? snapToGrid(w.y, gridSize) : Number(w.y.toFixed(1)),
+      };
+      if (!measureStart || measureEnd) {
+        setMeasureStart(pt);
+        setMeasureEnd(null);
+        setMeasureHover(pt);
+      } else {
+        setMeasureEnd(pt);
+        setMeasureHover(null);
+      }
+      e.preventDefault();
+      return;
+    }
+
     const macroEl = e.target.closest ? e.target.closest('[data-macro-id]') : null;
     const svg = svgRef.current;
     if (svg && svg.setPointerCapture) {
@@ -278,6 +310,16 @@ export default function StudioCanvas({
   };
 
   const handlePointerMove = (e) => {
+    if (measureMode && measureStart && !measureEnd) {
+      const w = clientToWorld(e.clientX, e.clientY);
+      const pt = {
+        x: enableSnap ? snapToGrid(w.x, gridSize) : Number(w.x.toFixed(1)),
+        y: enableSnap ? snapToGrid(w.y, gridSize) : Number(w.y.toFixed(1)),
+      };
+      setMeasureHover(pt);
+      return;
+    }
+
     const g = gesture.current;
     if (!g || g.pointerId !== e.pointerId) return;
     const dist = Math.hypot(e.clientX - g.startClient.x, e.clientY - g.startClient.y);
@@ -330,14 +372,22 @@ export default function StudioCanvas({
 
   const sel = (type, id) => ({ 'data-sel-type': type, 'data-sel-id': id });
 
+  // Measurement calculations
+  const measureTarget = measureEnd || measureHover;
+  const measureDx = measureStart && measureTarget ? Math.abs(measureTarget.x - measureStart.x) : 0;
+  const measureDy = measureStart && measureTarget ? Math.abs(measureTarget.y - measureStart.y) : 0;
+  const measureManhattan = measureDx + measureDy;
+  const measureEuclidean = Math.hypot(measureDx, measureDy);
+
   return (
     <div className="fp-studio-canvas-wrap">
       <div
         ref={containerRef}
-        className={`fp-studio-canvas ${isPanning ? 'fp-studio-canvas--panning' : ''}`}
+        className={`fp-studio-canvas ${isPanning ? 'fp-studio-canvas--panning' : ''} ${measureMode ? 'fp-studio-canvas--measure' : ''}`}
         data-testid="fp-canvas"
         role="region"
         aria-label="Floorplan Layout Interactive Canvas"
+        style={{ cursor: measureMode ? 'crosshair' : undefined }}
       >
         <svg
           ref={svgRef}
@@ -352,6 +402,13 @@ export default function StudioCanvas({
           onPointerCancel={endGesture}
           onLostPointerCapture={endGesture}
         >
+          <defs>
+            {/* Hard blockage crosshatch pattern */}
+            <pattern id="hard-blockage-hatch" width="10" height="10" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+              <line x1="0" y1="0" x2="0" y2="10" stroke="#f43f5e" strokeWidth="1.5" opacity="0.45" />
+            </pattern>
+          </defs>
+
           <rect
             className="canvas-background"
             x={view.vbX}
@@ -391,12 +448,11 @@ export default function StudioCanvas({
               {...sel('core', 'core')}
             />
 
-            {/* Placement rows (every row line; pointer-transparent) */}
+            {/* Placement rows */}
             <g className="placement-rows-group" opacity={0.12} pointerEvents="none">
               {rows.map((r, i) => {
                 const rh = Number(r.rowHeight) || 2.72;
                 const count = Math.floor((Number(r.height) || 0) / rh);
-                // draw at most one line per 3 px so dense rows stay a texture, not noise
                 const step = Math.max(1, Math.ceil(px(3) / rh));
                 const lines = [];
                 for (let k = 0; k <= count; k += step) {
@@ -430,29 +486,74 @@ export default function StudioCanvas({
               </g>
             )}
 
-            {/* Blockages */}
+            {/* Placement Blockages */}
             {showBlockages && blockages.map((b) => {
               const isSel = selectedId === b.id;
+              const isHard = b.type === 'hard';
               const fs = Math.min(px(10), b.height * 0.4);
               return (
                 <g key={b.id} {...sel('blockage', b.id)} style={{ cursor: 'pointer' }}>
                   <rect
+                    data-testid={`blockage-${b.id}`}
                     x={b.x}
                     y={b.y}
                     width={b.width}
                     height={b.height}
-                    fill="rgba(100, 116, 139, 0.25)"
-                    stroke={isSel ? '#f43f5e' : '#64748b'}
+                    fill={isHard ? 'url(#hard-blockage-hatch)' : 'rgba(100, 116, 139, 0.2)'}
+                    stroke={isSel ? '#f43f5e' : isHard ? '#e11d48' : '#64748b'}
                     strokeWidth={isSel ? 2 : 1.5}
                     vectorEffect="non-scaling-stroke"
-                    strokeDasharray="4 2"
+                    strokeDasharray={isHard ? undefined : '4 2'}
                   />
-                  <text x={b.x + b.width / 2} y={b.y + b.height / 2} dominantBaseline="middle" fill="#94a3b8" fontSize={fs} textAnchor="middle" pointerEvents="none">
-                    {b.id} (BLK)
+                  <text x={b.x + b.width / 2} y={b.y + b.height / 2} dominantBaseline="middle" fill="#cbd5e1" fontSize={fs} textAnchor="middle" pointerEvents="none">
+                    {b.id} ({isHard ? 'HARD BLK' : 'SOFT BLK'})
                   </text>
                 </g>
               );
             })}
+
+            {/* Logical Net Flylines */}
+            {showFlylines && (
+              <g className="net-flylines-group" pointerEvents="none" opacity={0.65}>
+                {nets.map((net) => {
+                  const netPins = net.pins || [];
+                  if (netPins.length < 2) return null;
+                  // Derive coordinates of pins/macros
+                  const coords = netPins.map((np) => {
+                    const macro = macros.find((m) => m.id === np.macroId || m.id === np);
+                    if (macro) return { x: macro.x + macro.width / 2, y: macro.y + macro.height / 2 };
+                    const pin = pins.find((p) => p.id === np.pinId || p.id === np);
+                    if (pin) {
+                      if (pin.edge === 'bottom') return { x: core.x + pin.coord, y: dieBottom };
+                      if (pin.edge === 'left') return { x: dieX, y: core.y + pin.coord };
+                      if (pin.edge === 'right') return { x: dieRight, y: core.y + pin.coord };
+                      return { x: core.x + pin.coord, y: dieY };
+                    }
+                    return null;
+                  }).filter(Boolean);
+
+                  if (coords.length < 2) return null;
+                  const first = coords[0];
+                  return (
+                    <g key={net.id || net.name} data-testid="net-flyline">
+                      {coords.slice(1).map((c, idx) => (
+                        <line
+                          key={idx}
+                          x1={first.x}
+                          y1={first.y}
+                          x2={c.x}
+                          y2={c.y}
+                          stroke="#a78bfa"
+                          strokeWidth={1.2}
+                          strokeDasharray="3 3"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      ))}
+                    </g>
+                  );
+                })}
+              </g>
+            )}
 
             {/* Power Distribution Network (PDN) */}
             {showPowerNetwork && (
@@ -463,6 +564,7 @@ export default function StudioCanvas({
                   return (
                     <rect
                       key={ring.id}
+                      data-testid={`ring-${ring.id}`}
                       x={ring.x}
                       y={ring.y}
                       width={ring.width}
@@ -484,6 +586,7 @@ export default function StudioCanvas({
                   return (
                     <line
                       key={strap.id}
+                      data-testid={`strap-${strap.id}`}
                       x1={strap.x1}
                       y1={strap.y1}
                       x2={strap.x2}
@@ -529,7 +632,6 @@ export default function StudioCanvas({
               const orient = m.orientation || 'R0';
               const pad = Math.min(m.width, m.height) * 0.06;
               const usableW = m.width - 2 * pad;
-              // Single-line fit first, then wrap to up to three lines.
               let fontW = Math.min(px(MACRO_FONT_PX), usableW / (name.length * CHAR_W));
               let lines = [name];
               if (fontW < px(MACRO_MIN_FONT_PX)) {
@@ -550,6 +652,10 @@ export default function StudioCanvas({
               const ny = corner.includes('b') ? m.y + m.height - pad : m.y + pad;
               const sx = corner.includes('r') ? -1 : 1;
               const sy = corner.includes('b') ? -1 : 1;
+
+              // Macro Master Pins
+              const masterPins = m.pins || (m.masterId && MACRO_MASTERS_LIBRARY[m.masterId]?.pins) || [];
+
               return (
                 <g
                   key={m.id}
@@ -591,6 +697,27 @@ export default function StudioCanvas({
                     opacity={0.75}
                     pointerEvents="none"
                   />
+
+                  {/* Transformed Macro Pin Markers */}
+                  {masterPins.map((mp, pidx) => {
+                    const tp = transformMacroPin(mp, m.width, m.height, orient);
+                    return (
+                      <circle
+                        key={pidx}
+                        cx={m.x + tp.x}
+                        cy={m.y + tp.y}
+                        r={px(2.5)}
+                        fill="#38bdf8"
+                        stroke="#0f172a"
+                        strokeWidth={0.5}
+                        vectorEffect="non-scaling-stroke"
+                        pointerEvents="none"
+                      >
+                        <title>{`${mp.name} (${mp.layer || 'M3'})`}</title>
+                      </circle>
+                    );
+                  })}
+
                   <text fill="#ffffff" fontSize={fontW} fontWeight="700" textAnchor="middle" pointerEvents="none">
                     {lines.map((l, i) => (
                       <tspan key={i} x={m.x + m.width / 2} y={firstY + i * lineH}>{l}</tspan>
@@ -612,7 +739,7 @@ export default function StudioCanvas({
               );
             })}
 
-            {/* I/O Pins: markers straddle the die boundary, labels point outward */}
+            {/* I/O Pins */}
             {pins.map((p) => {
               const coord = typeof p.coord === 'number' ? p.coord : 0;
               const isSel = selectedId === p.id;
@@ -666,14 +793,46 @@ export default function StudioCanvas({
                 </g>
               );
             })}
+
+            {/* Interactive Measurement Ruler */}
+            {measureStart && measureTarget && (
+              <g className="measure-ruler-overlay" data-testid="measurement-ruler" pointerEvents="none">
+                <line
+                  x1={measureStart.x}
+                  y1={measureStart.y}
+                  x2={measureTarget.x}
+                  y2={measureTarget.y}
+                  stroke="#38bdf8"
+                  strokeWidth={2}
+                  strokeDasharray="4 3"
+                  vectorEffect="non-scaling-stroke"
+                />
+                <circle cx={measureStart.x} cy={measureStart.y} r={px(5)} fill="#38bdf8" stroke="#ffffff" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+                <circle cx={measureTarget.x} cy={measureTarget.y} r={px(5)} fill="#38bdf8" stroke="#ffffff" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+              </g>
+            )}
           </g>
         </svg>
+
+        {/* Floating Measurement Tool Information Card */}
+        {measureStart && measureTarget && (
+          <div className="fp-measure-badge" data-testid="measurement-badge">
+            <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: '2px' }}>📏 Distance Measurement</div>
+            <div>ΔX: <strong>{Math.round(measureDx)} µm</strong> | ΔY: <strong>{Math.round(measureDy)} µm</strong></div>
+            <div>Manhattan: <strong>{Math.round(measureManhattan)} µm</strong></div>
+            <div>Euclidean: <strong>{Math.round(measureEuclidean)} µm</strong></div>
+            <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '3px' }}>
+              {measureEnd ? 'Click canvas to measure new point' : 'Click second point to finish'}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Status + legend live below the canvas so they never cover the design */}
+      {/* Canvas Footer */}
       <div className="fp-canvas-footer">
         <div className="fp-canvas-status">
           Zoom: {Math.round(zoom * 100)}% | Die: {die.width}×{die.height}µm | Core: {core.width}×{core.height}µm
+          {measureMode && <span style={{ color: '#38bdf8', marginLeft: '8px' }}>[Measurement Mode Active]</span>}
         </div>
         <div className="fp-canvas-legend">
           {[
@@ -684,6 +843,7 @@ export default function StudioCanvas({
             ['VDD Ring/Strap', { background: '#ef4444' }],
             ['VSS Ring/Strap', { background: '#3b82f6' }],
             ['I/O Pin', { background: '#a855f7' }],
+            ['Hard Blockage', { background: '#e11d48', opacity: 0.8 }],
           ].map(([label, style]) => (
             <div className="fp-legend-item" key={label}>
               <div className="fp-legend-swatch" style={style} />

@@ -1,10 +1,10 @@
 /**
  * floorplanCurriculumReview.test.js
  * =================================
- * Acceptance-review checks for the expanded Floorplanning lessons (fp-6 … fp-24).
+ * Acceptance-review checks for the expanded Floorplanning lessons (fp-6 … fp-36).
  * Guards against the original defects:
  *   - 14 lessons shared one generic two-option quiz whose "correct" option auto-filled the validator
- *   - FP-24 passed on three self-attested checkboxes
+ *   - FP-24 and FP-36 passed on self-attested checkboxes instead of authentic EDA project evaluation
  */
 
 import { describe, it, expect } from 'vitest';
@@ -13,6 +13,7 @@ import {
   createDefaultProject,
   EXAMPLE_DUAL_SRAM_CONTROLLER,
   EXAMPLE_SMALL_SOC_SUBSYSTEM,
+  SCENARIO_SMALL_SOC,
 } from '../../engine/floorplanProjectModel.js';
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -32,9 +33,9 @@ function product(lists) {
 }
 
 describe('Expanded lessons use lesson-specific questions', () => {
-  const quizLessons = Object.values(EXPANDED_LESSONS).filter((l) => l.id !== 'fp-7' && l.id !== 'fp-24');
+  const quizLessons = Object.values(EXPANDED_LESSONS).filter((l) => l.id !== 'fp-7' && l.id !== 'fp-24' && l.id !== 'fp-36');
 
-  it('every lesson except the numeric fp-7 and the capstone has its own questions', () => {
+  it('every lesson except numeric fp-7 and capstones fp-24/fp-36 has its own questions', () => {
     quizLessons.forEach((l) => expect(Array.isArray(l.questions) && l.questions.length > 0, l.id).toBe(true));
   });
 
@@ -105,5 +106,45 @@ describe('FP-24 grades the real Studio project', () => {
     p.powerNetwork.vias.push({ id: 'v2', layer1: 'M4', layer2: 'M5', x: 460, y: 180, net: 'VDD' });
     p.macros[1].y = 80; // SRAM_B onto SRAM_A
     expect(v({ project: p }).passed).toBe(false);
+  });
+});
+
+describe('FP-36 grades the real Studio project for the 6+ macro Expert SoC', () => {
+  const v = EXPANDED_LESSONS['fp-36'].validate;
+
+  it('fails without a project', () => {
+    expect(v({ socSignoffQuiz: 'all-signoff-gates' }).passed).toBe(false);
+  });
+
+  it('fails a 4-macro project because FP-36 requires at least 6 macros', () => {
+    const p = clone(EXAMPLE_DUAL_SRAM_CONTROLLER);
+    p.powerNetwork.vias.push({ id: 'v2', layer1: 'M4', layer2: 'M5', x: 460, y: 180, net: 'VDD' });
+    expect(v({ project: p, socSignoffQuiz: 'all-signoff-gates' }).passed).toBe(false);
+  });
+
+  it('passes a legal 6-macro SoC with continuous PDN and IR drop <= 30 mV', () => {
+    const p = clone(SCENARIO_SMALL_SOC);
+    // SCENARIO_SMALL_SOC already has 5 legal macros. Add a 6th non-overlapping macro.
+    p.macros.push({
+      id: 'ROM_BOOT',
+      masterId: 'ROM_16KB',
+      name: 'Boot ROM',
+      x: 300,
+      y: 320,
+      width: 100,
+      height: 80,
+      orientation: 'R0',
+      halo: 15,
+      fixed: false,
+    });
+    // Widen power straps to meet <= 30 mV static IR drop budget
+    p.powerNetwork.straps.forEach((s) => {
+      s.width = 10;
+    });
+
+    const res = v({ project: p, socSignoffQuiz: 'all-signoff-gates' });
+    expect(res.passed).toBe(true);
+    expect(res.score).toBe(100);
+    expect(res.stars).toBe(3);
   });
 });

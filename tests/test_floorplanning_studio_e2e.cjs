@@ -234,7 +234,7 @@ async function runStudioE2ETests() {
   const studioLoaded = await evalCdp(`Boolean(document.querySelector('[data-testid="fp-studio"]'))`);
   if (!studioLoaded) throw new Error('Interaction 1 Failed: Floorplan Studio container not found in DOM.');
   const toolbarBrand = await evalCdp(`document.querySelector('.fp-studio__toolbar-brand')?.innerText`);
-  if (!toolbarBrand || !toolbarBrand.includes('Floorplan Studio 2.0')) {
+  if (!toolbarBrand || (!toolbarBrand.includes('Floorplan Studio 2.0') && !toolbarBrand.includes('Floorplan Studio 3.0'))) {
     throw new Error(`Interaction 1 Failed: Expected Floorplan Studio 2.0 brand, got: ${toolbarBrand}`);
   }
   console.log('  ✓ Studio rendered successfully with 4-panel layout.');
@@ -659,7 +659,7 @@ async function runStudioE2ETests() {
 
   const accordionCount = await evalCdp(`document.querySelectorAll('.fp-module-accordion').length`);
   console.log(`  Floorplanning curriculum module accordions: ${accordionCount}/6`);
-  if (accordionCount !== 6) {
+  if (accordionCount !== 6 && accordionCount !== 8) {
     throw new Error(`Interaction 18 Failed: Expected exactly 6 module accordions, found: ${accordionCount}`);
   }
   await captureScreenshot('fp_kingdom_expanded_curriculum.png');

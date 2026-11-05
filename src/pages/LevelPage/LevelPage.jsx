@@ -235,9 +235,11 @@ export default function LevelPage({ isExploreMode = false }) {
             <div className="level-page__badge">
               <span style={{ fontSize: '1.25rem' }}>{kingdom.emoji}</span>
               <span>
-                {level.isExpanded
-                  ? `Lesson ${level.order} of ${totalLessons} · Module ${level.module}`
-                  : `Level ${level.order} of ${kingdom.levels.length}`}
+                {kingdom.id === 'floorplanning'
+                  ? `Lesson ${level.order} of 36 · Module ${level.module || 1}`
+                  : (level.isExpanded
+                    ? `Lesson ${level.order} of ${totalLessons} · Module ${level.module}`
+                    : `Level ${level.order} of ${kingdom.levels.length}`)}
               </span>
             </div>
 

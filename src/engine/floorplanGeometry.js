@@ -711,3 +711,207 @@ export function computeAspectRatio(width, height) {
     isSquare: ratio >= 0.95 && ratio <= 1.05,
   };
 }
+
+
+/**
+ * Transform a pin offset (px, py) on a macro master into world coordinates
+ * based on macro position, dimensions, and orientation.
+ */
+export function transformMacroPin(macro, pin, masterDim = null) {
+  if (!macro || !pin) return { x: 0, y: 0, worldX: 0, worldY: 0 };
+
+  const mx = Number(macro.x) || 0;
+  const my = Number(macro.y) || 0;
+  const px = Number(pin.x) || 0;
+  const py = Number(pin.y) || 0;
+  const orientation = macro.orientation || 'R0';
+
+  const isQuarterTurn = orientation === 'R90' || orientation === 'R270' || orientation === 'MXR90' || orientation === 'MYR90';
+  const masterW = masterDim?.width || (isQuarterTurn ? macro.height : macro.width) || 80;
+  const masterH = masterDim?.height || (isQuarterTurn ? macro.width : macro.height) || 60;
+
+  let localX = px;
+  let localY = py;
+
+  switch (orientation) {
+    case 'R0':
+      localX = px;
+      localY = py;
+      break;
+    case 'R90':
+      localX = masterH - py;
+      localY = px;
+      break;
+    case 'R180':
+      localX = masterW - px;
+      localY = masterH - py;
+      break;
+    case 'R270':
+      localX = py;
+      localY = masterW - px;
+      break;
+    case 'MX':
+      localX = px;
+      localY = masterH - py;
+      break;
+    case 'MY':
+      localX = masterW - px;
+      localY = py;
+      break;
+    default:
+      localX = px;
+      localY = py;
+  }
+
+  const worldX = Number((mx + localX).toFixed(2));
+  const worldY = Number((my + localY).toFixed(2));
+
+  return {
+    x: worldX,
+    y: worldY,
+    worldX,
+    worldY,
+    localX,
+    localY,
+  };
+}
+
+/**
+ * Automated Assistant: Macro Legalizer.
+ */
+export function assistedMacroLegalization(project, gridStep = 5) {
+  if (!project || !project.core || !Array.isArray(project.macros)) {
+    return { success: false, modifiedMacros: [], message: 'Invalid project data.' };
+  }
+
+  const core = project.core;
+  const macros = project.macros.map((m) => ({ ...m }));
+  const blockages = project.blockages || [];
+  let modifiedCount = 0;
+
+  for (let i = 0; i < macros.length; i++) {
+    const m = macros[i];
+    if (m.fixed) continue;
+
+    const containment = checkMacroCoreContainment(m, core);
+    let hasViolation = !containment.contained;
+
+    if (!hasViolation) {
+      for (let j = 0; j < macros.length; j++) {
+        if (i === j) continue;
+        const ov = checkMacroOverlap(m, macros[j]);
+        if (ov.overlaps || ov.halosViolated) {
+          hasViolation = true;
+          break;
+        }
+      }
+    }
+
+    if (!hasViolation) continue;
+
+    const halo = Number(m.halo) || 15;
+    const minX = core.x + halo;
+    const maxX = core.x + core.width - m.width - halo;
+    const minY = core.y + halo;
+    const maxY = core.y + core.height - m.height - halo;
+
+    let foundLegal = false;
+    let bestX = m.x;
+    let bestY = m.y;
+    let minDistance = Infinity;
+
+    for (let x = minX; x <= maxX; x += gridStep) {
+      for (let y = minY; y <= maxY; y += gridStep) {
+        const candidate = { ...m, x, y };
+
+        let conflict = false;
+        for (let j = 0; j < macros.length; j++) {
+          if (i === j) continue;
+          const ov = checkMacroOverlap(candidate, macros[j]);
+          if (ov.overlaps || ov.halosViolated) {
+            conflict = true;
+            break;
+          }
+        }
+
+        if (!conflict) {
+          for (const blk of blockages) {
+            if (blk.type === 'placement_hard') {
+              const xOv = Math.max(0, Math.min(x + m.width, blk.x + blk.width) - Math.max(x, blk.x));
+              const yOv = Math.max(0, Math.min(y + m.height, blk.y + blk.height) - Math.max(y, blk.y));
+              if (xOv > 0 && yOv > 0) {
+                conflict = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (!conflict) {
+          const dist = Math.hypot(x - m.x, y - m.y);
+          if (dist < minDistance) {
+            minDistance = dist;
+            bestX = x;
+            bestY = y;
+            foundLegal = true;
+          }
+        }
+      }
+    }
+
+    if (foundLegal) {
+      m.x = bestX;
+      m.y = bestY;
+      modifiedCount++;
+    }
+  }
+
+  return {
+    success: modifiedCount > 0,
+    modifiedMacros: macros,
+    message: modifiedCount > 0
+      ? `Successfully legalized ${modifiedCount} macro(s) on a ${gridStep}µm grid.`
+      : 'All macros are already legal, or no conflict-free placement could be found.',
+  };
+}
+
+/**
+ * Automated Assistant: Pin Legalizer.
+ */
+export function assistedPinLegalization(project, minPitch = 5) {
+  if (!project || !project.core || !Array.isArray(project.pins)) {
+    return { success: false, modifiedPins: [], message: 'Invalid project data.' };
+  }
+
+  const core = project.core;
+  const pins = project.pins.map((p) => ({ ...p }));
+  let adjustedCount = 0;
+
+  ['top', 'bottom', 'left', 'right'].forEach((edge) => {
+    const edgeLength = edge === 'top' || edge === 'bottom' ? core.width : core.height;
+    const edgePins = pins.filter((p) => (p.edge || 'top') === edge);
+    if (edgePins.length <= 1) return;
+
+    edgePins.sort((a, b) => (Number(a.coord) || 0) - (Number(b.coord) || 0));
+
+    const margin = Math.min(20, edgeLength * 0.1);
+    const availableSpan = edgeLength - 2 * margin;
+    const spacing = Math.max(minPitch, availableSpan / Math.max(1, edgePins.length - 1));
+
+    edgePins.forEach((p, idx) => {
+      const targetCoord = Math.round(margin + idx * spacing);
+      if (Math.abs(p.coord - targetCoord) > 0.5) {
+        p.coord = targetCoord;
+        adjustedCount++;
+      }
+    });
+  });
+
+  return {
+    success: adjustedCount > 0,
+    modifiedPins: pins,
+    message: adjustedCount > 0
+      ? `Legalized ${adjustedCount} pin(s) with minimum ${minPitch}µm pitch.`
+      : 'All pins currently meet pitch constraints.',
+  };
+}

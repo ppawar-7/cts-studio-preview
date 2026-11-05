@@ -3,14 +3,17 @@
  * ==================
  * Left sidebar tree view of Floorplan design entities:
  * - Boundaries (Die, Core)
- * - Hard Macros (selectable, show halos & orientation)
- * - I/O Pins (grouped by edge)
+ * - Hard Macros (selectable, show halos & orientation, actions: lock, duplicate, delete)
+ * - I/O Pins (grouped by edge, selectable, delete)
  * - Power Network (Rings, Straps, Vias)
- * - Blockages
- * - Active Violations
+ * - Blockages (hard & soft, selectable, delete)
+ * - Nets & Connectivity (logical netlist, pin counts)
+ * - Macro Masters (standard master library reference)
+ * - Active Violations (diagnostic remediation)
  */
 
 import React, { useState } from 'react';
+import { MACRO_MASTERS_LIBRARY } from '../../../engine/floorplanProjectModel.js';
 
 export default function DesignExplorer({
   project,
@@ -20,6 +23,9 @@ export default function DesignExplorer({
   violations = [],
   onSelectViolation,
   onAddVia,
+  onDeleteSelected,
+  onDuplicateMacro,
+  onToggleLockMacro,
 }) {
   const [openSections, setOpenSections] = useState({
     boundaries: true,
@@ -27,6 +33,8 @@ export default function DesignExplorer({
     pins: true,
     power: true,
     blockages: false,
+    nets: false,
+    masters: false,
     violations: true,
   });
 
@@ -40,6 +48,8 @@ export default function DesignExplorer({
   const straps = project?.powerNetwork?.straps || [];
   const vias = project?.powerNetwork?.vias || [];
   const blockages = project?.blockages || [];
+  const nets = project?.nets || [];
+  const masterKeys = Object.keys(MACRO_MASTERS_LIBRARY);
 
   return (
     <aside className="fp-studio__left" aria-label="Design Hierarchy Explorer" data-testid="design-explorer">
@@ -146,8 +156,37 @@ export default function DesignExplorer({
               >
                 <span>📦</span>
                 <span>{m.name || m.id}</span>
-                <span style={{ marginLeft: 'auto', fontSize: '0.68rem', color: '#64748b' }}>
-                  {m.orientation || 'R0'}
+                <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  {m.fixed && <span title="Fixed Macro" style={{ fontSize: '0.65rem' }}>🔒</span>}
+                  <span style={{ fontSize: '0.68rem', color: '#64748b' }}>{m.orientation || 'R0'}</span>
+                  {onDuplicateMacro && (
+                    <button
+                      type="button"
+                      className="fp-explorer-action-btn"
+                      title="Duplicate Macro"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDuplicateMacro(m.id);
+                      }}
+                      data-testid={`btn-dup-macro-${m.id}`}
+                    >
+                      📋
+                    </button>
+                  )}
+                  {onDeleteSelected && (
+                    <button
+                      type="button"
+                      className="fp-explorer-action-btn fp-explorer-action-btn--danger"
+                      title="Delete Macro"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteSelected('macro', m.id);
+                      }}
+                      data-testid={`btn-del-macro-${m.id}`}
+                    >
+                      ✕
+                    </button>
+                  )}
                 </span>
               </div>
             ))}
@@ -180,8 +219,24 @@ export default function DesignExplorer({
               >
                 <span>•</span>
                 <span>{p.id}</span>
-                <span style={{ marginLeft: 'auto', fontSize: '0.68rem', color: '#64748b' }}>
-                  {p.edge}
+                <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.68rem', color: '#64748b' }}>
+                    {p.edge} ({p.coord}µm)
+                  </span>
+                  {onDeleteSelected && (
+                    <button
+                      type="button"
+                      className="fp-explorer-action-btn fp-explorer-action-btn--danger"
+                      title="Delete Pin"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteSelected('pin', p.id);
+                      }}
+                      data-testid={`btn-del-pin-${p.id}`}
+                    >
+                      ✕
+                    </button>
+                  )}
                 </span>
               </div>
             ))}
@@ -220,6 +275,20 @@ export default function DesignExplorer({
               >
                 <span>═</span>
                 <span>{s.net} Strap ({s.layer})</span>
+                {onDeleteSelected && (
+                  <button
+                    type="button"
+                    className="fp-explorer-action-btn fp-explorer-action-btn--danger"
+                    title="Delete Strap"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteSelected('strap', s.id);
+                    }}
+                    data-testid={`btn-del-strap-${s.id}`}
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             ))}
             {vias.map((v) => (
@@ -231,6 +300,20 @@ export default function DesignExplorer({
               >
                 <span>✦</span>
                 <span>Via {v.id} ({v.net})</span>
+                {onDeleteSelected && (
+                  <button
+                    type="button"
+                    className="fp-explorer-action-btn fp-explorer-action-btn--danger"
+                    title="Remove Via"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteSelected('via', v.id);
+                    }}
+                    data-testid={`btn-del-via-${v.id}`}
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -257,6 +340,20 @@ export default function DesignExplorer({
               >
                 <span>▦</span>
                 <span>{b.id} ({b.width}×{b.height})</span>
+                {onDeleteSelected && (
+                  <button
+                    type="button"
+                    className="fp-explorer-action-btn fp-explorer-action-btn--danger"
+                    title="Delete Blockage"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteSelected('blockage', b.id);
+                    }}
+                    data-testid={`btn-del-blockage-${b.id}`}
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             ))}
             {blockages.length === 0 && (
@@ -264,6 +361,72 @@ export default function DesignExplorer({
                 No blockages
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Nets & Connectivity */}
+      <div className="fp-explorer__section">
+        <div
+          className="fp-explorer__section-header"
+          onClick={() => toggleSection('nets')}
+        >
+          <span>🔗 Nets</span>
+          <span className="fp-explorer__badge" data-testid="explorer-badge-nets">{nets.length}</span>
+        </div>
+        {openSections.nets && (
+          <div>
+            {nets.map((n) => (
+              <div
+                key={n.id}
+                className={`fp-explorer__item ${selectedId === n.id ? 'fp-explorer__item--selected' : ''}`}
+                onClick={() => onSelect('net', n.id)}
+                data-testid={`explorer-item-net-${n.id}`}
+              >
+                <span>〰</span>
+                <span>{n.name || n.id}</span>
+                <span style={{ marginLeft: 'auto', fontSize: '0.68rem', color: '#64748b' }}>
+                  {(n.pins || []).length} pins
+                </span>
+              </div>
+            ))}
+            {nets.length === 0 && (
+              <div style={{ padding: '0.2rem 1.25rem', fontSize: '0.74rem', color: '#475569' }}>
+                No logical nets defined
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Macro Masters Library Reference */}
+      <div className="fp-explorer__section">
+        <div
+          className="fp-explorer__section-header"
+          onClick={() => toggleSection('masters')}
+        >
+          <span>📚 Master Library</span>
+          <span className="fp-explorer__badge">{masterKeys.length}</span>
+        </div>
+        {openSections.masters && (
+          <div>
+            {masterKeys.map((k) => {
+              const m = MACRO_MASTERS_LIBRARY[k];
+              return (
+                <div
+                  key={k}
+                  className="fp-explorer__item"
+                  title={`${k}: ${m.width}×${m.height}µm, ${(m.pins || []).length} pins`}
+                  data-testid={`explorer-item-master-${k}`}
+                >
+                  <span>📖</span>
+                  <span>{k}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: '0.68rem', color: '#64748b' }}>
+                    {m.width}×{m.height}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
