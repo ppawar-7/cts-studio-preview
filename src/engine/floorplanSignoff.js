@@ -21,6 +21,7 @@ import {
   detectVDDVSSShort,
   detectMissingVias,
   computeIRDropEstimate,
+  solveResistivePDN,
 } from './floorplanPDN.js';
 import { computeCongestionMap } from './floorplanCongestion.js';
 
@@ -107,7 +108,7 @@ export function evaluateFloorplanSignoff(project) {
   const openNets = detectOpenConnections(project.powerNetwork);
   const shorts = detectVDDVSSShort(project.powerNetwork);
   const missingVias = detectMissingVias(project.powerNetwork);
-  const irDrop = computeIRDropEstimate(project.powerNetwork, project.powerNetwork?.loads);
+  const irDrop = solveResistivePDN(project.powerNetwork, project.techProfile, constraints, macros);
 
   [['VDD', openNets.vddOpen, openNets.vddDisconnectedLoads, 'ring_vdd', 'Power'],
     ['VSS', openNets.vssOpen, openNets.vssDisconnectedLoads, 'ring_vss', 'Ground']].forEach(([net, open, nodes, ringId, word]) => {
@@ -155,13 +156,22 @@ export function evaluateFloorplanSignoff(project) {
 
   // Static IR-drop budget check
   const voltageBudget = Number(constraints.voltageDropBudgetMv) || 30;
-  if (typeof irDrop.maxDropMv === 'number' && irDrop.maxDropMv > voltageBudget) {
+  if (irDrop.hasOpenCircuit) {
+    list.push({
+      rule: 'Power Grid Open Circuit',
+      severity: 'error',
+      targetId: 'ring_vdd',
+      targetType: 'ring',
+      message: 'One or more loads/straps have no electrical connection to power sources (open circuit).',
+      suggestion: 'Add power straps or feed vias to connect floating nodes to the power ring.',
+    });
+  } else if (typeof irDrop.worstDropMv === 'number' && irDrop.worstDropMv > voltageBudget) {
     list.push({
       rule: 'Power Grid Static IR Drop',
       severity: 'warning',
       targetId: 'ring_vdd',
       targetType: 'ring',
-      message: `Worst modeled IR drop (${irDrop.maxDropMv.toFixed(1)} mV) exceeds the ${voltageBudget} mV budget.`,
+      message: `Worst modeled nodal IR drop (${irDrop.worstDropMv.toFixed(1)} mV) exceeds the ${voltageBudget} mV budget.`,
       suggestion: 'Add parallel power straps or feed vias to reduce grid impedance.',
     });
   }

@@ -443,11 +443,170 @@ export function removeVia(powerNetwork, viaId) {
  * @param {Object} techProfile - Technology assumptions
  * @returns {Object} Comprehensive electrical report
  */
-export function solveResistivePDN(powerNetwork, techProfile = {}) {
+/**
+ * Pure Mathematical MNA (Modified Nodal Analysis) Linear Circuit Solver.
+ * Solves G * V = I for linear resistor networks with Dirichlet (fixed voltage)
+ * and Neumann (current injection/sink) boundary conditions using Gaussian
+ * elimination with partial pivoting.
+ *
+ * @param {Array<{ id: number, key: string, layer: string, x: number, y: number }>} nodes
+ * @param {Array<{ u: number, v: number, r: number, desc?: string }>} branches
+ * @param {Map<number, number>|Object} dirichlet
+ * @param {Map<number, number>|Object} neumann
+ * @returns {{ voltages: number[], isSingular: boolean, disconnectedNodes: number[] }}
+ */
+export function solveMNA(nodes, branches, dirichlet, neumann = {}) {
+  const n = nodes.length;
+  if (n === 0) return { voltages: [], isSingular: false, disconnectedNodes: [] };
+
+  const adj = Array.from({ length: n }, () => []);
+  branches.forEach((b) => {
+    if (b.r > 0 && Number.isFinite(b.r)) {
+      adj[b.u].push(b.v);
+      adj[b.v].push(b.u);
+    }
+  });
+
+  const dirichletIndices = new Set(
+    dirichlet instanceof Map
+      ? Array.from(dirichlet.keys())
+      : Object.keys(dirichlet).map(Number)
+  );
+
+  const visited = new Set();
+  const queue = Array.from(dirichletIndices);
+  queue.forEach((idx) => visited.add(idx));
+  let head = 0;
+  while (head < queue.length) {
+    const cur = queue[head++];
+    for (const nxt of adj[cur] || []) {
+      if (!visited.has(nxt)) {
+        visited.add(nxt);
+        queue.push(nxt);
+      }
+    }
+  }
+
+  const disconnectedNodes = [];
+  for (let i = 0; i < n; i++) {
+    if (!visited.has(i)) {
+      disconnectedNodes.push(i);
+    }
+  }
+
+  const G = Array.from({ length: n }, () => new Float64Array(n));
+  const I = new Float64Array(n);
+
+  branches.forEach((b) => {
+    if (b.r > 0 && Number.isFinite(b.r)) {
+      const g = 1.0 / b.r;
+      G[b.u][b.u] += g;
+      G[b.v][b.v] += g;
+      G[b.u][b.v] -= g;
+      G[b.v][b.u] -= g;
+    }
+  });
+
+  const getNeumann = (i) => (neumann instanceof Map ? (neumann.get(i) || 0) : (Number(neumann[i]) || 0));
+  for (let i = 0; i < n; i++) {
+    I[i] = getNeumann(i);
+  }
+
+  const getDirichlet = (i) => (dirichlet instanceof Map ? dirichlet.get(i) : dirichlet[i]);
+  for (const k of dirichletIndices) {
+    const vFixed = Number(getDirichlet(k));
+    for (let j = 0; j < n; j++) G[k][j] = 0;
+    G[k][k] = 1.0;
+    I[k] = vFixed;
+
+    for (let i = 0; i < n; i++) {
+      if (i !== k && !dirichletIndices.has(i)) {
+        I[i] -= G[i][k] * vFixed;
+        G[i][k] = 0;
+      }
+    }
+  }
+
+  for (const dis of disconnectedNodes) {
+    for (let j = 0; j < n; j++) G[dis][j] = 0;
+    G[dis][dis] = 1.0;
+    I[dis] = 0;
+  }
+
+  // Gaussian elimination with partial row pivoting
+  for (let col = 0; col < n; col++) {
+    let maxRow = col;
+    let maxVal = Math.abs(G[col][col]);
+    for (let row = col + 1; row < n; row++) {
+      const val = Math.abs(G[row][col]);
+      if (val > maxVal) {
+        maxVal = val;
+        maxRow = row;
+      }
+    }
+
+    if (maxVal < 1e-13) continue;
+
+    if (maxRow !== col) {
+      const tmpG = G[col];
+      G[col] = G[maxRow];
+      G[maxRow] = tmpG;
+      const tmpI = I[col];
+      I[col] = I[maxRow];
+      I[maxRow] = tmpI;
+    }
+
+    const pivot = G[col][col];
+    for (let row = col + 1; row < n; row++) {
+      const factor = G[row][col] / pivot;
+      if (Math.abs(factor) > 1e-15) {
+        for (let j = col; j < n; j++) {
+          G[row][j] -= factor * G[col][j];
+        }
+        I[row] -= factor * I[col];
+      }
+    }
+  }
+
+  const voltages = new Float64Array(n);
+  for (let row = n - 1; row >= 0; row--) {
+    if (Math.abs(G[row][row]) < 1e-13) {
+      voltages[row] = 0;
+      continue;
+    }
+    let sum = I[row];
+    for (let j = row + 1; j < n; j++) {
+      sum -= G[row][j] * voltages[j];
+    }
+    voltages[row] = sum / G[row][row];
+  }
+
+  return {
+    voltages: Array.from(voltages),
+    isSingular: disconnectedNodes.length > 0,
+    disconnectedNodes,
+  };
+}
+
+/**
+ * Authentic Nodal Resistive PDN Solver.
+ * Solves the actual Modified Nodal Analysis (MNA) linear system G * V = I.
+ * Discretizes straps, rings, vias, and loads into an interconnected resistor mesh,
+ * evaluates strap sheet resistances, via contact resistances, multiple boundary feed points,
+ * and macro load currents.
+ *
+ * @param {Object} powerNetwork - PDN data model
+ * @param {Object} techProfile - Technology assumptions
+ * @param {Object} constraints - Physical design constraints
+ * @param {Array} macros - Placed macro list
+ * @returns {Object} Comprehensive electrical report
+ */
+export function solveResistivePDN(powerNetwork, techProfile = {}, constraints = {}, macros = []) {
   if (!powerNetwork) {
     return {
-      nominalVdd: 1.8,
+      nominalVdd: 1.2,
       worstDropMv: 0,
+      worstDropVssMv: 0,
       budgetMv: 30,
       meetsBudget: true,
       hasOpenCircuit: false,
@@ -456,23 +615,249 @@ export function solveResistivePDN(powerNetwork, techProfile = {}) {
     };
   }
 
-  const vddResult = computeIRDropEstimate(powerNetwork, (powerNetwork.loads || []).filter((l) => l.net === 'VDD'));
-  const vssResult = computeIRDropEstimate(powerNetwork, (powerNetwork.loads || []).filter((l) => l.net === 'VSS'));
+  const nominalVdd = Number(techProfile?.nominalVoltage) || 1.2;
+  const budgetMv = Number(constraints?.voltageDropBudgetMv || techProfile?.voltageDropBudgetMv) || 30;
+  const sheetRes = { ...SHEET_RES_OHM_PER_SQ, ...(techProfile?.sheetResistances || {}) };
 
-  const budgetMv = Number(techProfile?.voltageDropBudgetMv) || 30;
-  const worstDropMv = Math.max(vddResult.maxDropMv || 0, vssResult.maxDropMv || 0);
-  const hasOpenCircuit = vddResult.hasOpenLoad || vssResult.hasOpenLoad;
+  function solveNet(targetNet) {
+    const isVdd = targetNet === 'VDD';
+    const vSource = isVdd ? nominalVdd : 0.0;
+
+    const straps = (powerNetwork.straps || []).filter((s) => s.net === targetNet);
+    const rings = (powerNetwork.rings || []).filter((r) => r.net === targetNet);
+    const vias = (powerNetwork.vias || []).filter((v) => !v.net || v.net === targetNet);
+
+    const nodeMap = new Map();
+    const nodes = [];
+    const getNode = (layer, x, y) => {
+      const rx = Math.round(x);
+      const ry = Math.round(y);
+      const key = `${layer}_${rx}_${ry}`;
+      if (!nodeMap.has(key)) {
+        const id = nodes.length;
+        const nodeObj = { id, layer, x: rx, y: ry, net: targetNet, key };
+        nodeMap.set(key, id);
+        nodes.push(nodeObj);
+      }
+      return nodeMap.get(key);
+    };
+
+    const branches = [];
+    const addBranch = (u, v, r, desc = '') => {
+      if (u !== v && r > 0) {
+        branches.push({ u, v, r, desc });
+      }
+    };
+
+    // Vias
+    vias.forEach((v) => {
+      const l1 = v.layer1 || 'M4';
+      const l2 = v.layer2 || 'M5';
+      const n1 = getNode(l1, v.x, v.y);
+      const n2 = getNode(l2, v.x, v.y);
+      // Power mesh via array resistance: multiple parallel via cuts across strap width
+      const rVia = 0.25; // Ohm per power via array
+      addBranch(n1, n2, rVia, `via_${v.id}`);
+    });
+
+    // Straps
+    const strapNodesMap = new Map();
+    straps.forEach((s) => {
+      const l = s.layer || 'M4';
+      const w = Number(s.width) || DEFAULT_STRAP_WIDTH;
+      const rho = sheetRes[l] || 0.08;
+
+      const isHoriz = Math.abs(s.y2 - s.y1) <= Math.abs(s.x2 - s.x1);
+      const minX = Math.min(s.x1, s.x2);
+      const maxX = Math.max(s.x1, s.x2);
+      const minY = Math.min(s.y1, s.y2);
+      const maxY = Math.max(s.y1, s.y2);
+
+      const pts = [];
+      pts.push({ x: s.x1, y: s.y1 });
+      pts.push({ x: s.x2, y: s.y2 });
+
+      vias.forEach((v) => {
+        if ((v.layer1 === l || v.layer2 === l) && v.x >= minX - SNAP_TOL && v.x <= maxX + SNAP_TOL && v.y >= minY - SNAP_TOL && v.y <= maxY + SNAP_TOL) {
+          pts.push({ x: v.x, y: v.y });
+        }
+      });
+
+      pts.sort((a, b) => isHoriz ? (a.x - b.x) : (a.y - b.y));
+
+      const uniquePts = [];
+      pts.forEach((p) => {
+        if (uniquePts.length === 0 || Math.hypot(p.x - uniquePts[uniquePts.length - 1].x, p.y - uniquePts[uniquePts.length - 1].y) > 0.5) {
+          uniquePts.push(p);
+        }
+      });
+
+      const strapNodeIndices = [];
+      for (let i = 0; i < uniquePts.length; i++) {
+        const uNode = getNode(l, uniquePts[i].x, uniquePts[i].y);
+        strapNodeIndices.push(uNode);
+        if (i > 0) {
+          const prevNode = strapNodeIndices[i - 1];
+          const dist = Math.hypot(uniquePts[i].x - uniquePts[i - 1].x, uniquePts[i].y - uniquePts[i - 1].y);
+          const r = (dist / w) * rho;
+          addBranch(prevNode, uNode, Math.max(1e-4, r), `strap_${s.id}_seg_${i}`);
+        }
+      }
+      strapNodesMap.set(s.id, strapNodeIndices);
+    });
+
+    // Rings with intermediate points on each edge
+    rings.forEach((r) => {
+      const l = r.layer || 'M5';
+      const w = Number(r.lineWidth) || 6;
+      const rho = sheetRes[l] || 0.05;
+
+      const x1 = r.x;
+      const x2 = r.x + r.width;
+      const y1 = r.y;
+      const y2 = r.y + r.height;
+
+      const topPts = [{ x: x1, y: y1 }, { x: x2, y: y1 }];
+      const bottomPts = [{ x: x1, y: y2 }, { x: x2, y: y2 }];
+      const leftPts = [{ x: x1, y: y1 }, { x: x1, y: y2 }];
+      const rightPts = [{ x: x2, y: y1 }, { x: x2, y: y2 }];
+
+      vias.forEach((v) => {
+        if (v.layer1 === l || v.layer2 === l) {
+          if (Math.abs(v.y - y1) <= SNAP_TOL && v.x >= x1 - SNAP_TOL && v.x <= x2 + SNAP_TOL) topPts.push({ x: v.x, y: y1 });
+          if (Math.abs(v.y - y2) <= SNAP_TOL && v.x >= x1 - SNAP_TOL && v.x <= x2 + SNAP_TOL) bottomPts.push({ x: v.x, y: y2 });
+          if (Math.abs(v.x - x1) <= SNAP_TOL && v.y >= y1 - SNAP_TOL && v.y <= y2 + SNAP_TOL) leftPts.push({ x: x1, y: v.y });
+          if (Math.abs(v.x - x2) <= SNAP_TOL && v.y >= y1 - SNAP_TOL && v.y <= y2 + SNAP_TOL) rightPts.push({ x: x2, y: v.y });
+        }
+      });
+
+      const connectEdge = (edgePts, sortByX, name) => {
+        edgePts.sort((a, b) => sortByX ? a.x - b.x : a.y - b.y);
+        const uniq = [];
+        edgePts.forEach((p) => {
+          if (uniq.length === 0 || Math.hypot(p.x - uniq[uniq.length - 1].x, p.y - uniq[uniq.length - 1].y) > 0.5) uniq.push(p);
+        });
+        for (let i = 1; i < uniq.length; i++) {
+          const u = getNode(l, uniq[i - 1].x, uniq[i - 1].y);
+          const v = getNode(l, uniq[i].x, uniq[i].y);
+          const dist = Math.hypot(uniq[i].x - uniq[i - 1].x, uniq[i].y - uniq[i - 1].y);
+          addBranch(u, v, Math.max(1e-4, (dist / w) * rho), `${name}_${i}`);
+        }
+      };
+
+      connectEdge(topPts, true, `ring_top_${r.id}`);
+      connectEdge(bottomPts, true, `ring_bottom_${r.id}`);
+      connectEdge(leftPts, false, `ring_left_${r.id}`);
+      connectEdge(rightPts, false, `ring_right_${r.id}`);
+    });
+
+    // Dirichlet sources: power pads feed all ring corners & outer perimeter feeds
+    const dirichlet = {};
+    if (rings.length > 0) {
+      rings.forEach((r) => {
+        const l = r.layer || 'M5';
+        // Power pads on all 4 corners of the supply ring
+        dirichlet[getNode(l, r.x, r.y)] = vSource;
+        dirichlet[getNode(l, r.x + r.width, r.y)] = vSource;
+        dirichlet[getNode(l, r.x + r.width, r.y + r.height)] = vSource;
+        dirichlet[getNode(l, r.x, r.y + r.height)] = vSource;
+        // Midpoint power pads along each edge of the ring
+        dirichlet[getNode(l, Math.round(r.x + r.width / 2), r.y)] = vSource;
+        dirichlet[getNode(l, Math.round(r.x + r.width / 2), r.y + r.height)] = vSource;
+        dirichlet[getNode(l, r.x, Math.round(r.y + r.height / 2))] = vSource;
+        dirichlet[getNode(l, r.x + r.width, Math.round(r.y + r.height / 2))] = vSource;
+      });
+    } else if (straps.length > 0) {
+      straps.forEach((s) => {
+        const l = s.layer || 'M4';
+        dirichlet[getNode(l, s.x1, s.y1)] = vSource;
+        dirichlet[getNode(l, s.x2, s.y2)] = vSource;
+      });
+    }
+
+    const neumann = {};
+    const addSink = (nodeIdx, currentMa) => {
+      const curA = (currentMa / 1000) * (isVdd ? -1 : 1);
+      neumann[nodeIdx] = (neumann[nodeIdx] || 0) + curA;
+    };
+
+    const explicitLoads = (powerNetwork.loads || []).filter((ld) => ld.net === targetNet || !ld.net);
+    if (explicitLoads.length > 0) {
+      explicitLoads.forEach((ld) => {
+        const currentMa = Number(ld.currentMa) || DEFAULT_CURRENT_MA;
+        const strapNodes = strapNodesMap.get(ld.nodeId || ld.strapId);
+        if (strapNodes && strapNodes.length > 0) {
+          const internalNodes = strapNodes.length > 2 ? strapNodes.slice(1, -1) : strapNodes;
+          const perNodeMa = currentMa / internalNodes.length;
+          internalNodes.forEach((nIdx) => addSink(nIdx, perNodeMa));
+        }
+      });
+    } else {
+      // Default: distribute standard educational current (15 mA) across each strap
+      straps.forEach((s) => {
+        const strapNodes = strapNodesMap.get(s.id);
+        if (strapNodes && strapNodes.length > 0) {
+          const internalNodes = strapNodes.length > 2 ? strapNodes.slice(1, -1) : strapNodes;
+          const perNodeMa = DEFAULT_CURRENT_MA / internalNodes.length;
+          internalNodes.forEach((nIdx) => addSink(nIdx, perNodeMa));
+        }
+      });
+    }
+
+    const mna = solveMNA(nodes, branches, dirichlet, neumann);
+
+    let worstDropMv = 0;
+    const nodeResults = nodes.map((n, idx) => {
+      const v = mna.voltages[idx];
+      const isDis = mna.disconnectedNodes.includes(idx);
+      const dropMv = isDis ? Infinity : Math.abs(vSource - v) * 1000;
+      if (Number.isFinite(dropMv) && dropMv > worstDropMv) {
+        worstDropMv = dropMv;
+      }
+      return {
+        id: n.id,
+        key: n.key,
+        layer: n.layer,
+        x: n.x,
+        y: n.y,
+        net: targetNet,
+        voltage: Number(v.toFixed(4)),
+        dropMv: isDis ? null : Number(dropMv.toFixed(2)),
+        isSource: dirichlet[idx] !== undefined,
+        isDisconnected: isDis,
+      };
+    });
+
+    const hasOpenCircuit = mna.disconnectedNodes.length > 0;
+
+    return {
+      worstDropMv: Number(worstDropMv.toFixed(2)),
+      hasOpenCircuit,
+      nodes: nodeResults,
+      strapNodesMap,
+    };
+  }
+
+  const vdd = solveNet('VDD');
+  const vss = solveNet('VSS');
+
+  const worstDropMv = Math.max(vdd.worstDropMv, vss.worstDropMv);
+  const hasOpenCircuit = vdd.hasOpenCircuit || vss.hasOpenCircuit;
 
   const perStrap = (powerNetwork.straps || []).map((s) => {
-    const sheetRes = (techProfile?.sheetResistances && techProfile.sheetResistances[s.layer]) || SHEET_RES_OHM_PER_SQ[s.layer] || 0.08;
+    const isVdd = s.net === 'VDD';
+    const netResult = isVdd ? vdd : vss;
+    const strapNodes = netResult.strapNodesMap.get(s.id) || [];
+    const strapDrops = strapNodes
+      .map((nIdx) => netResult.nodes[nIdx]?.dropMv)
+      .filter((d) => typeof d === 'number' && Number.isFinite(d));
+    const maxStrapDrop = strapDrops.length > 0 ? Math.max(...strapDrops) : 0;
+    const isOpen = strapNodes.some((nIdx) => netResult.nodes[nIdx]?.isDisconnected);
+
+    const sheetR = sheetRes[s.layer] || 0.08;
     const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
     const width = Number(s.width) || DEFAULT_STRAP_WIDTH;
-    const resistanceOhms = Number(((len / width) * sheetRes).toFixed(3));
-
-    const loadEntry = [...vddResult.perLoad, ...vssResult.perLoad].find((l) => l.strapId === s.id);
-    const dropMv = loadEntry?.estimatedDropMv ?? null;
-    const feedPoints = loadEntry?.feedPoints ?? 0;
-    const currentMa = loadEntry?.currentMa ?? DEFAULT_CURRENT_MA;
+    const resistanceOhms = Number(((len / width) * sheetR).toFixed(3));
 
     return {
       id: s.id,
@@ -481,34 +866,29 @@ export function solveResistivePDN(powerNetwork, techProfile = {}) {
       lengthUm: Number(len.toFixed(2)),
       widthUm: width,
       resistanceOhms,
-      currentMa,
-      feedPoints,
-      dropMv,
-      status: feedPoints === 0 ? 'open' : (dropMv > budgetMv ? 'violation' : 'clean'),
+      dropMv: isOpen ? null : Number(maxStrapDrop.toFixed(2)),
+      status: isOpen ? 'open' : (maxStrapDrop > budgetMv ? 'violation' : 'clean'),
     };
   });
 
   return {
-    nominalVdd: 1.8,
-    worstDropMv: Number(worstDropMv.toFixed(2)),
+    nominalVdd,
+    worstDropMv,
+    maxDropMv: worstDropMv,
+    worstDropVssMv: vss.worstDropMv,
     budgetMv,
     meetsBudget: !hasOpenCircuit && worstDropMv <= budgetMv,
     hasOpenCircuit,
+    hasOpenLoad: hasOpenCircuit,
+    nodes: [...vdd.nodes, ...vss.nodes],
     perStrap,
-    disclaimer: 'Educational nodal linear resistor network model.',
+    solverMethod: 'Modified Nodal Analysis (MNA) Conductance Matrix with Gaussian Elimination',
+    educationalDisclaimer: 'Educational simulation model — linear nodal resistor mesh.',
   };
 }
 
-/**
- * Automated Assistant: PDN Mesh Generator.
- * Generates an orthogonal strap grid on M4 and M5 and intersecting interlayer vias.
- *
- * @param {Object} coreRect - { x, y, width, height }
- * @param {Object} options - { vddPitch, vssPitch, strapWidth, vddLayer, vssLayer }
- * @returns {Object} { straps: Array, vias: Array }
- */
 export function generatePDNGrid(coreRect, options = {}) {
-  const core = coreRect || { x: 40, y: 40, width: 320, height: 240 };
+  const core = (coreRect && coreRect.core) ? coreRect.core : (coreRect || { x: 40, y: 40, width: 320, height: 240 });
   const strapWidth = Number(options.strapWidth) || 4;
   const pitchX = Number(options.pitchX) || 100;
   const pitchY = Number(options.pitchY) || 80;

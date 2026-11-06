@@ -18,6 +18,7 @@ export default function StudioToolbar({
   onNewProject,
   onLoadPreset,
   onSaveProject,
+  onExport,
   onExportJson,
   onImportJson,
   canUndo,
@@ -55,6 +56,7 @@ export default function StudioToolbar({
 }) {
   const fileInputRef = useRef(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -123,6 +125,7 @@ export default function StudioToolbar({
           <option value="scenario-d">Scenario D: Small SoC (Pin Pitch)</option>
           <option value="scenario-e">Scenario E: Broken PDN (Shorts &amp; Floating)</option>
           <option value="scenario-f">Scenario F: Congestion Stress Design</option>
+          <option value="capstone-soc">Capstone: 6-Macro Multi-Core SoC</option>
           <option value="small-controller">Legacy: Small Controller (Overlap)</option>
           <option value="dual-sram">Legacy: Dual SRAM Controller</option>
           <option value="small-soc">Legacy: Small SoC Subsystem</option>
@@ -138,15 +141,62 @@ export default function StudioToolbar({
           💾 Save
         </button>
 
-        <button
-          type="button"
-          className="fp-toolbar-btn"
-          onClick={onExportJson}
-          title="Export design as JSON artifact"
-          data-testid="btn-export"
-        >
-          ⤓ Export
-        </button>
+        <div className="fp-toolbar-preset-dropdown" style={{ position: 'relative' }}>
+          <button
+            type="button"
+            className="fp-toolbar-btn"
+            onClick={() => setExportDropdownOpen((v) => !v)}
+            title="Export design in industry EDA formats (LEF, DEF, JSON, Report)"
+            data-testid="btn-export"
+          >
+            ⤓ Export ▾
+          </button>
+          {exportDropdownOpen && (
+            <div className="fp-toolbar-preset-menu" style={{ minWidth: '180px', zIndex: 100 }}>
+              <button
+                type="button"
+                className="fp-toolbar-preset-item"
+                data-testid="btn-export-json"
+                onClick={() => {
+                  if (onExport) onExport('json');
+                  else if (onExportJson) onExportJson();
+                }}
+              >
+                Project (.json)
+              </button>
+              <button
+                type="button"
+                className="fp-toolbar-preset-item"
+                data-testid="btn-export-lef"
+                onClick={() => {
+                  if (onExport) onExport('lef');
+                }}
+              >
+                Physical Library (.lef)
+              </button>
+              <button
+                type="button"
+                className="fp-toolbar-preset-item"
+                data-testid="btn-export-def"
+                onClick={() => {
+                  if (onExport) onExport('def');
+                }}
+              >
+                Design Layout (.def)
+              </button>
+              <button
+                type="button"
+                className="fp-toolbar-preset-item"
+                data-testid="btn-export-report"
+                onClick={() => {
+                  if (onExport) onExport('report');
+                }}
+              >
+                Signoff Report (.txt)
+              </button>
+            </div>
+          )}
+        </div>
 
         <button
           type="button"

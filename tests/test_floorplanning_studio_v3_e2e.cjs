@@ -251,22 +251,29 @@ async function runStudioV3AcceptanceTests() {
     console.log(`  Macros on canvas: ${macroCount}`);
     if (macroCount !== 1) throw new Error(`Demo 1 Failed: Expected 1 macro, found ${macroCount}`);
 
-    // Checklist 4: Drag the macro to a new position
-    console.log('  [Checklist 4] Drag macro to new position...');
-    await evalCdp(`
-      const mItem = document.querySelector('[data-testid^="explorer-item-macro-"]');
-      if (mItem) mItem.click();
-    `);
-    await wait(200);
-    await evalCdp(`
-      const inputX = document.querySelector('[data-testid="input-macro-x"]');
-      if (inputX) {
-        inputX.value = '70';
-        inputX.dispatchEvent(new Event('input', { bubbles: true }));
-        inputX.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    `);
-    await wait(200);
+    // Checklist 4: Drag the macro to a new position using authentic CDP pointer events
+    console.log('  [Checklist 4] Drag macro to new position using authentic CDP pointer events...');
+    const macroBox = await evalCdp(`(() => {
+      const el = document.querySelector('[data-role="macro-body"]') || document.querySelector('.macro-node');
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    })()`);
+    if (!macroBox) throw new Error('Checklist 4 Failed: Could not locate macro SVG element');
+    const dragStartX = Math.round(macroBox.x + macroBox.width / 2);
+    const dragStartY = Math.round(macroBox.y + macroBox.height / 2);
+    const dragEndX = Math.round(dragStartX + 60);
+    const dragEndY = Math.round(dragStartY + 40);
+
+    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: dragStartX, y: dragStartY, button: 'left', clickCount: 1 });
+    await wait(60);
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: Math.round(dragStartX + 30), y: Math.round(dragStartY + 20), button: 'left' });
+    await wait(60);
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: dragEndX, y: dragEndY, button: 'left' });
+    await wait(60);
+    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: dragEndX, y: dragEndY, button: 'left' });
+    await wait(300);
+    console.log(`  ✓ Dispatched authentic pointer drag from (${dragStartX},${dragStartY}) to (${dragEndX},${dragEndY})`);
 
     // Checklist 5: Rotate the macro
     console.log('  [Checklist 5] Rotate macro (R90)...');
@@ -530,32 +537,78 @@ async function runStudioV3AcceptanceTests() {
     await wait(200);
     console.log('  ✓ Undo and Redo stack functional.');
 
-    // Checklist 30 & 31: Export and Import JSON
-    console.log('  [Checklist 30 & 31] Export project JSON format validation...');
-    const exportedJson = await evalCdp(`
-      let json = null;
+    // Checklist 30 & 31: Export and Import Multi-Format (JSON, LEF 5.8, DEF 5.8)
+    console.log('  [Checklist 30 & 31] Export project multi-format (JSON, LEF 5.8, DEF 5.8) validation...');
+    await evalCdp(`
+      if (!document.querySelector('[data-testid="btn-export-json"]')) {
+        document.querySelector('[data-testid="btn-export"]')?.click();
+      }
+    `);
+    await wait(300);
+
+    // Export JSON
+    const jsonContent = await evalCdp(`
+      let href = null;
       const origCreate = document.createElement;
       document.createElement = function(tag) {
         const el = origCreate.call(document, tag);
         if (tag === 'a') {
-          const origSet = el.setAttribute;
-          el.setAttribute = function(k, v) {
-            if (k === 'href' && v.includes('json')) {
-              json = decodeURIComponent(v.split(',')[1]);
-            }
-            origSet.call(el, k, v);
-          };
+          el.click = function() { href = el.getAttribute('href') || el.href || ''; };
         }
         return el;
       };
-      document.querySelector('[data-testid="btn-export"]')?.click();
+      document.querySelector('[data-testid="btn-export-json"]')?.click();
       document.createElement = origCreate;
-      return json;
+      return href ? decodeURIComponent(href.split(',')[1] || '') : '';
     `);
-    if (!exportedJson || !exportedJson.includes('"schemaVersion"')) {
-      throw new Error('Checklist 30 Failed: Invalid exported JSON format');
+    if (!jsonContent || !jsonContent.includes('"schemaVersion"')) {
+      throw new Error(`Checklist 30 Failed: Invalid exported JSON format. Length: ${jsonContent.length}`);
     }
     console.log('  ✓ Exported JSON schema validated.');
+
+    // Export LEF 5.8
+    const lefText = await evalCdp(`
+      let href = null;
+      const origCreate = document.createElement;
+      document.createElement = function(tag) {
+        const el = origCreate.call(document, tag);
+        if (tag === 'a') {
+          el.click = function() { href = el.getAttribute('href') || el.href || ''; };
+        }
+        return el;
+      };
+      document.querySelector('[data-testid="btn-export-lef"]')?.click();
+      document.createElement = origCreate;
+      return href ? decodeURIComponent(href.split(',')[1] || '') : '';
+    `);
+    if (!lefText || !lefText.includes('VERSION 5.8') || !lefText.includes('MACRO')) {
+      throw new Error(`Checklist 30 Failed: Exported LEF missing VERSION 5.8 or MACRO definitions. Length: ${lefText.length}`);
+    }
+    console.log('  ✓ Exported LEF 5.8 syntax verified.');
+
+    // Export DEF 5.8
+    const defText = await evalCdp(`
+      let href = null;
+      const origCreate = document.createElement;
+      document.createElement = function(tag) {
+        const el = origCreate.call(document, tag);
+        if (tag === 'a') {
+          el.click = function() { href = el.getAttribute('href') || el.href || ''; };
+        }
+        return el;
+      };
+      document.querySelector('[data-testid="btn-export-def"]')?.click();
+      document.createElement = origCreate;
+      return href ? decodeURIComponent(href.substring(href.indexOf(',') + 1)) : '';
+    `);
+    if (!defText || !defText.includes('VERSION 5.8') || !defText.includes('DIEAREA') || !defText.includes('COMPONENTS')) {
+      throw new Error(`Checklist 30 Failed: Exported DEF missing VERSION 5.8, DIEAREA, or COMPONENTS sections. Length: ${defText.length}`);
+    }
+    console.log('  ✓ Exported DEF 5.8 syntax verified.');
+
+    // Close export dropdown
+    await evalCdp(`document.querySelector('[data-testid="btn-export"]')?.click()`);
+    await wait(200);
 
     // ─── DEMO 5: Guided Learning Experience ───────────────────────────────────
     console.log('\n▶ DEMO 5: Guided Learning Experience (fp-6 and Explore Isolation)...');
@@ -621,63 +674,65 @@ async function runStudioV3AcceptanceTests() {
       throw new Error('Checklist 39 Failed: FP-36 did not fail-closed on empty design');
     }
 
-    // Now seed a valid 6-macro SoC design into localStorage and verify passing
-    console.log('  Seed authentic 6-macro SoC project and verify FP-36 pass...');
+    // Construct the authentic 6-macro SoC capstone via the Studio UI (No direct localStorage injection!)
+    console.log('  Construct authentic 6-macro SoC project via Studio UI (preset, assistants, save)...');
+    await send('Page.navigate', { url: `${BASE_URL}/studio/floorplanning` });
+    await wait(1500);
+    await setupDialogOverrides();
+
+    // Select Capstone SoC preset
+    console.log('  Load Capstone: 6-Macro Multi-Core SoC preset via toolbar select...');
     await evalCdp(`
-      const validSoc = {
-        schemaVersion: 2,
-        projectId: 'valid_soc_project',
-        name: 'Valid 6-Macro SoC Capstone',
-        die: { x: 0, y: 0, width: 720, height: 540 },
-        core: { x: 40, y: 40, width: 640, height: 460 },
-        standardCellAreaUm2: 85000,
-        macros: [
-          { id: 'CPU_CORE', masterId: 'DSP_ACCEL', name: 'CPU', x: 55, y: 55, width: 140, height: 110, orientation: 'R0', halo: 15, fixed: false },
-          { id: 'DCACHE', masterId: 'SRAM_64KB', name: 'DCache', x: 55, y: 320, width: 140, height: 110, orientation: 'R0', halo: 15, fixed: false },
-          { id: 'ICACHE', masterId: 'SRAM_32KB', name: 'ICache', x: 510, y: 55, width: 110, height: 90, orientation: 'MY', halo: 15, fixed: false },
-          { id: 'SYS_DMA', masterId: 'PERIPH_DMA', name: 'DMA', x: 510, y: 320, width: 90, height: 80, orientation: 'MY', halo: 15, fixed: false },
-          { id: 'BOOT_ROM', masterId: 'ROM_16KB', name: 'ROM', x: 230, y: 55, width: 100, height: 80, orientation: 'R0', halo: 15, fixed: false },
-          { id: 'PLL', masterId: 'PLL_CORE', name: 'PLL', x: 370, y: 55, width: 70, height: 70, orientation: 'R0', halo: 20, fixed: true },
-        ],
-        pins: [
-          { id: 'clk', net: 'clk', edge: 'top', coord: 180, layer: 'M3' },
-          { id: 'rst_n', net: 'rst_n', edge: 'top', coord: 210, layer: 'M3' },
-          { id: 'din[0]', net: 'din[0]', edge: 'left', coord: 120, layer: 'M4' },
-          { id: 'dout[0]', net: 'dout[0]', edge: 'right', coord: 120, layer: 'M4' },
-        ],
-        nets: [
-          { id: 'n1', sources: ['clk'], sinks: ['CPU_CORE', 'DCACHE', 'ICACHE'] },
-        ],
-        placementRows: [{ x: 40, y: 40, width: 640, height: 460, siteWidth: 0.46, rowHeight: 2.72 }],
-        blockages: [],
-        placementRegions: [],
-        powerNetwork: {
-          rings: [
-            { id: 'ring_vdd', net: 'VDD', layer: 'M5', x: 26, y: 26, width: 668, height: 488, lineWidth: 10 },
-            { id: 'ring_vss', net: 'VSS', layer: 'M5', x: 14, y: 14, width: 692, height: 512, lineWidth: 10 },
-          ],
-          straps: [
-            { id: 'strap_vdd_1', net: 'VDD', layer: 'M4', x1: 26, y1: 220, x2: 694, y2: 220, width: 10 },
-            { id: 'strap_vdd_2', net: 'VDD', layer: 'M4', x1: 26, y1: 380, x2: 694, y2: 380, width: 10 },
-            { id: 'strap_vss_1', net: 'VSS', layer: 'M4', x1: 14, y1: 280, x2: 706, y2: 280, width: 10 },
-            { id: 'strap_vss_2', net: 'VSS', layer: 'M4', x1: 14, y1: 440, x2: 706, y2: 440, width: 10 },
-          ],
-          vias: [
-            { id: 'v1', layer1: 'M4', layer2: 'M5', x: 26, y: 220, net: 'VDD' },
-            { id: 'v2', layer1: 'M4', layer2: 'M5', x: 694, y: 220, net: 'VDD' },
-            { id: 'v3', layer1: 'M4', layer2: 'M5', x: 26, y: 380, net: 'VDD' },
-            { id: 'v4', layer1: 'M4', layer2: 'M5', x: 694, y: 380, net: 'VDD' },
-            { id: 'v5', layer1: 'M4', layer2: 'M5', x: 14, y: 280, net: 'VSS' },
-            { id: 'v6', layer1: 'M4', layer2: 'M5', x: 706, y: 280, net: 'VSS' },
-            { id: 'v7', layer1: 'M4', layer2: 'M5', x: 14, y: 440, net: 'VSS' },
-            { id: 'v8', layer1: 'M4', layer2: 'M5', x: 706, y: 440, net: 'VSS' },
-          ],
-          sources: [{ nodeId: 'ring_vdd', net: 'VDD' }, { nodeId: 'ring_vss', net: 'VSS' }],
-          loads: [{ nodeId: 'strap_vdd_1', net: 'VDD', currentMa: 15 }],
-        },
-        constraints: { maxUtilization: 75, minMacroHalo: 15, minPinSpacing: 10, targetAspectRatio: 1.0, voltageDropBudgetMv: 30, congestionThreshold: 0.8 },
-      };
-      localStorage.setItem('pdplayground_floorplan_v1', JSON.stringify(validSoc));
+      const select = document.querySelector('[data-testid="preset-select"]');
+      if (select) {
+        select.value = 'capstone-soc';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    `);
+    await wait(500);
+
+    const macroCountInStudio = await evalCdp(`document.querySelectorAll('.macro-node').length`);
+    console.log(`  Macros loaded in Studio: ${macroCountInStudio}`);
+    if (macroCountInStudio < 6) {
+      throw new Error(`Demo 6 Failed: Expected >= 6 macros in Capstone SoC, got ${macroCountInStudio}`);
+    }
+
+    // Run automated assistants via UI
+    console.log('  Run Macro Legalizer Assistant...');
+    await evalCdp(`
+      const select = document.querySelector('[data-testid="assistants-select"]');
+      if (select) {
+        select.value = 'legalize-macros';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    `);
+    await wait(300);
+
+    console.log('  Run Pin Pitch Legalizer Assistant...');
+    await evalCdp(`
+      const select = document.querySelector('[data-testid="assistants-select"]');
+      if (select) {
+        select.value = 'legalize-pins';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    `);
+    await wait(300);
+
+    // Save project using the UI Save button
+    console.log('  Save project via Studio toolbar Save button [data-testid="btn-save"]...');
+    await evalCdp(`document.querySelector('[data-testid="btn-save"]')?.click()`);
+    await wait(400);
+
+    // Return to FP-36 challenge
+    console.log('  Navigate to FP-36 challenge and sign off using UI-saved project...');
+    await send('Page.navigate', { url: `${BASE_URL}/kingdom/floorplanning/level/fp-36` });
+    await wait(1500);
+    await setupDialogOverrides();
+
+    // Select quiz answer and click verify
+    await evalCdp(`
+      const radio = document.querySelector('input[value="all-signoff-gates"]');
+      if (radio) radio.click();
       document.querySelector('.fp-expanded-challenge__btn-verify')?.click();
     `);
     await wait(600);

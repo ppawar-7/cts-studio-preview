@@ -40,6 +40,7 @@ import {
   SCENARIO_SMALL_SOC,
   SCENARIO_BROKEN_PDN,
   SCENARIO_CONGESTION_STRESS,
+  SCENARIO_SOC_CAPSTONE,
 } from '../../engine/floorplanProjectModel.js';
 
 import {
@@ -50,6 +51,7 @@ import {
 import { addVia, removeVia, generatePDNGrid } from '../../engine/floorplanPDN.js';
 import { evaluateFloorplanSignoff } from '../../engine/floorplanSignoff.js';
 import { createCandidateSnapshot } from '../../engine/floorplanCandidates.js';
+import { generateLEF, generateDEF, generateSignoffReportText } from '../../engine/floorplanExport.js';
 
 import './FloorplanStudioPage.css';
 
@@ -160,12 +162,31 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     }
   }, [project, isExplore]);
 
-  // Export JSON
-  const handleExport = useCallback(() => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(serializeProject(project));
+  // Multi-format EDA Exporter (LEF, DEF, JSON, Text Signoff Report)
+  const handleExport = useCallback((format = 'json') => {
+    let dataStr = '';
+    let ext = 'json';
+
+    if (format === 'lef') {
+      const lefText = generateLEF(project);
+      dataStr = 'data:text/plain;charset=utf-8,' + encodeURIComponent(lefText);
+      ext = 'lef';
+    } else if (format === 'def') {
+      const defText = generateDEF(project);
+      dataStr = 'data:text/plain;charset=utf-8,' + encodeURIComponent(defText);
+      ext = 'def';
+    } else if (format === 'report') {
+      const repText = generateSignoffReportText(project);
+      dataStr = 'data:text/plain;charset=utf-8,' + encodeURIComponent(repText);
+      ext = 'txt';
+    } else {
+      dataStr = 'data:application/json;charset=utf-8,' + encodeURIComponent(serializeProject(project));
+      ext = 'json';
+    }
+
     const dlAnchor = document.createElement('a');
     dlAnchor.setAttribute('href', dataStr);
-    dlAnchor.setAttribute('download', `${project.name.toLowerCase().replace(/\s+/g, '_')}_floorplan.json`);
+    dlAnchor.setAttribute('download', `${project.name.toLowerCase().replace(/\s+/g, '_')}_floorplan.${ext}`);
     dlAnchor.click();
   }, [project]);
 
@@ -205,6 +226,7 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     else if (presetKey === 'small-soc') preset = EXAMPLE_SMALL_SOC_SUBSYSTEM;
     else if (presetKey === 'scenario-e') preset = SCENARIO_BROKEN_PDN;
     else if (presetKey === 'scenario-f') preset = SCENARIO_CONGESTION_STRESS;
+    else if (presetKey === 'scenario-capstone' || presetKey === 'capstone-soc') preset = SCENARIO_SOC_CAPSTONE;
 
     if (preset) {
       updateProject(migrateProject(JSON.parse(JSON.stringify(preset))));
@@ -397,29 +419,37 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
   // Automated Design Assistants
   const handleLegalizeMacros = useCallback(() => {
     const legalized = assistedMacroLegalization(project);
+    const newMacros = legalized.modifiedMacros || legalized.macros || project.macros;
     updateProject((prev) => ({
       ...prev,
-      macros: legalized.macros,
+      macros: newMacros,
     }));
-    alert(`Assisted Macro Legalizer: Realigned ${legalized.movedCount} macro(s) into legal non-overlapping sites.`);
+    alert(legalized.message || `Assisted Macro Legalizer: Realigned macros into legal sites.`);
   }, [project, updateProject]);
 
   const handleLegalizePins = useCallback(() => {
     const legalized = assistedPinLegalization(project);
+    const newPins = legalized.modifiedPins || legalized.pins || project.pins;
     updateProject((prev) => ({
       ...prev,
-      pins: legalized.pins,
+      pins: newPins,
     }));
-    alert(`Assisted Pin Legalizer: Adjusted ${legalized.adjustedCount} pin(s) to satisfy pitch spacing.`);
+    alert(legalized.message || `Assisted Pin Legalizer: Adjusted pins to satisfy pitch.`);
   }, [project, updateProject]);
 
   const handleGeneratePDNGrid = useCallback(() => {
-    const generated = generatePDNGrid(project);
+    const core = project.core || { x: 40, y: 40, width: 320, height: 240 };
+    const generated = generatePDNGrid(core);
     updateProject((prev) => ({
       ...prev,
-      powerNetwork: generated,
+      powerNetwork: {
+        ...(prev.powerNetwork || {}),
+        rings: prev.powerNetwork?.rings || [],
+        straps: generated.straps,
+        vias: generated.vias,
+      },
     }));
-    alert(`PDN Grid Assistant: Synthesized ${generated.straps.length} power straps and ${generated.vias.length} interlayer vias.`);
+    alert(`PDN Grid Assistant: ${generated.message}`);
   }, [project, updateProject]);
 
   // Candidate snapshots
@@ -508,7 +538,8 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
         onNewProject={handleNewProject}
         onLoadPreset={handleLoadPreset}
         onSaveProject={handleSave}
-        onExportJson={handleExport}
+        onExport={handleExport}
+        onExportJson={() => handleExport("json")}
         onImportJson={handleImport}
         canUndo={history.length > 0}
         canRedo={redoStack.length > 0}

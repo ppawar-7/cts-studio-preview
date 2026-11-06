@@ -869,6 +869,8 @@ export function assistedMacroLegalization(project, gridStep = 5) {
   return {
     success: modifiedCount > 0,
     modifiedMacros: macros,
+    macros,
+    movedCount: modifiedCount,
     message: modifiedCount > 0
       ? `Successfully legalized ${modifiedCount} macro(s) on a ${gridStep}µm grid.`
       : 'All macros are already legal, or no conflict-free placement could be found.',
@@ -910,6 +912,8 @@ export function assistedPinLegalization(project, minPitch = 5) {
   return {
     success: adjustedCount > 0,
     modifiedPins: pins,
+    pins,
+    adjustedCount,
     message: adjustedCount > 0
       ? `Legalized ${adjustedCount} pin(s) with minimum ${minPitch}µm pitch.`
       : 'All pins currently meet pitch constraints.',

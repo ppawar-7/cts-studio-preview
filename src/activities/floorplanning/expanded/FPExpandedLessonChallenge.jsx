@@ -70,11 +70,12 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
   const location = useLocation();
   const isExplore = location.pathname.startsWith('/explore');
   const studioPath = isExplore ? '/explore/studio/floorplanning' : '/studio/floorplanning';
-  const [studioProject, setStudioProject] = useState(() => (lesson.requiresStudioProject ? loadStudioProject(isExplore) : null));
-  const capstoneReport = useMemo(
-    () => (lesson.requiresStudioProject && studioProject ? evaluateFloorplanSignoff(studioProject) : null),
-    [lesson.requiresStudioProject, studioProject],
+  const [studioProject, setStudioProject] = useState(() => loadStudioProject(isExplore));
+  const projectReport = useMemo(
+    () => (studioProject ? evaluateFloorplanSignoff(studioProject) : null),
+    [studioProject],
   );
+  const capstoneReport = projectReport;
 
   // Universal state store for inputs
   const [formData, setFormData] = useState({});
@@ -87,12 +88,9 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
   const handleSubmit = (e) => {
     e.preventDefault();
     if (lesson.validate) {
-      let inputs = formData;
-      if (lesson.requiresStudioProject) {
-        const fresh = loadStudioProject(isExplore);
-        setStudioProject(fresh);
-        inputs = { ...formData, project: fresh };
-      }
+      const fresh = loadStudioProject(isExplore);
+      if (fresh) setStudioProject(fresh);
+      const inputs = { ...formData, ...(fresh ? { project: fresh } : {}) };
       const result = lesson.validate(inputs);
       setValidationResult(result);
       if (result.passed && onVerify) {
@@ -144,6 +142,66 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
           macros={canvasCfg.macros || [{ id: 'SRAM_CORE', x: 40, y: 40, width: 120, height: 90, halo: 15 }]}
           showPowerRings={true}
         />
+      </div>
+
+      {/* Live Floorplan Studio Telemetry Card */}
+      <div className="card combseq-card" style={{ borderLeft: '4px solid #38bdf8' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+          <h4 className="dff-challenge__section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>🛠️</span> Live Studio Design Evidence
+          </h4>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={() => {
+                const fresh = loadStudioProject(isExplore);
+                setStudioProject(fresh);
+              }}
+              title="Refresh project telemetry from Studio"
+            >
+              ↻ Sync from Studio
+            </button>
+            <Link
+              to={studioPath}
+              className="btn btn--primary btn--sm"
+              style={{ textDecoration: 'none' }}
+              title="Launch CAD Studio to edit layout"
+            >
+              🚀 Launch Studio ↗
+            </Link>
+          </div>
+        </div>
+
+        {studioProject ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginTop: '0.5rem', background: '#0f172a', padding: '0.75rem', borderRadius: '6px', fontSize: '0.85rem' }}>
+            <div>
+              <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Project:</span>
+              <div style={{ fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{studioProject.name}</div>
+            </div>
+            <div>
+              <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Core Size / AR:</span>
+              <div style={{ fontWeight: 600, color: '#f8fafc' }}>{studioProject.core?.width}×{studioProject.core?.height} µm ({(studioProject.core?.height / (studioProject.core?.width || 1)).toFixed(2)})</div>
+            </div>
+            <div>
+              <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Macros / DRC:</span>
+              <div style={{ fontWeight: 600, color: (projectReport?.clean ? '#22c55e' : '#f59e0b') }}>
+                {(studioProject.macros || []).length} macros ({projectReport?.clean ? 'Clean' : `${projectReport?.violations?.length} Violations`})
+              </div>
+            </div>
+            <div>
+              <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Static IR Droop:</span>
+              <div style={{ fontWeight: 600, color: (projectReport?.metrics?.maxIRDropMv <= 30 ? '#22c55e' : '#ef4444') }}>
+                {projectReport?.metrics?.maxIRDropMv !== undefined ? `${projectReport.metrics.maxIRDropMv} mV` : 'N/A'}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: '#1e293b', padding: '0.75rem', borderRadius: '6px', fontSize: '0.85rem', color: '#94a3b8' }}>
+            No saved project found {isExplore ? 'in this Explore session' : 'for your Normal Game'}.
+            Launch the <Link to={studioPath} style={{ color: '#38bdf8' }}>Floorplan Studio</Link> to author or customize your layout, click <strong>Save Project</strong>, then return here to sign off.
+          </div>
+        )}
       </div>
 
       {/* Dynamic Interactive Input Form for each lesson */}
@@ -273,7 +331,7 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
         {(lesson.id === 'fp-24' || lesson.id === 'fp-36' || lesson.requiresStudioProject) && (
           <div className="card combseq-card" data-testid="capstone-panel">
             <h4 className="dff-challenge__section-title">
-              🏆 {lesson.id === 'fp-36' ? 'Expert SoC Capstone: Tapeout Sign-off' : 'Master Capstone: Saved Studio Project Sign-off'}
+              🏆 {lesson.id === 'fp-36' ? 'Expert SoC Capstone: Placement & CTS Handoff Sign-off' : 'Master Capstone: Saved Studio Project Sign-off'}
             </h4>
             {!studioProject ? (
               <p className="dff-challenge__subtext">

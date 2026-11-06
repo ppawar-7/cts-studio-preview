@@ -970,6 +970,67 @@ export const SCENARIO_CONGESTION_STRESS = {
   constraints: { maxUtilization: 72, minMacroHalo: 15, minPinSpacing: 10, targetAspectRatio: 1.0, voltageDropBudgetMv: 30, congestionThreshold: 0.8 },
 };
 
+/**
+ * Scenario Capstone: 6-Macro Multi-Core SoC
+ * Complete production-ready multi-macro SoC floorplan ready for signoff and CTS handoff.
+ */
+export const SCENARIO_SOC_CAPSTONE = {
+  schemaVersion: SCHEMA_VERSION,
+  projectId: 'scenario_soc_capstone',
+  name: 'Capstone: 6-Macro Multi-Core SoC',
+  scenarioId: 'SCENARIO_CAPSTONE',
+  learningGoals: 'Full SoC physical design sign-off: 6 macros, DRC clean, PDN continuity, IR drop <= 30 mV, and placement handoff.',
+  technologyProfile: { ...DEFAULT_TECH_PROFILE },
+  die: { x: 0, y: 0, width: 720, height: 540 },
+  core: { x: 40, y: 40, width: 640, height: 460 },
+  standardCellAreaUm2: 85000,
+  macros: [
+    { id: 'CPU_CORE', masterId: 'DSP_ACCEL', name: 'CPU', x: 55, y: 55, width: 140, height: 110, orientation: 'R0', halo: 15, fixed: false },
+    { id: 'DCACHE', masterId: 'SRAM_64KB', name: 'DCache', x: 55, y: 320, width: 140, height: 110, orientation: 'R0', halo: 15, fixed: false },
+    { id: 'ICACHE', masterId: 'SRAM_32KB', name: 'ICache', x: 510, y: 55, width: 110, height: 90, orientation: 'MY', halo: 15, fixed: false },
+    { id: 'SYS_DMA', masterId: 'PERIPH_DMA', name: 'DMA', x: 510, y: 320, width: 90, height: 80, orientation: 'MY', halo: 15, fixed: false },
+    { id: 'BOOT_ROM', masterId: 'ROM_16KB', name: 'ROM', x: 230, y: 55, width: 100, height: 80, orientation: 'R0', halo: 15, fixed: false },
+    { id: 'PLL', masterId: 'PLL_CORE', name: 'PLL', x: 370, y: 55, width: 70, height: 70, orientation: 'R0', halo: 20, fixed: true },
+  ],
+  pins: [
+    { id: 'clk', net: 'clk', edge: 'top', coord: 180, layer: 'M3' },
+    { id: 'rst_n', net: 'rst_n', edge: 'top', coord: 210, layer: 'M3' },
+    { id: 'din[0]', net: 'din[0]', edge: 'left', coord: 120, layer: 'M4' },
+    { id: 'dout[0]', net: 'dout[0]', edge: 'right', coord: 120, layer: 'M4' },
+  ],
+  nets: [
+    { id: 'n1', sources: ['clk'], sinks: ['CPU_CORE', 'DCACHE', 'ICACHE'] },
+  ],
+  placementRows: [{ x: 40, y: 40, width: 640, height: 460, siteWidth: 0.46, rowHeight: 2.72 }],
+  blockages: [],
+  placementRegions: [],
+  powerNetwork: {
+    rings: [
+      { id: 'ring_vdd', net: 'VDD', layer: 'M5', x: 26, y: 26, width: 668, height: 488, lineWidth: 10 },
+      { id: 'ring_vss', net: 'VSS', layer: 'M5', x: 14, y: 14, width: 692, height: 512, lineWidth: 10 },
+    ],
+    straps: [
+      { id: 'strap_vdd_1', net: 'VDD', layer: 'M4', x1: 26, y1: 220, x2: 694, y2: 220, width: 10 },
+      { id: 'strap_vdd_2', net: 'VDD', layer: 'M4', x1: 26, y1: 380, x2: 694, y2: 380, width: 10 },
+      { id: 'strap_vss_1', net: 'VSS', layer: 'M4', x1: 14, y1: 280, x2: 706, y2: 280, width: 10 },
+      { id: 'strap_vss_2', net: 'VSS', layer: 'M4', x1: 14, y1: 440, x2: 706, y2: 440, width: 10 },
+    ],
+    vias: [
+      { id: 'v1', layer1: 'M4', layer2: 'M5', x: 26, y: 220, net: 'VDD' },
+      { id: 'v2', layer1: 'M4', layer2: 'M5', x: 694, y: 220, net: 'VDD' },
+      { id: 'v3', layer1: 'M4', layer2: 'M5', x: 26, y: 380, net: 'VDD' },
+      { id: 'v4', layer1: 'M4', layer2: 'M5', x: 694, y: 380, net: 'VDD' },
+      { id: 'v5', layer1: 'M4', layer2: 'M5', x: 14, y: 280, net: 'VSS' },
+      { id: 'v6', layer1: 'M4', layer2: 'M5', x: 706, y: 280, net: 'VSS' },
+      { id: 'v7', layer1: 'M4', layer2: 'M5', x: 14, y: 440, net: 'VSS' },
+      { id: 'v8', layer1: 'M4', layer2: 'M5', x: 706, y: 440, net: 'VSS' },
+    ],
+    sources: [{ nodeId: 'ring_vdd', net: 'VDD' }, { nodeId: 'ring_vss', net: 'VSS' }],
+    loads: [{ nodeId: 'strap_vdd_1', net: 'VDD', currentMa: 15 }],
+  },
+  constraints: { maxUtilization: 75, minMacroHalo: 15, minPinSpacing: 10, targetAspectRatio: 1.0, voltageDropBudgetMv: 30, congestionThreshold: 0.8 },
+};
+
 // ─── THREE PRESERVED HISTORICAL BENCHMARK EXAMPLES ──────────────────────────
 
 export const EXAMPLE_SMALL_CONTROLLER = {

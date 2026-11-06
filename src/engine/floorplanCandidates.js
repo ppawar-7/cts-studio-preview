@@ -6,7 +6,7 @@
  */
 
 import { computeCoreArea, computeUtilization, computeHPWL } from './floorplanGeometry.js';
-import { computeIRDropEstimate } from './floorplanPDN.js';
+import { solveResistivePDN } from './floorplanPDN.js';
 import { computeCongestionMap } from './floorplanCongestion.js';
 import { evaluateFloorplanSignoff } from './floorplanSignoff.js';
 
@@ -30,7 +30,7 @@ export function createCandidateSnapshot(project, candidateName = 'Candidate') {
 
   const util = computeUtilization(coreArea, project.standardCellAreaUm2, project.macros, project.blockages, core);
   const hpwl = computeHPWL(project.nets, project.macros, project.pins, core, die);
-  const irDrop = computeIRDropEstimate(project.powerNetwork, project.powerNetwork?.loads);
+  const irDrop = solveResistivePDN(project.powerNetwork, project.techProfile, project.constraints, project.macros);
   const congestion = computeCongestionMap(project);
 
   return {
@@ -47,7 +47,7 @@ export function createCandidateSnapshot(project, candidateName = 'Candidate') {
       rawNominalUtilization: util.rawNominalUtilization,
       effectiveUtilization: util.effectiveUtilization,
       totalHPWL: hpwl.totalHPWL,
-      worstIRDropMv: irDrop.maxDropMv !== null && Number.isFinite(irDrop.maxDropMv) ? Number(irDrop.maxDropMv.toFixed(2)) : null,
+      worstIRDropMv: irDrop.worstDropMv !== null && Number.isFinite(irDrop.worstDropMv) ? Number(irDrop.worstDropMv.toFixed(2)) : null,
       irHasOpenLoad: irDrop.hasOpenLoad,
       maxCongestionRatio: congestion.maxRatio,
       congestionHotspots: congestion.hotspots.length,

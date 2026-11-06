@@ -28,6 +28,8 @@ import {
 } from '../../../engine/floorplanPDN.js';
 import { computeCongestionMap } from '../../../engine/floorplanCongestion.js';
 import { evaluateFloorplanSignoff } from '../../../engine/floorplanSignoff.js';
+import { generateLEF, generateDEF } from '../../../engine/floorplanExport.js';
+import { solveResistivePDN, detectVDDVSSShort } from '../../../engine/floorplanPDN.js';
 
 export const EXPANDED_LESSONS = {
   // ─── MODULE 2: DIE & CORE ARCHITECTURE ───────────────────────────────────
@@ -795,14 +797,24 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.macroMasterQuiz === 'r90-rotate-transform';
+      const isQuizOk = inputs.macroMasterQuiz === 'r90-rotate-transform';
+      let projectOk = true;
+      let projectMsg = '';
+      if (inputs.project) {
+        const macros = inputs.project.macros || [];
+        const hasMinMacros = macros.length >= 2;
+        const hasOriented = macros.some((m) => m.orientation && m.orientation !== 'R0');
+        projectOk = hasMinMacros && hasOriented;
+        projectMsg = !hasMinMacros ? 'Project requires at least 2 macros from the Master Library. ' : (!hasOriented ? 'At least one macro must be oriented (e.g. MY, R90) to verify pin transform. ' : '');
+      }
+      const passed = isQuizOk && projectOk;
       return {
         passed,
-        score: passed ? 45 : 15,
-        stars: passed ? 3 : 1,
+        score: passed ? 45 : (isQuizOk ? 30 : 15),
+        stars: passed ? 3 : (isQuizOk ? 2 : 1),
         feedback: passed
-          ? '✓ Macro master orientation matrix and pin transformation certified!'
-          : '⚠️ Orientation transforms: R90 maps local (x, y) to (y, W - x). Verify 2D affine rotation mechanics.',
+          ? '✓ Macro master orientation matrix and physical instance transformation certified!'
+          : projectMsg ? `⚠️ ${projectMsg}Adjust your layout in Studio, save, and re-verify.` : '⚠️ Orientation transforms: R90 maps local (x, y) to (y, W - x). Verify 2D affine rotation mechanics.',
       };
     },
   },
@@ -831,14 +843,22 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.placementRegionQuiz === 'fence-exclusive-guide-preferred';
+      const isQuizOk = inputs.placementRegionQuiz === 'fence-exclusive-guide-preferred';
+      let projectOk = true;
+      let projectMsg = '';
+      if (inputs.project) {
+        const hasRegionsOrBlockages = (inputs.project.placementRegions?.length > 0) || (inputs.project.blockages?.length > 0);
+        projectOk = hasRegionsOrBlockages;
+        projectMsg = !hasRegionsOrBlockages ? 'Define at least one placement blockage or region in the Studio to partition hierarchical domains. ' : '';
+      }
+      const passed = isQuizOk && projectOk;
       return {
         passed,
-        score: passed ? 45 : 15,
-        stars: passed ? 3 : 1,
+        score: passed ? 45 : (isQuizOk ? 30 : 15),
+        stars: passed ? 3 : (isQuizOk ? 2 : 1),
         feedback: passed
-          ? '✓ Hierarchical placement regions and fence vs guide semantics certified!'
-          : '⚠️ Hard FENCE regions enforce strict mutual exclusion; GUIDE regions gently attract placement without strict containment.',
+          ? '✓ Hierarchical placement regions and domain partitioning certified!'
+          : projectMsg ? `⚠️ ${projectMsg}Configure blockages in Studio and re-verify.` : '⚠️ Hard FENCE regions enforce strict mutual exclusion; GUIDE regions gently attract placement without strict containment.',
       };
     },
   },
@@ -867,14 +887,23 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.legalizationQuiz === 'min-displacement-cost';
+      const isQuizOk = inputs.legalizationQuiz === 'min-displacement-cost';
+      let projectOk = true;
+      let projectMsg = '';
+      if (inputs.project) {
+        const signoff = evaluateFloorplanSignoff(inputs.project);
+        const hasOverlap = signoff.violations.some((v) => v.rule.includes('Overlap'));
+        projectOk = !hasOverlap;
+        projectMsg = hasOverlap ? 'Your Studio project still has overlapping macros. Run the Macro Legalizer assistant or separate macros. ' : '';
+      }
+      const passed = isQuizOk && projectOk;
       return {
         passed,
-        score: passed ? 45 : 15,
-        stars: passed ? 3 : 1,
+        score: passed ? 45 : (isQuizOk ? 30 : 15),
+        stars: passed ? 3 : (isQuizOk ? 2 : 1),
         feedback: passed
-          ? '✓ Assisted macro legalization cost formulation verified!'
-          : '⚠️ Legalization minimizes perturbation (displacement Δx, Δy) from the engineer’s intended architectural seed placement.',
+          ? '✓ Assisted macro legalization and physical overlap clearance certified!'
+          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Legalization minimizes perturbation (displacement Δx, Δy) from the engineer’s intended architectural seed placement.',
       };
     },
   },
@@ -903,14 +932,23 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.pinConstraintQuiz === 'corner-keepout-power-pad';
+      const isQuizOk = inputs.pinConstraintQuiz === 'corner-keepout-power-pad';
+      let projectOk = true;
+      let projectMsg = '';
+      if (inputs.project) {
+        const signoff = evaluateFloorplanSignoff(inputs.project);
+        const hasPinPitchViolation = signoff.violations.some((v) => v.rule.includes('Pin Pitch'));
+        projectOk = !hasPinPitchViolation;
+        projectMsg = hasPinPitchViolation ? 'Your Studio project has I/O pin pitch violations (<10 µm). Run the Pin Legalizer assistant. ' : '';
+      }
+      const passed = isQuizOk && projectOk;
       return {
         passed,
-        score: passed ? 45 : 15,
-        stars: passed ? 3 : 1,
+        score: passed ? 45 : (isQuizOk ? 30 : 15),
+        stars: passed ? 3 : (isQuizOk ? 2 : 1),
         feedback: passed
           ? '✓ Corner keepout rationale and pin distribution constraints certified!'
-          : '⚠️ Corner pad regions and power ring turns monopolize corner metal; signal pins must be offset inward.',
+          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Corner pad regions and power ring turns monopolize corner metal; signal pins must be offset inward.',
       };
     },
   },
@@ -940,14 +978,25 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.pdnMeshQuiz === 'orthogonal-mesh-grid';
+      const isQuizOk = inputs.pdnMeshQuiz === 'orthogonal-mesh-grid';
+      let projectOk = true;
+      let projectMsg = '';
+      if (inputs.project) {
+        const straps = inputs.project.powerNetwork?.straps || [];
+        const vias = inputs.project.powerNetwork?.vias || [];
+        const hasStraps = straps.length >= 2;
+        const hasVias = vias.length >= 2;
+        projectOk = hasStraps && hasVias;
+        projectMsg = !projectOk ? 'Your project needs orthogonal straps and vias. Use the PDN Grid Synthesizer assistant in Studio. ' : '';
+      }
+      const passed = isQuizOk && projectOk;
       return {
         passed,
-        score: passed ? 50 : 20,
-        stars: passed ? 3 : 1,
+        score: passed ? 50 : (isQuizOk ? 30 : 20),
+        stars: passed ? 3 : (isQuizOk ? 2 : 1),
         feedback: passed
-          ? '✓ Orthogonal power mesh grid topology certified!'
-          : '⚠️ Alternating metal directions forms an electrical 2D grid matrix that distributes current evenly across the die.',
+          ? '✓ Orthogonal power mesh grid topology and synthesized straps certified!'
+          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Alternating metal directions forms an electrical 2D grid matrix that distributes current evenly across the die.',
       };
     },
   },
@@ -978,14 +1027,23 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.irNodalQuiz === 'ir-drop-20mv';
+      const isQuizOk = inputs.irNodalQuiz === 'ir-drop-20mv';
+      let projectOk = true;
+      let projectMsg = '';
+      if (inputs.project) {
+        const pdnSolve = solveResistivePDN(inputs.project.powerNetwork, inputs.project.technologyProfile, inputs.project.constraints, inputs.project.macros);
+        const irOk = !pdnSolve.hasOpenCircuit && pdnSolve.worstDropMv <= 35;
+        projectOk = irOk;
+        projectMsg = !irOk ? `Static IR drop (${pdnSolve.worstDropMv} mV) exceeds budget or has open circuit. Widen power straps in Studio. ` : '';
+      }
+      const passed = isQuizOk && projectOk;
       return {
         passed,
-        score: passed ? 50 : 20,
-        stars: passed ? 3 : 1,
+        score: passed ? 50 : (isQuizOk ? 30 : 20),
+        stars: passed ? 3 : (isQuizOk ? 2 : 1),
         feedback: passed
-          ? '✓ Nodal resistive IR drop calculation (20 mV) certified!'
-          : '⚠️ Ohm’s law: ΔV = I × R = 0.040 A × 0.50 Ω = 0.020 V = 20 mV.',
+          ? '✓ Nodal resistive IR drop calculation and power network mesh verification certified!'
+          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Ohm’s law: ΔV = I × R = 0.040 A × 0.50 Ω = 0.020 V = 20 mV.',
       };
     },
   },
@@ -1016,14 +1074,22 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.pdnFaultQuiz === 'electrical-short-catastrophic';
+      const isQuizOk = inputs.pdnFaultQuiz === 'electrical-short-catastrophic';
+      let projectOk = true;
+      let projectMsg = '';
+      if (inputs.project) {
+        const shortCheck = detectVDDVSSShort(inputs.project.powerNetwork);
+        projectOk = !shortCheck.hasShort;
+        projectMsg = shortCheck.hasShort ? 'Project contains a VDD-VSS short circuit! Remove the bridging via in Studio. ' : '';
+      }
+      const passed = isQuizOk && projectOk;
       return {
         passed,
-        score: passed ? 50 : 20,
-        stars: passed ? 3 : 1,
+        score: passed ? 50 : (isQuizOk ? 30 : 20),
+        stars: passed ? 3 : (isQuizOk ? 2 : 1),
         feedback: passed
-          ? '✓ VDD-VSS short-circuit diagnosis and failure investigation certified!'
-          : '⚠️ Power-to-ground bridging shorts are catastrophic DRC errors that destroy silicon during power-up.',
+          ? '✓ VDD-VSS short-circuit diagnosis and clean electrical isolation certified!'
+          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Power-to-ground bridging shorts are catastrophic DRC errors that destroy silicon during power-up.',
       };
     },
   },
@@ -1052,14 +1118,23 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.paretoQuiz === 'pareto-non-dominated';
+      const isQuizOk = inputs.paretoQuiz === 'pareto-non-dominated';
+      let projectOk = true;
+      let projectMsg = '';
+      if (inputs.project) {
+        const candidates = inputs.project.candidates || [];
+        // Project either has candidates snapshot or valid macros and core
+        projectOk = candidates.length >= 2 || (inputs.project.macros && inputs.project.macros.length >= 1);
+        projectMsg = !projectOk ? 'Take at least two candidate snapshots in Studio to evaluate Pareto trade-offs. ' : '';
+      }
+      const passed = isQuizOk && projectOk;
       return {
         passed,
-        score: passed ? 50 : 20,
-        stars: passed ? 3 : 1,
+        score: passed ? 50 : (isQuizOk ? 30 : 20),
+        stars: passed ? 3 : (isQuizOk ? 2 : 1),
         feedback: passed
           ? '✓ Pareto frontier and multiobjective trade-off optimization certified!'
-          : '⚠️ Pareto optimality requires non-domination: improving one metric without sacrificing all other objectives.',
+          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Pareto optimality requires non-domination: improving one metric without sacrificing all other objectives.',
       };
     },
   },
@@ -1088,14 +1163,23 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.channelBottleneckQuiz === 'narrow-channel-track-shortage';
+      const isQuizOk = inputs.channelBottleneckQuiz === 'narrow-channel-track-shortage';
+      let projectOk = true;
+      let projectMsg = '';
+      if (inputs.project) {
+        const cong = computeCongestionMap(inputs.project);
+        const ratioOk = (cong.maxRatio || 0) < 1.0;
+        projectOk = ratioOk;
+        projectMsg = !ratioOk ? `Routing congestion peak ratio (${cong.maxRatio}) exceeds 1.0. Widen macro channels in Studio. ` : '';
+      }
+      const passed = isQuizOk && projectOk;
       return {
         passed,
-        score: passed ? 55 : 20,
-        stars: passed ? 3 : 1,
+        score: passed ? 55 : (isQuizOk ? 35 : 20),
+        stars: passed ? 3 : (isQuizOk ? 2 : 1),
         feedback: passed
-          ? '✓ Narrow routing channel bottleneck analysis and channel widening certified!'
-          : '⚠️ Keep macro channels >= 35 µm wide to allow multi-metal track routing without exhausting routing capacity.',
+          ? '✓ Narrow routing channel bottleneck analysis and congestion relief certified!'
+          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Keep macro channels >= 35 µm wide to allow multi-metal track routing without exhausting routing capacity.',
       };
     },
   },
@@ -1126,14 +1210,27 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.dataExchangeQuiz === 'lef-abstract-standard';
+      const isQuizOk = inputs.dataExchangeQuiz === 'lef-abstract-standard';
+      let projectOk = true;
+      let projectMsg = '';
+      if (inputs.project) {
+        try {
+          const lef = generateLEF(inputs.project);
+          const def = generateDEF(inputs.project);
+          projectOk = lef.includes('VERSION 5.8') && def.includes('VERSION 5.8');
+        } catch {
+          projectOk = false;
+        }
+        projectMsg = !projectOk ? 'Design layout could not be exported to valid LEF/DEF physical formats. ' : '';
+      }
+      const passed = isQuizOk && projectOk;
       return {
         passed,
-        score: passed ? 55 : 20,
-        stars: passed ? 3 : 1,
+        score: passed ? 55 : (isQuizOk ? 35 : 20),
+        stars: passed ? 3 : (isQuizOk ? 2 : 1),
         feedback: passed
-          ? '✓ LEF/DEF physical data exchange standards certified!'
-          : '⚠️ LEF abstracts provide black-box geometry for placement without disclosing proprietary foundry transistor layers.',
+          ? '✓ LEF/DEF physical data exchange standards and layout syntax verified!'
+          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ LEF abstracts provide black-box geometry for placement without disclosing proprietary foundry transistor layers.',
       };
     },
   },
@@ -1147,13 +1244,13 @@ export const EXPANDED_LESSONS = {
     xpReward: 60,
     starThresholds: [24, 45, 60],
     duration: '~15 min',
-    concept: `Formal ASIC Tapeout Reviews require defending floorplan architecture against PPA metrics.
+    concept: `Formal Floorplan Design Reviews (FDR) require defending floorplan architecture against PPA metrics before handoff to placement and CTS.
     Engineers must justify utilization budgets, power ring impedance margins, and channel clearances.`,
     canvas: { dieWidth: 700, dieHeight: 500, coreWidth: 600, coreHeight: 400, margin: 50 },
     questions: [
       {
         field: "designReviewQuiz",
-        prompt: "During a tapeout design review, why is signing off with 82% effective utilization and 28 mV worst IR-drop acceptable, while 96% utilization is rejected?",
+        prompt: "During a floorplan design review, why is signing off with 82% effective utilization and 28 mV worst IR-drop acceptable, while 96% utilization is rejected?",
         options: [
           { value: "routability-margin-signoff", label: "82% utilization preserves routing track capacity for timing optimization, clock tree buffers, and ECOs; 96% causes unroutable shorts." },
           { value: "lower-util-always-forbidden", label: "Foundries require exactly 100% silicon density before fabrication." },
@@ -1162,14 +1259,23 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.designReviewQuiz === 'routability-margin-signoff';
+      const isQuizOk = inputs.designReviewQuiz === 'routability-margin-signoff';
+      let projectOk = true;
+      let projectMsg = '';
+      if (inputs.project) {
+        const signoff = evaluateFloorplanSignoff(inputs.project);
+        const utilOk = signoff.metrics.effectiveUtilization <= 85;
+        projectOk = utilOk;
+        projectMsg = !utilOk ? `Effective utilization (${signoff.metrics.effectiveUtilization}%) exceeds 85% FDR sign-off margin. Enlarge core in Studio. ` : '';
+      }
+      const passed = isQuizOk && projectOk;
       return {
         passed,
-        score: passed ? 60 : 25,
-        stars: passed ? 3 : 1,
+        score: passed ? 60 : (isQuizOk ? 40 : 25),
+        stars: passed ? 3 : (isQuizOk ? 2 : 1),
         feedback: passed
-          ? '✓ Tapeout design review defense and routability margin justification verified!'
-          : '⚠️ Utilization above 90% leaves zero margin for clock buffers and engineering change orders (ECOs).',
+          ? '✓ Floorplan design review defense, routability margins, and layout PPA certified!'
+          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Utilization above 90% leaves zero margin for clock buffers and engineering change orders (ECOs).',
       };
     },
   },
@@ -1197,11 +1303,11 @@ export const EXPANDED_LESSONS = {
     questions: [
       {
         field: "socSignoffQuiz",
-        prompt: "What physical design criteria are required simultaneously for final SoC tapeout sign-off?",
+        prompt: "What physical design criteria are required simultaneously for final SoC floorplan sign-off and placement handoff?",
         options: [
           { value: "all-signoff-gates", label: "All gates simultaneously: >=6 macros, zero DRC/halo violations, continuous VDD/VSS PDN, <=30 mV static IR drop, and cleared congestion." },
-          { value: "drc-alone", label: "Zero DRC errors alone is sufficient; power continuity can be fixed after tapeout." },
-          { value: "macros-only", label: "Placing 6 macros anywhere on the die qualifies for tapeout." },
+          { value: "drc-alone", label: "Zero DRC errors alone is sufficient; power continuity can be fixed after placement." },
+          { value: "macros-only", label: "Placing 6 macros anywhere on the die qualifies for floorplan sign-off." },
         ],
       },
     ],
@@ -1232,7 +1338,7 @@ export const EXPANDED_LESSONS = {
         stars: passed ? 3 : (macrosOk && cleanOk) ? 2 : 1,
         report,
         feedback: passed
-          ? `🏆 EXPERT SOC CAPSTONE SIGNED OFF! ${report.metrics.macroCount} macros, 0 DRC violations, static IR drop ${report.metrics.maxIRDropMv} mV (budget <=30mV), utilization ${report.metrics.nominalUtilization}%. Ready for GDS tapeout!`
+          ? `🏆 EXPERT SOC CAPSTONE SIGNED OFF! ${report.metrics.macroCount} macros, 0 DRC violations, static IR drop ${report.metrics.maxIRDropMv} mV (budget <=30mV), utilization ${report.metrics.nominalUtilization}%. Floorplan signoff complete and verified clean for Placement & CTS handoff!`
           : !macrosOk
           ? `⚠️ The expert capstone requires at least 6 hard macros (your project has ${report.metrics.macroCount}). Add more functional blocks (SRAM, ROM, PLL, DMA) from the Master Library.`
           : !cleanOk
