@@ -99,6 +99,9 @@ export default function ExplorePage() {
             <Link to="/studio/rtl?from=explore" className="btn btn--secondary">
               ⚡ RTL Studio (Logic Lab)
             </Link>
+            <Link to="/studio/floorplanning?from=explore" className="btn btn--secondary" data-testid="explore-fp-studio">
+              🗺️ Floorplan Studio (CAD 3.0)
+            </Link>
             <Link to="/studio/sta?from=explore" className="btn btn--secondary">
               ⏱️ STA Studio (Timing Lab)
             </Link>

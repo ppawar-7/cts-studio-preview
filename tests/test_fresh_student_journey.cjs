@@ -161,14 +161,14 @@ async function runTest() {
   });
 
   console.log('\n--- Step 3: Navigating to World Map with CLEAN Storage ---');
-  await send('Page.navigate', { url: `${BASE_URL}/world-map` });
+  await send('Page.navigate', { url: `${BASE_URL}/legacy/world-map` });
   await wait(1000);
 
   // Clear localStorage to guarantee a completely fresh student
   await evalJs(`
     localStorage.clear();
   `);
-  await send('Page.navigate', { url: `${BASE_URL}/world-map` });
+  await send('Page.navigate', { url: `${BASE_URL}/legacy/world-map` });
   await wait(1000);
 
   // Verify World Map initial state
@@ -450,7 +450,7 @@ async function runTest() {
 
   // ─── VERIFY WORLD MAP & SYNTHESIS UNLOCK ──────────────────────────────────
   console.log('\n--- Step 10: Verifying World Map & Kingdom 2 (Synthesis) Unlock ---');
-  await send('Page.navigate', { url: `${BASE_URL}/world-map` });
+  await send('Page.navigate', { url: `${BASE_URL}/legacy/world-map` });
   await wait(1000);
 
   const postCards = await evalJs(`

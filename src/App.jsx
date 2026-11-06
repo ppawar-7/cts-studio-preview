@@ -39,9 +39,16 @@ export default function App() {
                   <Route path="/world-map" element={<WorldMapPage />} />
                   <Route path="/kingdom/:kingdomId" element={<KingdomPage />} />
                   <Route path="/kingdom/:kingdomId/level/:levelId" element={<LevelPage />} />
+                  {/* Three-Studio Primary Studio Routes & Convenient Aliases */}
                   <Route path="/studio/rtl" element={<RTLStudioPage />} />
-                  <Route path="/studio/sta" element={<STAStudioPage />} />
+                  <Route path="/rtl-studio" element={<Navigate to="/studio/rtl" replace />} />
                   <Route path="/studio/floorplanning" element={<FloorplanStudioPage />} />
+                  <Route path="/floorplan-studio" element={<Navigate to="/studio/floorplanning" replace />} />
+                  <Route path="/studio/sta" element={<STAStudioPage />} />
+                  <Route path="/sta-studio" element={<Navigate to="/studio/sta" replace />} />
+
+                  {/* Legacy Internal Mode for Maintainers */}
+                  <Route path="/legacy/world-map" element={<WorldMapPage isLegacy={true} />} />
 
                   {/* Completely Separate Unlocked Explore Everything Mode Routes */}
                   <Route path="/explore" element={<ExplorePage />} />

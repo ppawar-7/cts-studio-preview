@@ -449,15 +449,37 @@ export function validateProjectShape(raw) {
   rect(raw.die, 'die');
   rect(raw.core, 'core');
 
-  // Verify core is within die if both are valid
+  // Verify core is completely within die boundaries
   if (raw.die && raw.core && raw.die.width > 0 && raw.core.width > 0) {
-    if (raw.core.width > raw.die.width || raw.core.height > raw.die.height) {
+    const dieX = Number(raw.die.x || 0);
+    const dieY = Number(raw.die.y || 0);
+    const dieW = Number(raw.die.width);
+    const dieH = Number(raw.die.height);
+    const coreX = Number(raw.core.x || 0);
+    const coreY = Number(raw.core.y || 0);
+    const coreW = Number(raw.core.width);
+    const coreH = Number(raw.core.height);
+
+    if (coreW > dieW || coreH > dieH) {
       problems.push('core dimensions cannot exceed die dimensions');
+    }
+    if (coreX < dieX) {
+      problems.push(`core.x (${coreX}) is outside die left boundary (${dieX})`);
+    }
+    if (coreY < dieY) {
+      problems.push(`core.y (${coreY}) is outside die top boundary (${dieY})`);
+    }
+    if (coreX + coreW > dieX + dieW) {
+      problems.push(`core right edge (${coreX + coreW}) exceeds die right boundary (${dieX + dieW})`);
+    }
+    if (coreY + coreH > dieY + dieH) {
+      problems.push(`core bottom edge (${coreY + coreH}) exceeds die bottom boundary (${dieY + dieH})`);
     }
   }
 
   // Validate macros array
   const seenMacroIds = new Set();
+  const validOrientations = ['R0', 'R90', 'R180', 'R270', 'MX', 'MY', 'N', 'W', 'S', 'E', 'FN', 'FS'];
   if (raw.macros !== undefined && !Array.isArray(raw.macros)) {
     problems.push('macros must be an array');
   } else if (Array.isArray(raw.macros)) {
@@ -477,7 +499,12 @@ export function validateProjectShape(raw) {
       if (!Number.isFinite(w) || w <= 0 || !Number.isFinite(h) || h <= 0) {
         problems.push(`macros[${i}] needs positive width and height`);
       }
-      if (m.orientation && !['R0', 'R90', 'R180', 'R270', 'MX', 'MY'].includes(m.orientation)) {
+      const mx = Number(m.x);
+      const my = Number(m.y);
+      if (!Number.isFinite(mx) || !Number.isFinite(my)) {
+        problems.push(`macros[${i}] needs finite numeric x and y coordinates`);
+      }
+      if (m.orientation && !validOrientations.includes(m.orientation)) {
         problems.push(`macros[${i}].orientation '${m.orientation}' is not supported`);
       }
     });
@@ -614,6 +641,8 @@ export function migrateProject(raw) {
       voltageDropBudgetMv: Number(raw.constraints.voltageDropBudgetMv) || 30,
       congestionThreshold: Number(raw.constraints.congestionThreshold) || 0.8,
     } : base.constraints,
+    candidates: Array.isArray(raw.candidates) ? raw.candidates.map((c) => ({ ...c })) : (base.candidates || []),
+    assignmentId: raw.assignmentId || base.assignmentId,
   };
 }
 
@@ -1026,8 +1055,15 @@ export const SCENARIO_SOC_CAPSTONE = {
       { id: 'v8', layer1: 'M4', layer2: 'M5', x: 706, y: 440, net: 'VSS' },
     ],
     sources: [{ nodeId: 'ring_vdd', net: 'VDD' }, { nodeId: 'ring_vss', net: 'VSS' }],
-    loads: [{ nodeId: 'strap_vdd_1', net: 'VDD', currentMa: 15 }],
+    loads: [
+      { nodeId: 'strap_vdd_1', net: 'VDD', currentMa: 15 },
+      { nodeId: 'strap_vss_1', net: 'VSS', currentMa: 15 },
+    ],
   },
+  candidates: [
+    { id: 'cand_1', name: 'Seed Arch', hpwl: 1800, worstDropMv: 24 },
+    { id: 'cand_2', name: 'Optimized Dual Core', hpwl: 1400, worstDropMv: 18 },
+  ],
   constraints: { maxUtilization: 75, minMacroHalo: 15, minPinSpacing: 10, targetAspectRatio: 1.0, voltageDropBudgetMv: 30, congestionThreshold: 0.8 },
 };
 

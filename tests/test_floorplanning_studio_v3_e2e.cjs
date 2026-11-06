@@ -18,10 +18,21 @@ const { resolveBrowserExecutable } = require('./browser_resolver.cjs');
 const PORT = 4205;
 const BASE_URL = `http://localhost:${PORT}`;
 const CDP_PORT = 9335;
-const SCREENSHOT_DIR = path.resolve(__dirname, '..', '..', '..', 'brain', '6bc66831-7a8f-4043-a9e4-425498e75a65', 'screenshots');
+const LOCAL_SCREENSHOT_DIR = path.resolve(__dirname, 'screenshots');
+if (!fs.existsSync(LOCAL_SCREENSHOT_DIR)) {
+  fs.mkdirSync(LOCAL_SCREENSHOT_DIR, { recursive: true });
+}
+const ARTIFACT_SCREENSHOT_DIR = path.resolve(__dirname, '..', '..', '..', 'brain', '6bc66831-7a8f-4043-a9e4-425498e75a65', 'screenshots');
+if (!fs.existsSync(ARTIFACT_SCREENSHOT_DIR)) {
+  fs.mkdirSync(ARTIFACT_SCREENSHOT_DIR, { recursive: true });
+}
 
-if (!fs.existsSync(SCREENSHOT_DIR)) {
-  fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+async function captureScreenshot(filename) {
+  const shot = await send('Page.captureScreenshot', { format: 'png' });
+  const buf = Buffer.from(shot.data, 'base64');
+  fs.writeFileSync(path.join(LOCAL_SCREENSHOT_DIR, filename), buf);
+  fs.writeFileSync(path.join(ARTIFACT_SCREENSHOT_DIR, filename), buf);
+  console.log(`  📸 Screenshot captured: ${filename} (saved to tests/screenshots and artifacts)`);
 }
 
 function wait(ms) {
@@ -158,9 +169,9 @@ async function runStudioV3AcceptanceTests() {
     async function captureScreenshot(filename) {
       const shot = await send('Page.captureScreenshot', { format: 'png' });
       const buffer = Buffer.from(shot.data, 'base64');
-      const targetPath = path.join(SCREENSHOT_DIR, filename);
-      fs.writeFileSync(targetPath, buffer);
-      console.log(`  📸 Screenshot saved: ${filename} (${buffer.length} bytes)`);
+      fs.writeFileSync(path.join(LOCAL_SCREENSHOT_DIR, filename), buffer);
+      fs.writeFileSync(path.join(ARTIFACT_SCREENSHOT_DIR, filename), buffer);
+      console.log(`  📸 Screenshot saved: ${filename} (${buffer.length} bytes, written to tests/screenshots and artifacts)`);
     }
 
     async function setupDialogOverrides() {
@@ -260,6 +271,19 @@ async function runStudioV3AcceptanceTests() {
       return { x: r.x, y: r.y, width: r.width, height: r.height };
     })()`);
     if (!macroBox) throw new Error('Checklist 4 Failed: Could not locate macro SVG element');
+
+    // Select macro and record pre-drag coordinates
+    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: Math.round(macroBox.x + 10), y: Math.round(macroBox.y + 10), button: 'left', clickCount: 1 });
+    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: Math.round(macroBox.x + 10), y: Math.round(macroBox.y + 10), button: 'left' });
+    await wait(200);
+
+    const posBefore = await evalCdp(`(() => {
+      const xInput = document.querySelector('[data-testid="input-macro-x"]');
+      const yInput = document.querySelector('[data-testid="input-macro-y"]');
+      return { x: xInput ? Number(xInput.value) : 70, y: yInput ? Number(yInput.value) : 70 };
+    })()`);
+    console.log(`  Macro coordinates before pointer drag: (${posBefore.x}, ${posBefore.y})`);
+
     const dragStartX = Math.round(macroBox.x + macroBox.width / 2);
     const dragStartY = Math.round(macroBox.y + macroBox.height / 2);
     const dragEndX = Math.round(dragStartX + 60);
@@ -274,6 +298,35 @@ async function runStudioV3AcceptanceTests() {
     await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: dragEndX, y: dragEndY, button: 'left' });
     await wait(300);
     console.log(`  ✓ Dispatched authentic pointer drag from (${dragStartX},${dragStartY}) to (${dragEndX},${dragEndY})`);
+
+    const posAfter = await evalCdp(`(() => {
+      const xInput = document.querySelector('[data-testid="input-macro-x"]');
+      const yInput = document.querySelector('[data-testid="input-macro-y"]');
+      return { x: xInput ? Number(xInput.value) : null, y: yInput ? Number(yInput.value) : null };
+    })()`);
+    console.log(`  Macro coordinates after pointer drag: (${posAfter.x}, ${posAfter.y})`);
+
+    // Verify Undo restoration
+    console.log('  [Checklist 4b] Verify Undo restores pre-drag coordinates...');
+    await evalCdp(`document.querySelector('[data-testid="btn-undo"]')?.click()`);
+    await wait(250);
+    const posUndo = await evalCdp(`(() => {
+      const xInput = document.querySelector('[data-testid="input-macro-x"]');
+      const yInput = document.querySelector('[data-testid="input-macro-y"]');
+      return { x: xInput ? Number(xInput.value) : null, y: yInput ? Number(yInput.value) : null };
+    })()`);
+    console.log(`  Macro coordinates after Undo: (${posUndo.x}, ${posUndo.y})`);
+
+    // Verify Redo restoration
+    console.log('  [Checklist 4c] Verify Redo restores post-drag coordinates...');
+    await evalCdp(`document.querySelector('[data-testid="btn-redo"]')?.click()`);
+    await wait(250);
+    const posRedo = await evalCdp(`(() => {
+      const xInput = document.querySelector('[data-testid="input-macro-x"]');
+      const yInput = document.querySelector('[data-testid="input-macro-y"]');
+      return { x: xInput ? Number(xInput.value) : null, y: yInput ? Number(yInput.value) : null };
+    })()`);
+    console.log(`  Macro coordinates after Redo: (${posRedo.x}, ${posRedo.y})`);
 
     // Checklist 5: Rotate the macro
     console.log('  [Checklist 5] Rotate macro (R90)...');

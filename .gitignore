@@ -35,3 +35,9 @@ lerna-debug.log*
 
 # Git bundles
 *.bundle
+
+# Test artifacts and caches
+.vitest
+vitest_results.json
+tests/screenshots
+

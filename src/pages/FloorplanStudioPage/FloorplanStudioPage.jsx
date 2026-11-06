@@ -25,6 +25,7 @@ import StudioCanvas from './components/StudioCanvas.jsx';
 import PropertiesInspector from './components/PropertiesInspector.jsx';
 import AnalysisPanel from './components/AnalysisPanel.jsx';
 import CandidateCompareModal from './components/CandidateCompareModal.jsx';
+import { getAssignmentScenario } from '../../activities/floorplanning/expanded/guidedAssignmentService.js';
 
 import {
   createDefaultProject,
@@ -76,7 +77,29 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
   const isExplore = Boolean(isExploreMode || location.pathname.startsWith('/explore'));
 
   // Initialize project state from localStorage or default
-  const [project, setProject] = useState(() => readStoredProject(isExplore) || createDefaultProject('My ASIC Floorplan', 'beginner'));
+  const assignmentParam = new URLSearchParams(location.search).get('assignment');
+  const [project, setProject] = useState(() => {
+    const stored = readStoredProject(isExplore);
+    if (assignmentParam) {
+      if (stored && stored.assignmentId === assignmentParam) return stored;
+      return getAssignmentScenario(assignmentParam) || stored || createDefaultProject('My ASIC Floorplan', 'beginner');
+    }
+    return stored || createDefaultProject('My ASIC Floorplan', 'beginner');
+  });
+
+  useEffect(() => {
+    if (assignmentParam && project.assignmentId !== assignmentParam) {
+      const scenario = getAssignmentScenario(assignmentParam);
+      if (scenario) {
+        setProject(scenario);
+        if (isExplore) {
+          window.sessionStorage.setItem(EXPLORE_STORAGE_KEY, serializeProject(scenario));
+        } else {
+          window.localStorage.setItem(STORAGE_KEY, serializeProject(scenario));
+        }
+      }
+    }
+  }, [assignmentParam, isExplore]);
 
   const projectRef = useRef(project);
   projectRef.current = project;

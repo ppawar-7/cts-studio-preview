@@ -5,6 +5,7 @@
  * Guards against the original defects:
  *   - 14 lessons shared one generic two-option quiz whose "correct" option auto-filled the validator
  *   - FP-24 and FP-36 passed on self-attested checkboxes instead of authentic EDA project evaluation
+ *   - FP-6 through FP-36 now strictly require schema-valid FloorplanProject evidence
  */
 
 import { describe, it, expect } from 'vitest';
@@ -15,6 +16,10 @@ import {
   EXAMPLE_SMALL_SOC_SUBSYSTEM,
   SCENARIO_SMALL_SOC,
 } from '../../engine/floorplanProjectModel.js';
+import {
+  getAssignmentScenario,
+  getPassingAssignmentProject,
+} from '../../activities/floorplanning/expanded/guidedAssignmentService.js';
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
@@ -52,16 +57,23 @@ describe('Expanded lessons use lesson-specific questions', () => {
       });
       const combos = product(lesson.questions.map((q) => q.options.map((o) => [q.field, o.value])));
       const passing = combos.filter((combo) => {
-        const inputs = { ...(NUMERIC[lesson.id] || {}), ...Object.fromEntries(combo) };
+        const inputs = {
+          ...(NUMERIC[lesson.id] || {}),
+          ...Object.fromEntries(combo),
+          project: getPassingAssignmentProject(lesson.id),
+        };
         return lesson.validate(inputs).passed;
       });
       expect(passing.length).toBe(1);
     });
 
-    it(`${lesson.id}: correct concept answers alone do not pass when numeric work is required`, () => {
-      if (!NUMERIC[lesson.id]) return;
+    it(`${lesson.id}: correct concept answers alone do not pass when project is omitted`, () => {
       const combos = product(lesson.questions.map((q) => q.options.map((o) => [q.field, o.value])));
-      expect(combos.some((c) => lesson.validate(Object.fromEntries(c)).passed)).toBe(false);
+      const allPassed = combos.map((c) => {
+        const inputs = { ...(NUMERIC[lesson.id] || {}), ...Object.fromEntries(c) };
+        return lesson.validate(inputs).passed;
+      });
+      expect(allPassed.some(Boolean)).toBe(false);
     });
   });
 });
@@ -69,11 +81,11 @@ describe('Expanded lessons use lesson-specific questions', () => {
 describe('FP-14 grades the pin coordinates with the pin-spacing rule', () => {
   const v = EXPANDED_LESSONS['fp-14'].validate;
   it('rejects a 4 µm pitch and out-of-edge coordinates', () => {
-    expect(v({ pinCoord1: 100, pinCoord2: 104, pinPitchQuiz: 'prevent-shorts' }).passed).toBe(false);
-    expect(v({ pinCoord1: 100, pinCoord2: 520, pinPitchQuiz: 'prevent-shorts' }).passed).toBe(false);
+    expect(v({ pinCoord1: 100, pinCoord2: 104, pinPitchQuiz: 'prevent-shorts', project: getPassingAssignmentProject('fp-14') }).passed).toBe(false);
+    expect(v({ pinCoord1: 100, pinCoord2: 520, pinPitchQuiz: 'prevent-shorts', project: getPassingAssignmentProject('fp-14') }).passed).toBe(false);
   });
-  it('accepts exactly the 10 µm minimum', () => {
-    expect(v({ pinCoord1: 100, pinCoord2: 110, pinPitchQuiz: 'prevent-shorts' }).passed).toBe(true);
+  it('accepts exactly the 10 µm minimum with passing project', () => {
+    expect(v({ pinCoord1: 100, pinCoord2: 110, pinPitchQuiz: 'prevent-shorts', project: getPassingAssignmentProject('fp-14') }).passed).toBe(true);
   });
 });
 
@@ -122,7 +134,7 @@ describe('FP-36 grades the real Studio project for the 6+ macro Expert SoC', () 
     expect(v({ project: p, socSignoffQuiz: 'all-signoff-gates' }).passed).toBe(false);
   });
 
-  it('passes a legal 6-macro SoC with continuous PDN and IR drop <= 30 mV', () => {
+  it('passes a legal 6-macro SoC with continuous PDN, candidates and IR drop <= 30 mV', () => {
     const p = clone(SCENARIO_SMALL_SOC);
     // SCENARIO_SMALL_SOC already has 5 legal macros. Add a 6th non-overlapping macro.
     p.macros.push({
@@ -141,10 +153,71 @@ describe('FP-36 grades the real Studio project for the 6+ macro Expert SoC', () 
     p.powerNetwork.straps.forEach((s) => {
       s.width = 10;
     });
+    p.candidates = [
+      { id: 'cand_1', name: 'Initial Seed' },
+      { id: 'cand_2', name: 'Optimized Dual Core' },
+    ];
 
     const res = v({ project: p, socSignoffQuiz: 'all-signoff-gates' });
     expect(res.passed).toBe(true);
     expect(res.score).toBe(100);
     expect(res.stars).toBe(3);
+  });
+});
+
+describe('P0 Fail-Closed Guided Assignment Verifications', () => {
+  const lessonIds = Object.keys(EXPANDED_LESSONS);
+
+  it('Missing project fails closed with 0 stars across all lessons FP-6 through FP-36', () => {
+    lessonIds.forEach((id) => {
+      const lesson = EXPANDED_LESSONS[id];
+      const res = lesson.validate({});
+      expect(res.passed, `${id} should fail without project`).toBe(false);
+      expect(res.stars, `${id} should award 0 stars without project`).toBe(0);
+      expect(res.feedback).toContain('saved Studio project');
+    });
+  });
+
+  it('Negative test: uncorrected starting scenario fails each lesson', () => {
+    lessonIds.forEach((id) => {
+      const lesson = EXPANDED_LESSONS[id];
+      const uncorrectedProject = getAssignmentScenario(id);
+      const res = lesson.validate({ project: uncorrectedProject });
+      expect(res.passed, `${id} starting scenario should fail without student edits`).toBe(false);
+    });
+  });
+
+  it('Assignment mismatch: submitting project for fp-9 to fp-25 fails closed', () => {
+    const fp25 = EXPANDED_LESSONS['fp-25'];
+    const p9 = getPassingAssignmentProject('fp-9');
+    expect(p9.assignmentId).toBe('fp-9');
+
+    const res = fp25.validate({
+      project: p9,
+      macroMasterQuiz: 'r90-rotate-transform',
+    });
+    expect(res.passed).toBe(false);
+    expect(res.stars).toBe(0);
+    expect(res.feedback).toContain('Assignment mismatch');
+  });
+
+  it('Positive test: corrected project passes each lesson with 3 stars', () => {
+    lessonIds.forEach((id) => {
+      const lesson = EXPANDED_LESSONS[id];
+      const passingProject = getPassingAssignmentProject(id);
+      
+      // Collect valid quiz answers if applicable
+      const quizInputs = { ...(NUMERIC[id] || {}) };
+      if (lesson.questions) {
+        lesson.questions.forEach((q) => {
+          // Pass the designated passing answer from options
+          quizInputs[q.field] = q.options[0].value;
+        });
+      }
+
+      const res = lesson.validate({ ...quizInputs, project: passingProject });
+      expect(res.passed, `${id} passing project should pass`).toBe(true);
+      expect(res.stars, `${id} passing project should earn 3 stars`).toBe(3);
+    });
   });
 });

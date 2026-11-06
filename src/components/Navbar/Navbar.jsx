@@ -18,9 +18,10 @@ export default function Navbar() {
 
   const navLinks = [
     { to: '/dashboard', label: 'Dashboard', emoji: '📊' },
-    { to: '/world-map', label: 'World Map', emoji: '🗺️' },
+    { to: '/world-map', label: 'Home Hub', emoji: '🏛️' },
     { to: '/explore', label: 'Explore', emoji: '🧭' },
     { to: '/studio/rtl', label: 'RTL Studio', emoji: '⚡' },
+    { to: '/studio/floorplanning', label: 'Floorplan Studio', emoji: '🗺️' },
     { to: '/studio/sta', label: 'STA Studio', emoji: '⏱️' },
   ];
 

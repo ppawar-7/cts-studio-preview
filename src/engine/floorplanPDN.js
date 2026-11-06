@@ -453,11 +453,11 @@ export function removeVia(powerNetwork, viaId) {
  * @param {Array<{ u: number, v: number, r: number, desc?: string }>} branches
  * @param {Map<number, number>|Object} dirichlet
  * @param {Map<number, number>|Object} neumann
- * @returns {{ voltages: number[], isSingular: boolean, disconnectedNodes: number[] }}
+ * @returns {{ voltages: number[], isSingular: boolean, disconnectedNodes: number[], maxResidual: number }}
  */
 export function solveMNA(nodes, branches, dirichlet, neumann = {}) {
   const n = nodes.length;
-  if (n === 0) return { voltages: [], isSingular: false, disconnectedNodes: [] };
+  if (n === 0) return { voltages: [], isSingular: false, disconnectedNodes: [], maxResidual: 0 };
 
   const adj = Array.from({ length: n }, () => []);
   branches.forEach((b) => {
@@ -511,6 +511,10 @@ export function solveMNA(nodes, branches, dirichlet, neumann = {}) {
   for (let i = 0; i < n; i++) {
     I[i] = getNeumann(i);
   }
+
+  // Preserve copies of original G and I for numerical residual validation
+  const G_orig = Array.from({ length: n }, (_, r) => new Float64Array(G[r]));
+  const I_orig = new Float64Array(I);
 
   const getDirichlet = (i) => (dirichlet instanceof Map ? dirichlet.get(i) : dirichlet[i]);
   for (const k of dirichletIndices) {
@@ -581,10 +585,23 @@ export function solveMNA(nodes, branches, dirichlet, neumann = {}) {
     voltages[row] = sum / G[row][row];
   }
 
+  // Check numerical residuals: ||G_orig * V - I_orig||_inf for unconstrained connected nodes
+  let maxResidual = 0;
+  for (let i = 0; i < n; i++) {
+    if (dirichletIndices.has(i) || disconnectedNodes.includes(i)) continue;
+    let gv = 0;
+    for (let j = 0; j < n; j++) {
+      gv += G_orig[i][j] * voltages[j];
+    }
+    const diff = Math.abs(gv - I_orig[i]);
+    if (diff > maxResidual) maxResidual = diff;
+  }
+
   return {
     voltages: Array.from(voltages),
     isSingular: disconnectedNodes.length > 0,
     disconnectedNodes,
+    maxResidual: Number(maxResidual.toExponential(3)),
   };
 }
 
@@ -602,14 +619,59 @@ export function solveMNA(nodes, branches, dirichlet, neumann = {}) {
  * @returns {Object} Comprehensive electrical report
  */
 export function solveResistivePDN(powerNetwork, techProfile = {}, constraints = {}, macros = []) {
-  if (!powerNetwork) {
+  if (!powerNetwork || ((!powerNetwork.straps || powerNetwork.straps.length === 0) && (!powerNetwork.rings || powerNetwork.rings.length === 0))) {
     return {
-      nominalVdd: 1.2,
-      worstDropMv: 0,
-      worstDropVssMv: 0,
-      budgetMv: 30,
-      meetsBudget: true,
+      valid: false,
+      evaluated: false,
+      nominalVdd: Number(techProfile?.nominalVoltage) || 1.2,
+      worstDropMv: null,
+      maxDropMv: null,
+      worstDropVssMv: null,
+      budgetMv: Number(constraints?.voltageDropBudgetMv || techProfile?.voltageDropBudgetMv) || 30,
+      meetsBudget: false,
+      hasOpenCircuit: true,
+      hasShortCircuit: false,
+      reason: 'Power network not modeled: no power rings or straps present',
+      nodes: [],
+      perStrap: [],
+    };
+  }
+
+  // Pre-check 1: Detect VDD/VSS Short Circuits
+  const shortCheck = detectVDDVSSShort(powerNetwork);
+  if (shortCheck && shortCheck.shorts && shortCheck.shorts.length > 0) {
+    return {
+      valid: false,
+      evaluated: true,
+      meetsBudget: false,
+      worstDropMv: Infinity,
+      maxDropMv: Infinity,
+      worstDropVssMv: Infinity,
+      nominalVdd: Number(techProfile?.nominalVoltage) || 1.2,
+      budgetMv: Number(constraints?.voltageDropBudgetMv || techProfile?.voltageDropBudgetMv) || 30,
       hasOpenCircuit: false,
+      hasShortCircuit: true,
+      reason: `Catastrophic short circuit detected: ${shortCheck.shorts[0].reason}`,
+      nodes: [],
+      perStrap: [],
+    };
+  }
+
+  // Pre-check 2: Verify both VDD and VSS supply topologies are present
+  const hasVddStrapOrRing = (powerNetwork.straps || []).some((s) => s.net === 'VDD') || (powerNetwork.rings || []).some((r) => r.net === 'VDD');
+  const hasVssStrapOrRing = (powerNetwork.straps || []).some((s) => s.net === 'VSS') || (powerNetwork.rings || []).some((r) => r.net === 'VSS');
+  if (!hasVddStrapOrRing || !hasVssStrapOrRing) {
+    return {
+      valid: false,
+      evaluated: false,
+      meetsBudget: false,
+      worstDropMv: null,
+      maxDropMv: null,
+      worstDropVssMv: null,
+      hasMissingSupply: true,
+      hasOpenCircuit: true,
+      hasShortCircuit: false,
+      reason: `Missing supply net: both VDD and VSS topologies must be modeled (found VDD: ${hasVddStrapOrRing}, VSS: ${hasVssStrapOrRing})`,
       nodes: [],
       perStrap: [],
     };
@@ -618,6 +680,9 @@ export function solveResistivePDN(powerNetwork, techProfile = {}, constraints = 
   const nominalVdd = Number(techProfile?.nominalVoltage) || 1.2;
   const budgetMv = Number(constraints?.voltageDropBudgetMv || techProfile?.voltageDropBudgetMv) || 30;
   const sheetRes = { ...SHEET_RES_OHM_PER_SQ, ...(techProfile?.sheetResistances || {}) };
+
+  const allOrphanLoads = [];
+  const allInvalidVias = [];
 
   function solveNet(targetNet) {
     const isVdd = targetNet === 'VDD';
@@ -644,20 +709,34 @@ export function solveResistivePDN(powerNetwork, techProfile = {}, constraints = 
 
     const branches = [];
     const addBranch = (u, v, r, desc = '') => {
-      if (u !== v && r > 0) {
+      if (u !== v && r > 0 && Number.isFinite(r)) {
         branches.push({ u, v, r, desc });
       }
     };
 
-    // Vias
+    // Filter and validate vias: must touch actual conductor on layer1 AND layer2
     vias.forEach((v) => {
       const l1 = v.layer1 || 'M4';
       const l2 = v.layer2 || 'M5';
-      const n1 = getNode(l1, v.x, v.y);
-      const n2 = getNode(l2, v.x, v.y);
-      // Power mesh via array resistance: multiple parallel via cuts across strap width
-      const rVia = 0.25; // Ohm per power via array
-      addBranch(n1, n2, rVia, `via_${v.id}`);
+      const touchesL1 = straps.some((s) => s.layer === l1 && pointOnStrap(s, v.x, v.y)) ||
+                        rings.some((r) => r.layer === l1 && pointOnRing(r, v.x, v.y));
+      const touchesL2 = straps.some((s) => s.layer === l2 && pointOnStrap(s, v.x, v.y)) ||
+                        rings.some((r) => r.layer === l2 && pointOnRing(r, v.x, v.y));
+      if (touchesL1 && touchesL2) {
+        const n1 = getNode(l1, v.x, v.y);
+        const n2 = getNode(l2, v.x, v.y);
+        const rVia = Number(techProfile?.viaResistance) || 0.25;
+        addBranch(n1, n2, Math.max(1e-4, rVia), `via_${v.id}`);
+      } else {
+        allInvalidVias.push({
+          viaId: v.id,
+          x: v.x,
+          y: v.y,
+          layer1: l1,
+          layer2: l2,
+          reason: `Via ${v.id} at (${v.x}, ${v.y}) does not connect to metal on both layers ${l1} (hit: ${touchesL1}) and ${l2} (hit: ${touchesL2})`,
+        });
+      }
     });
 
     // Straps
@@ -751,27 +830,41 @@ export function solveResistivePDN(powerNetwork, techProfile = {}, constraints = 
       connectEdge(rightPts, false, `ring_right_${r.id}`);
     });
 
-    // Dirichlet sources: power pads feed all ring corners & outer perimeter feeds
+    // Dirichlet sources: explicit validated power pads / sources
     const dirichlet = {};
-    if (rings.length > 0) {
+    const explicitSources = (powerNetwork.sources || []).filter((s) => s.net === targetNet || !s.net);
+
+    if (explicitSources.length > 0) {
+      explicitSources.forEach((src) => {
+        if (src.nodeId) {
+          const ring = rings.find((r) => r.id === src.nodeId);
+          if (ring) {
+            const l = ring.layer || 'M5';
+            dirichlet[getNode(l, ring.x, ring.y)] = vSource;
+            dirichlet[getNode(l, ring.x + ring.width, ring.y)] = vSource;
+            dirichlet[getNode(l, ring.x + ring.width, ring.y + ring.height)] = vSource;
+            dirichlet[getNode(l, ring.x, ring.y + ring.height)] = vSource;
+          }
+          const strap = straps.find((s) => s.id === src.nodeId);
+          if (strap) {
+            const l = strap.layer || 'M4';
+            dirichlet[getNode(l, strap.x1, strap.y1)] = vSource;
+            dirichlet[getNode(l, strap.x2, strap.y2)] = vSource;
+          }
+        } else if (Number.isFinite(src.x) && Number.isFinite(src.y)) {
+          const l = src.layer || (rings[0]?.layer || 'M5');
+          dirichlet[getNode(l, src.x, src.y)] = vSource;
+        }
+      });
+    } else if (rings.length > 0) {
+      // Default educational assumption when rings exist without explicit sources list:
+      // perimeter power pads feed the 4 corners of the ring
       rings.forEach((r) => {
         const l = r.layer || 'M5';
-        // Power pads on all 4 corners of the supply ring
         dirichlet[getNode(l, r.x, r.y)] = vSource;
         dirichlet[getNode(l, r.x + r.width, r.y)] = vSource;
         dirichlet[getNode(l, r.x + r.width, r.y + r.height)] = vSource;
         dirichlet[getNode(l, r.x, r.y + r.height)] = vSource;
-        // Midpoint power pads along each edge of the ring
-        dirichlet[getNode(l, Math.round(r.x + r.width / 2), r.y)] = vSource;
-        dirichlet[getNode(l, Math.round(r.x + r.width / 2), r.y + r.height)] = vSource;
-        dirichlet[getNode(l, r.x, Math.round(r.y + r.height / 2))] = vSource;
-        dirichlet[getNode(l, r.x + r.width, Math.round(r.y + r.height / 2))] = vSource;
-      });
-    } else if (straps.length > 0) {
-      straps.forEach((s) => {
-        const l = s.layer || 'M4';
-        dirichlet[getNode(l, s.x1, s.y1)] = vSource;
-        dirichlet[getNode(l, s.x2, s.y2)] = vSource;
       });
     }
 
@@ -784,22 +877,55 @@ export function solveResistivePDN(powerNetwork, techProfile = {}, constraints = 
     const explicitLoads = (powerNetwork.loads || []).filter((ld) => ld.net === targetNet || !ld.net);
     if (explicitLoads.length > 0) {
       explicitLoads.forEach((ld) => {
-        const currentMa = Number(ld.currentMa) || DEFAULT_CURRENT_MA;
-        const strapNodes = strapNodesMap.get(ld.nodeId || ld.strapId);
+        // Preserve legitimate zero-current values! Do not use Number(val) || 15
+        const currentMa = (ld.currentMa !== undefined && Number.isFinite(Number(ld.currentMa)))
+          ? Number(ld.currentMa)
+          : DEFAULT_CURRENT_MA;
+        const targetId = ld.nodeId || ld.strapId;
+        const strapNodes = strapNodesMap.get(targetId);
         if (strapNodes && strapNodes.length > 0) {
           const internalNodes = strapNodes.length > 2 ? strapNodes.slice(1, -1) : strapNodes;
           const perNodeMa = currentMa / internalNodes.length;
           internalNodes.forEach((nIdx) => addSink(nIdx, perNodeMa));
+        } else {
+          const ring = rings.find((r) => r.id === targetId);
+          if (ring) {
+            const ringNode = getNode(ring.layer || 'M5', ring.x, ring.y);
+            addSink(ringNode, currentMa);
+          } else {
+            allOrphanLoads.push({
+              loadId: ld.id || targetId || 'unknown',
+              reason: `Orphan load: referenced strap or ring '${targetId}' does not exist in ${targetNet} network`,
+            });
+          }
         }
       });
-    } else {
-      // Default: distribute standard educational current (15 mA) across each strap
-      straps.forEach((s) => {
-        const strapNodes = strapNodesMap.get(s.id);
-        if (strapNodes && strapNodes.length > 0) {
-          const internalNodes = strapNodes.length > 2 ? strapNodes.slice(1, -1) : strapNodes;
-          const perNodeMa = DEFAULT_CURRENT_MA / internalNodes.length;
-          internalNodes.forEach((nIdx) => addSink(nIdx, perNodeMa));
+    } else if (macros && macros.length > 0) {
+      // Derive real macro dynamic current loads and map to nearest power strap
+      macros.forEach((m) => {
+        const pwrMw = Number(m.powerMw || (m.nominalCurrentMa ? m.nominalCurrentMa * nominalVdd : 0));
+        const macroMa = pwrMw > 0 ? (pwrMw / nominalVdd) : (Number(m.nominalCurrentMa) || 15);
+        if (macroMa > 0) {
+          const mxCenter = (Number(m.x) || 0) + (Number(m.width) || 80) / 2;
+          const myCenter = (Number(m.y) || 0) + (Number(m.height) || 60) / 2;
+          let bestStrap = null;
+          let bestDist = Infinity;
+          straps.forEach((s) => {
+            const sx = (s.x1 + s.x2) / 2;
+            const sy = (s.y1 + s.y2) / 2;
+            const d = Math.hypot(mxCenter - sx, myCenter - sy);
+            if (d < bestDist) {
+              bestDist = d;
+              bestStrap = s;
+            }
+          });
+          if (bestStrap) {
+            const strapNodes = strapNodesMap.get(bestStrap.id);
+            if (strapNodes && strapNodes.length > 0) {
+              const nodeIdx = strapNodes[Math.floor(strapNodes.length / 2)];
+              addSink(nodeIdx, macroMa);
+            }
+          }
         }
       });
     }
@@ -828,13 +954,14 @@ export function solveResistivePDN(powerNetwork, techProfile = {}, constraints = 
       };
     });
 
-    const hasOpenCircuit = mna.disconnectedNodes.length > 0;
+    const hasOpenCircuit = mna.disconnectedNodes.length > 0 || Object.keys(dirichlet).length === 0;
 
     return {
       worstDropMv: Number(worstDropMv.toFixed(2)),
       hasOpenCircuit,
       nodes: nodeResults,
       strapNodesMap,
+      maxResidual: mna.maxResidual,
     };
   }
 
@@ -843,6 +970,7 @@ export function solveResistivePDN(powerNetwork, techProfile = {}, constraints = 
 
   const worstDropMv = Math.max(vdd.worstDropMv, vss.worstDropMv);
   const hasOpenCircuit = vdd.hasOpenCircuit || vss.hasOpenCircuit;
+  const hasOrphanLoads = allOrphanLoads.length > 0;
 
   const perStrap = (powerNetwork.straps || []).map((s) => {
     const isVdd = s.net === 'VDD';
@@ -871,15 +999,24 @@ export function solveResistivePDN(powerNetwork, techProfile = {}, constraints = 
     };
   });
 
+  const meetsBudget = !hasOpenCircuit && !hasOrphanLoads && Number.isFinite(worstDropMv) && worstDropMv <= budgetMv;
+
   return {
+    valid: !hasOpenCircuit && !hasOrphanLoads && meetsBudget,
+    evaluated: true,
     nominalVdd,
-    worstDropMv,
-    maxDropMv: worstDropMv,
-    worstDropVssMv: vss.worstDropMv,
+    worstDropMv: Number.isFinite(worstDropMv) ? worstDropMv : null,
+    maxDropMv: Number.isFinite(worstDropMv) ? worstDropMv : null,
+    worstDropVssMv: Number.isFinite(vss.worstDropMv) ? vss.worstDropMv : null,
     budgetMv,
-    meetsBudget: !hasOpenCircuit && worstDropMv <= budgetMv,
+    meetsBudget,
     hasOpenCircuit,
     hasOpenLoad: hasOpenCircuit,
+    hasShortCircuit: false,
+    hasOrphanLoads,
+    orphanLoads: allOrphanLoads,
+    invalidVias: allInvalidVias,
+    maxResidual: Math.max(vdd.maxResidual || 0, vss.maxResidual || 0),
     nodes: [...vdd.nodes, ...vss.nodes],
     perStrap,
     solverMethod: 'Modified Nodal Analysis (MNA) Conductance Matrix with Gaussian Elimination',

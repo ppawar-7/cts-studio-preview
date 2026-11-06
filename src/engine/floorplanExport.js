@@ -2,13 +2,42 @@
  * floorplanExport.js
  * ===================
  * Standards-compliant EDA Exporters for Floorplanning Studio 3.0:
- * 1. Physical Library Exchange Format (LEF 5.8 subset)
- * 2. Design Exchange Format (DEF 5.8 subset)
+ * 1. Physical Library Exchange Format (Educational LEF 5.8 subset)
+ * 2. Design Exchange Format (Educational DEF 5.8 subset)
  * 3. ASCII Signoff & Diagnostic Handoff Report
  */
 
 import { MACRO_MASTERS_LIBRARY } from './floorplanProjectModel.js';
 import { evaluateFloorplanSignoff } from './floorplanSignoff.js';
+
+/**
+ * Standard DEF 5.8 placement orientation mapping.
+ * Maps internal rotation/reflection tokens (R0, R90, R180, R270, MX, MY)
+ * to official DEF placement orientation standards (N, W, S, E, FS, FN, etc.).
+ */
+export function mapOrientationToDEF(orient) {
+  if (!orient) return 'N';
+  const o = String(orient).trim().toUpperCase();
+  const MAP = {
+    'R0': 'N',
+    'N': 'N',
+    'R90': 'W',
+    'W': 'W',
+    'R180': 'S',
+    'S': 'S',
+    'R270': 'E',
+    'E': 'E',
+    'MY': 'FN',
+    'FN': 'FN',
+    'MX': 'FS',
+    'FS': 'FS',
+    'MY90': 'FW',
+    'FW': 'FW',
+    'MX90': 'FE',
+    'FE': 'FE',
+  };
+  return MAP[o] || 'N';
+}
 
 /**
  * Generates standards-compliant Physical Library Exchange Format (LEF 5.8)
@@ -21,6 +50,8 @@ export function generateLEF(project) {
   if (!project) throw new Error('Cannot generate LEF for null project');
 
   const lines = [];
+  lines.push('# Educational LEF 5.8 Subset Export');
+  lines.push('# Validated for classroom EDA models and educational synthesis/P&R pipelines');
   lines.push('VERSION 5.8 ;');
   lines.push('BUSBITCHARS "[]" ;');
   lines.push('DIVIDERCHAR "/" ;');
@@ -32,7 +63,8 @@ export function generateLEF(project) {
   // Collect unique macro masters
   const mastersMap = new Map();
   (project.macros || []).forEach((m) => {
-    const masterId = m.masterId || m.name || m.id;
+    const rawMasterId = m.masterId || m.name || m.id;
+    const masterId = String(rawMasterId).replace(/[^a-zA-Z0-9_]/g, '_');
     if (!mastersMap.has(masterId)) {
       const libraryDef = MACRO_MASTERS_LIBRARY[m.masterId] || {
         id: masterId,
@@ -59,7 +91,8 @@ export function generateLEF(project) {
     ];
 
     pins.forEach((p) => {
-      const pName = p.name || p.id || 'pin';
+      const rawPName = p.name || p.id || 'pin';
+      const pName = String(rawPName).replace(/[^a-zA-Z0-9_\[\]]/g, '_');
       const isPower = pName.toLowerCase().includes('vd');
       const isGround = pName.toLowerCase().includes('vs');
       lines.push(`  PIN ${pName}`);
@@ -100,10 +133,13 @@ export function generateDEF(project) {
   if (!project || !project.die) throw new Error('Cannot generate DEF for invalid project');
 
   const lines = [];
-  const designName = (project.name || 'floorplan').replace(/\s+/g, '_');
+  const rawName = project.name || 'floorplan';
+  const designName = String(rawName).trim().replace(/[^a-zA-Z0-9_]/g, '_');
   const die = project.die;
   const dbu = 1000; // 1000 DBU per micron
 
+  lines.push('# Educational DEF 5.8 Subset Export');
+  lines.push('# Educational EDA Model — Academic and Classroom Learning Subset');
   lines.push('VERSION 5.8 ;');
   lines.push('DIVIDERCHAR "/" ;');
   lines.push('BUSBITCHARS "[]" ;');
@@ -112,10 +148,10 @@ export function generateDEF(project) {
   lines.push('');
 
   // Die Area
-  const x1 = Math.round((die.x || 0) * dbu);
-  const y1 = Math.round((die.y || 0) * dbu);
-  const x2 = Math.round(((die.x || 0) + (die.width || 500)) * dbu);
-  const y2 = Math.round(((die.y || 0) + (die.height || 400)) * dbu);
+  const x1 = Math.round((Number(die.x) || 0) * dbu);
+  const y1 = Math.round((Number(die.y) || 0) * dbu);
+  const x2 = Math.round(((Number(die.x) || 0) + (Number(die.width) || 500)) * dbu);
+  const y2 = Math.round(((Number(die.y) || 0) + (Number(die.height) || 400)) * dbu);
   lines.push(`DIEAREA ( ${x1} ${y1} ) ( ${x2} ${y2} ) ;`);
   lines.push('');
 
@@ -123,11 +159,12 @@ export function generateDEF(project) {
   const macros = project.macros || [];
   lines.push(`COMPONENTS ${macros.length} ;`);
   macros.forEach((m) => {
-    const mx = Math.round(m.x * dbu);
-    const my = Math.round(m.y * dbu);
-    const orient = m.orientation || 'N';
-    const master = m.masterId || m.name || m.id;
-    lines.push(`  - ${m.id} ${master} + PLACED ( ${mx} ${my} ) ${orient} ;`);
+    const mx = Math.round((Number(m.x) || 0) * dbu);
+    const my = Math.round((Number(m.y) || 0) * dbu);
+    const orient = mapOrientationToDEF(m.orientation);
+    const master = String(m.masterId || m.name || m.id).replace(/[^a-zA-Z0-9_]/g, '_');
+    const compId = String(m.id).replace(/[^a-zA-Z0-9_]/g, '_');
+    lines.push(`  - ${compId} ${master} + PLACED ( ${mx} ${my} ) ${orient} ;`);
   });
   lines.push('END COMPONENTS');
   lines.push('');
@@ -136,31 +173,59 @@ export function generateDEF(project) {
   const pins = project.pins || [];
   lines.push(`PINS ${pins.length} ;`);
   pins.forEach((p) => {
-    const px = Math.round((p.x || 0) * dbu);
-    const py = Math.round((p.y || 0) * dbu);
+    const px = Math.round((Number(p.x) || 0) * dbu);
+    const py = Math.round((Number(p.y) || 0) * dbu);
     const dir = p.direction || 'INPUT';
-    const net = p.net || p.id;
+    const net = String(p.net || p.id).replace(/[^a-zA-Z0-9_]/g, '_');
     const layer = p.layer || 'M3';
-    lines.push(`  - ${p.id} + NET ${net} + DIRECTION ${dir} + USE SIGNAL + LAYER ${layer} ( -500 -500 ) ( 500 500 ) + PLACED ( ${px} ${py} ) N ;`);
+    const pinId = String(p.id).replace(/[^a-zA-Z0-9_]/g, '_');
+    lines.push(`  - ${pinId} + NET ${net} + DIRECTION ${dir} + USE SIGNAL + LAYER ${layer} ( -500 -500 ) ( 500 500 ) + PLACED ( ${px} ${py} ) N ;`);
   });
   lines.push('END PINS');
   lines.push('');
 
-  // Special Nets (PDN Straps & Rings)
-  const power = project.powerNetwork || { rings: [], straps: [] };
+  // Special Nets (PDN Straps & Rings & Vias)
+  const power = project.powerNetwork || { rings: [], straps: [], vias: [] };
   const powerNets = ['VDD', 'VSS'];
   lines.push(`SPECIALNETS ${powerNets.length} ;`);
   powerNets.forEach((pNet) => {
     lines.push(`  - ${pNet} + USE ${pNet === 'VDD' ? 'POWER' : 'GROUND'}`);
+    
+    // Rings
+    const rings = (power.rings || []).filter((r) => r.net === pNet);
+    rings.forEach((r) => {
+      const rw = Math.round((Number(r.lineWidth) || 6) * dbu);
+      const layer = r.layer || 'M5';
+      const rx1 = Math.round(Number(r.x) * dbu);
+      const ry1 = Math.round(Number(r.y) * dbu);
+      const rx2 = Math.round((Number(r.x) + Number(r.width)) * dbu);
+      const ry2 = Math.round((Number(r.y) + Number(r.height)) * dbu);
+      // 4 ring segments
+      lines.push(`    + ROUTED ${layer} ${rw} ( ${rx1} ${ry1} ) ( ${rx2} ${ry1} )`);
+      lines.push(`    + ROUTED ${layer} ${rw} ( ${rx2} ${ry1} ) ( ${rx2} ${ry2} )`);
+      lines.push(`    + ROUTED ${layer} ${rw} ( ${rx2} ${ry2} ) ( ${rx1} ${ry2} )`);
+      lines.push(`    + ROUTED ${layer} ${rw} ( ${rx1} ${ry2} ) ( ${rx1} ${ry1} )`);
+    });
+
+    // Straps
     const straps = (power.straps || []).filter((s) => s.net === pNet);
     straps.forEach((s) => {
-      const sx1 = Math.round(s.x1 * dbu);
-      const sy1 = Math.round(s.y1 * dbu);
-      const sx2 = Math.round(s.x2 * dbu);
-      const sy2 = Math.round(s.y2 * dbu);
-      const sw = Math.round((s.width || 4) * dbu);
+      const sx1 = Math.round((Number(s.x1) || 0) * dbu);
+      const sy1 = Math.round((Number(s.y1) || 0) * dbu);
+      const sx2 = Math.round((Number(s.x2) || 0) * dbu);
+      const sy2 = Math.round((Number(s.y2) || 0) * dbu);
+      const sw = Math.round((Number(s.width) || 4) * dbu);
       lines.push(`    + ROUTED ${s.layer || 'M4'} ${sw} ( ${sx1} ${sy1} ) ( ${sx2} ${sy2} )`);
     });
+
+    // Vias
+    const vias = (power.vias || []).filter((v) => !v.net || v.net === pNet);
+    vias.forEach((v) => {
+      const vx = Math.round((Number(v.x) || 0) * dbu);
+      const vy = Math.round((Number(v.y) || 0) * dbu);
+      lines.push(`    + ROUTED ${v.layer2 || 'M5'} 0 ( ${vx} ${vy} ) via_${v.id || 'cut'}`);
+    });
+
     lines.push(`    ;`);
   });
   lines.push('END SPECIALNETS');
@@ -170,8 +235,17 @@ export function generateDEF(project) {
   const nets = project.nets || [];
   lines.push(`NETS ${nets.length} ;`);
   nets.forEach((n) => {
-    const terms = [...(n.sources || []), ...(n.sinks || [])].map((t) => `( ${t} pin )`).join(' ');
-    lines.push(`  - ${n.id} ${terms || '( PIN )'} ;`);
+    const terms = [];
+    (n.sources || []).forEach((src) => {
+      if (pins.some((p) => p.id === src || p.net === src)) terms.push(`( PIN ${src} )`);
+      else terms.push(`( ${src} pin )`);
+    });
+    (n.sinks || []).forEach((snk) => {
+      if (pins.some((p) => p.id === snk || p.net === snk)) terms.push(`( PIN ${snk} )`);
+      else terms.push(`( ${snk} pin )`);
+    });
+    const netId = String(n.id).replace(/[^a-zA-Z0-9_]/g, '_');
+    lines.push(`  - ${netId} ${terms.join(' ') || '( PIN )'} ;`);
   });
   lines.push('END NETS');
   lines.push('');

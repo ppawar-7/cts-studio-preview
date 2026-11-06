@@ -1,3 +1,4 @@
+import { evaluateGuidedAssignment } from './guidedAssignmentService.js';
 /**
  * fpExpandedCurriculumData.js
  * ============================
@@ -58,18 +59,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const ar = Number(inputs.aspectRatio);
-      const isArOk = Math.abs(ar - 0.6) <= 0.05;
-      const isQuizOk = inputs.bestRatioQuiz === 'ar-square';
-      const passed = isArOk && isQuizOk;
-      return {
-        passed,
-        score: passed ? 35 : isArOk ? 20 : 10,
-        stars: passed ? 3 : isArOk ? 2 : 1,
-        feedback: passed
-          ? '✓ Aspect ratio accurately computed (0.60) and interconnect physics verified!'
-          : '⚠️ Check your aspect ratio formula (Height / Width = 300 / 500) and interconnect physics.',
-      };
+      const isArOk = Math.abs(Number(inputs.aspectRatio) - 0.6) <= 0.05; const isQuizOk = inputs.bestRatioQuiz === 'ar-square' && isArOk;
+      return evaluateGuidedAssignment('fp-6', inputs, isQuizOk, 35);
     },
   },
 
@@ -89,19 +80,8 @@ export const EXPANDED_LESSONS = {
     Required Core Area = StdCell Area / 0.70 = 1,785,714 µm².`,
     canvas: { dieWidth: 700, dieHeight: 550, coreWidth: 600, coreHeight: 450, margin: 50 },
     validate: (inputs) => {
-      const stdCell = Number(inputs.stdCellArea);
-      const reqCore = Number(inputs.requiredCoreArea);
-      const isStdOk = Math.abs(stdCell - 1250000) <= 5000;
-      const isCoreOk = Math.abs(reqCore - 1785714) <= 10000;
-      const passed = isStdOk && isCoreOk;
-      return {
-        passed,
-        score: passed ? 35 : (isStdOk || isCoreOk) ? 20 : 10,
-        stars: passed ? 3 : (isStdOk || isCoreOk) ? 2 : 1,
-        feedback: passed
-          ? '✓ Gate equivalent sizing and target utilization area budget certified!'
-          : '⚠️ Double-check: StdCell = 100k × 12.5 = 1,250,000 µm². Core = 1,250,000 / 0.70.',
-      };
+      const isStdOk = Math.abs(Number(inputs.stdCellArea) - 1250000) <= 5000; const isCoreOk = Math.abs(Number(inputs.requiredCoreArea) - 1785714) <= 10000; const isQuizOk = isStdOk && isCoreOk;
+      return evaluateGuidedAssignment('fp-7', inputs, isQuizOk, 35);
     },
   },
 
@@ -131,18 +111,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const count = Number(inputs.rowCount);
-      const isCountOk = count === 128 || count === 129;
-      const isQuizOk = inputs.abutmentQuiz === 'row-abutment-rails';
-      const passed = isCountOk && isQuizOk;
-      return {
-        passed,
-        score: passed ? 35 : isCountOk ? 20 : 10,
-        stars: passed ? 3 : isCountOk ? 2 : 1,
-        feedback: passed
-          ? '✓ Placement row pitch and power rail abutment physics certified!'
-          : '⚠️ Row calculation: floor(350 / 2.72) = 128. Remember alternating N/FS flips share VDD/VSS rails.',
-      };
+      const isCountOk = Number(inputs.rowCount) === 128 || Number(inputs.rowCount) === 129; const isQuizOk = inputs.abutmentQuiz === 'row-abutment-rails' && isCountOk;
+      return evaluateGuidedAssignment('fp-8', inputs, isQuizOk, 35);
     },
   },
 
@@ -171,15 +141,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.blockageTypeQuiz === 'soft-for-buffers';
-      return {
-        passed,
-        score: passed ? 35 : 15,
-        stars: passed ? 3 : 1,
-        feedback: passed
-          ? '✓ Placement blockage semantics and buffer insertion rules verified!'
-          : '⚠️ Soft blockages allow repeaters and inverters to pass through long channels without congesting standard logic.',
-      };
+      const isQuizOk = inputs.blockageTypeQuiz === 'soft-for-buffers';
+      return evaluateGuidedAssignment('fp-9', inputs, isQuizOk, 35);
     },
   },
 
@@ -209,15 +172,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.pinOrientationQuiz === 'orient-r0-inward';
-      return {
-        passed,
-        score: passed ? 40 : 15,
-        stars: passed ? 3 : 1,
-        feedback: passed
-          ? '✓ Inward-facing macro orientation and interconnect reduction verified!'
-          : '⚠️ Orienting pins towards the core center minimizes wirelength and avoids routing detours around macro bodies.',
-      };
+      const isQuizOk = inputs.pinOrientationQuiz === 'orient-r0-inward';
+      return evaluateGuidedAssignment('fp-10', inputs, isQuizOk, 40);
     },
   },
 
@@ -248,18 +204,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const sep = Number(inputs.requiredSeparation);
-      const isSepOk = sep === 35;
-      const isQuizOk = inputs.corridorQuiz === 'corridor-congestion';
-      const passed = isSepOk && isQuizOk;
-      return {
-        passed,
-        score: passed ? 40 : isSepOk ? 25 : 10,
-        stars: passed ? 3 : isSepOk ? 2 : 1,
-        feedback: passed
-          ? '✓ Macro halo summation (35 µm) and channel congestion physics certified!'
-          : '⚠️ Separation rule: Halo_A + Halo_B = 15 + 20 = 35 µm. Channels below 30 µm suffer severe track exhaustion.',
-      };
+      const isSepOk = Number(inputs.requiredSeparation) === 35; const isQuizOk = inputs.corridorQuiz === 'corridor-congestion' && isSepOk;
+      return evaluateGuidedAssignment('fp-11', inputs, isQuizOk, 40);
     },
   },
 
@@ -288,15 +234,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.fixedMacroQuiz === 'fixed-noise-isolation';
-      return {
-        passed,
-        score: passed ? 40 : 15,
-        stars: passed ? 3 : 1,
-        feedback: passed
-          ? '✓ Analog macro isolation and substrate noise mitigation certified!'
-          : '⚠️ Analog circuits like PLLs and ADC references require quiet corners away from digital switching noise.',
-      };
+      const isQuizOk = inputs.fixedMacroQuiz === 'fixed-noise-isolation';
+      return evaluateGuidedAssignment('fp-12', inputs, isQuizOk, 40);
     },
   },
 
@@ -326,15 +265,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.hpwlFlylineQuiz === 'hpwl-central-cluster';
-      return {
-        passed,
-        score: passed ? 45 : 20,
-        stars: passed ? 3 : 1,
-        feedback: passed
-          ? '✓ Connectivity-driven macro placement and HPWL minimization verified!'
-          : '⚠️ Placing the driving logic centrally between its memories minimizes total net bounding boxes.',
-      };
+      const isQuizOk = inputs.hpwlFlylineQuiz === 'hpwl-central-cluster';
+      return evaluateGuidedAssignment('fp-13', inputs, isQuizOk, 45);
     },
   },
 
@@ -364,19 +296,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const c1 = Number(inputs.pinCoord1);
-      const c2 = Number(inputs.pinCoord2);
-      const isPitchOk = !isNaN(c1) && !isNaN(c2) && Math.abs(c2 - c1) >= 10 && c1 >= 0 && c2 >= 0 && c1 <= 500 && c2 <= 500;
-      const isQuizOk = inputs.pinPitchQuiz === 'prevent-shorts';
-      const passed = isPitchOk && isQuizOk;
-      return {
-        passed,
-        score: passed ? 40 : isPitchOk ? 25 : 10,
-        stars: passed ? 3 : isPitchOk ? 2 : 1,
-        feedback: passed
-          ? '✓ Pin pitch compliance (Δcoord >= 10 µm) and DRC spacing certified!'
-          : '⚠️ Ensure |coord2 - coord1| >= 10 µm within core edge bounds (0 to 500 µm).',
-      };
+      const p1 = Number(inputs.pinCoord1); const p2 = Number(inputs.pinCoord2); const isPitchOk = Math.abs(p2 - p1) >= 10 && p1 >= 0 && p2 >= 0 && p1 <= 500 && p2 <= 500; const isQuizOk = inputs.pinPitchQuiz === 'prevent-shorts' && isPitchOk;
+      return evaluateGuidedAssignment('fp-14', inputs, isQuizOk, 40);
     },
   },
 
@@ -405,15 +326,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.pinAlignmentQuiz === 'align-straight-tracks';
-      return {
-        passed,
-        score: passed ? 40 : 15,
-        stars: passed ? 3 : 1,
-        feedback: passed
-          ? '✓ Collinear I/O pin alignment and routing track preservation verified!'
-          : '⚠️ Direct collinear alignment allows signals to enter the core without wasteful jogs.',
-      };
+      const isQuizOk = inputs.pinAlignmentQuiz === 'align-straight-tracks';
+      return evaluateGuidedAssignment('fp-15', inputs, isQuizOk, 40);
     },
   },
 
@@ -442,15 +356,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.powerRingQuiz === 'thick-metal-low-r';
-      return {
-        passed,
-        score: passed ? 45 : 20,
-        stars: passed ? 3 : 1,
-        feedback: passed
-          ? '✓ Thick metal layer sheet resistance and power ring physics verified!'
-          : '⚠️ Upper metal layers have lower sheet resistance (0.03-0.05 Ω/sq) compared to thin M1 (0.12 Ω/sq).',
-      };
+      const isQuizOk = inputs.powerRingQuiz === 'thick-metal-low-r';
+      return evaluateGuidedAssignment('fp-16', inputs, isQuizOk, 45);
     },
   },
 
@@ -479,15 +386,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.viaContinuityQuiz === 'open-net-floating';
-      return {
-        passed,
-        score: passed ? 45 : 20,
-        stars: passed ? 3 : 1,
-        feedback: passed
-          ? '✓ Interlayer via continuity and power mesh integrity verified!'
-          : '⚠️ Metal layers are separated by dielectric oxide; interlayer vias are mandatory to form a conductive circuit.',
-      };
+      const isQuizOk = inputs.viaContinuityQuiz === 'open-net-floating';
+      return evaluateGuidedAssignment('fp-17', inputs, isQuizOk, 45);
     },
   },
 
@@ -518,18 +418,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const drop = Number(inputs.calculatedDrop);
-      const isDropOk = drop === 30 || Math.abs(drop - 30) <= 1;
-      const isQuizOk = inputs.irFixQuiz === 'add-more-straps';
-      const passed = isDropOk && isQuizOk;
-      return {
-        passed,
-        score: passed ? 45 : isDropOk ? 25 : 10,
-        stars: passed ? 3 : isDropOk ? 2 : 1,
-        feedback: passed
-          ? '✓ Ohm’s law IR drop calculation (30 mV) and PDN strap remediation certified!'
-          : '⚠️ Calculation: 20 mA × 1.5 Ω = 30 mV. Adding parallel straps reduces R_effective and cures IR drop.',
-      };
+      const isDropOk = Math.abs(Number(inputs.calculatedDrop) - 30) <= 2; const isQuizOk = inputs.irFixQuiz === 'add-more-straps' && isDropOk;
+      return evaluateGuidedAssignment('fp-18', inputs, isQuizOk, 45);
     },
   },
 
@@ -560,15 +450,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.congestionThresholdQuiz === 'overflow-unroutable';
-      return {
-        passed,
-        score: passed ? 50 : 20,
-        stars: passed ? 3 : 2,
-        feedback: passed
-          ? '✓ Routing track capacity overflow threshold physics verified!'
-          : '⚠️ Bins with Demand/Capacity > 1.0 guarantee detailed routing failure and must be relieved during floorplanning.',
-      };
+      const isQuizOk = inputs.congestionThresholdQuiz === 'overflow-unroutable';
+      return evaluateGuidedAssignment('fp-19', inputs, isQuizOk, 50);
     },
   },
 
@@ -599,15 +482,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.drcPriorityQuiz === 'drc-hard-blocker';
-      return {
-        passed,
-        score: passed ? 50 : 20,
-        stars: passed ? 3 : 2,
-        feedback: passed
-          ? '✓ Physical design rule hierarchy and hard DRC error remediation verified!'
-          : '⚠️ Geometric violations (macro overlaps, boundary escapes) are absolute blockers for downstream tools.',
-      };
+      const isQuizOk = inputs.drcPriorityQuiz === 'drc-hard-blocker';
+      return evaluateGuidedAssignment('fp-20', inputs, isQuizOk, 50);
     },
   },
 
@@ -637,15 +513,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.ppaQuiz === 'ppa-balance-65-75';
-      return {
-        passed,
-        score: passed ? 50 : 20,
-        stars: passed ? 3 : 2,
-        feedback: passed
-          ? '✓ PPA optimization balance (65-75% target utilization) verified!'
-          : '⚠️ Optimal commercial ASIC floorplans target 65-75% utilization to guarantee routability.',
-      };
+      const isQuizOk = inputs.ppaQuiz === 'ppa-balance-65-75';
+      return evaluateGuidedAssignment('fp-21', inputs, isQuizOk, 50);
     },
   },
 
@@ -675,15 +544,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.candidateChoice === 'candidate-corner-placement';
-      return {
-        passed,
-        score: passed ? 50 : 20,
-        stars: passed ? 3 : 2,
-        feedback: passed
-          ? '✓ Candidate floorplan scoring matrix and corner placement choice verified!'
-          : '⚠️ Placing large hard macros against corners and edges preserves contiguous placeable area for standard cells.',
-      };
+      const isQuizOk = inputs.candidateChoice === 'candidate-corner-placement';
+      return evaluateGuidedAssignment('fp-22', inputs, isQuizOk, 50);
     },
   },
 
@@ -713,15 +575,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const passed = inputs.signoffChecklist === 'all-three-gates-pass';
-      return {
-        passed,
-        score: passed ? 55 : 25,
-        stars: passed ? 3 : 2,
-        feedback: passed
-          ? '✓ Comprehensive physical design sign-off verification criteria certified!'
-          : '⚠️ Signoff requires passing DRC, PDN continuity, and routability margins simultaneously.',
-      };
+      const isQuizOk = inputs.signoffChecklist === 'all-three-gates-pass';
+      return evaluateGuidedAssignment('fp-23', inputs, isQuizOk, 55);
     },
   },
 
@@ -742,32 +597,8 @@ export const EXPANDED_LESSONS = {
     requiresStudioProject: true,
     minMacros: 4,
     validate: (inputs) => {
-      const project = inputs && inputs.project;
-      if (!project) {
-        return {
-          passed: false,
-          score: 0,
-          stars: 0,
-          feedback: '⚠️ No saved Studio project found. Open the Floorplan Studio, build or repair a design, press Save, then come back.',
-        };
-      }
-      const report = evaluateFloorplanSignoff(project);
-      const macrosOk = report.metrics.macroCount >= 4;
-      const errorsOk = report.errorCount === 0;
-      const cleanOk = report.clean;
-      const passed = macrosOk && cleanOk;
-      const firstIssue = report.violations[0];
-      return {
-        passed,
-        score: passed ? 60 : (macrosOk && errorsOk) ? 40 : macrosOk ? 20 : 10,
-        stars: passed ? 3 : (macrosOk && errorsOk) ? 2 : 1,
-        report,
-        feedback: passed
-          ? `🏆 Signed off: ${report.metrics.macroCount} macros, 0 DRC/PDN violations, utilization ${report.metrics.nominalUtilization}%, worst IR drop ${report.metrics.maxIRDropMv} mV.`
-          : !macrosOk
-          ? `⚠️ The capstone needs at least 4 hard macros (your project has ${report.metrics.macroCount}). Load the Dual SRAM or Small SoC benchmark in the Studio and repair it.`
-          : `⚠️ ${report.violations.length} violation(s) remain. First: ${firstIssue.rule} — ${firstIssue.message}`,
-      };
+      const isQuizOk = true;
+      return evaluateGuidedAssignment('fp-24', inputs, isQuizOk, 60);
     },
   },
 
@@ -798,24 +629,7 @@ export const EXPANDED_LESSONS = {
     ],
     validate: (inputs) => {
       const isQuizOk = inputs.macroMasterQuiz === 'r90-rotate-transform';
-      let projectOk = true;
-      let projectMsg = '';
-      if (inputs.project) {
-        const macros = inputs.project.macros || [];
-        const hasMinMacros = macros.length >= 2;
-        const hasOriented = macros.some((m) => m.orientation && m.orientation !== 'R0');
-        projectOk = hasMinMacros && hasOriented;
-        projectMsg = !hasMinMacros ? 'Project requires at least 2 macros from the Master Library. ' : (!hasOriented ? 'At least one macro must be oriented (e.g. MY, R90) to verify pin transform. ' : '');
-      }
-      const passed = isQuizOk && projectOk;
-      return {
-        passed,
-        score: passed ? 45 : (isQuizOk ? 30 : 15),
-        stars: passed ? 3 : (isQuizOk ? 2 : 1),
-        feedback: passed
-          ? '✓ Macro master orientation matrix and physical instance transformation certified!'
-          : projectMsg ? `⚠️ ${projectMsg}Adjust your layout in Studio, save, and re-verify.` : '⚠️ Orientation transforms: R90 maps local (x, y) to (y, W - x). Verify 2D affine rotation mechanics.',
-      };
+      return evaluateGuidedAssignment('fp-25', inputs, isQuizOk, 45);
     },
   },
 
@@ -844,22 +658,7 @@ export const EXPANDED_LESSONS = {
     ],
     validate: (inputs) => {
       const isQuizOk = inputs.placementRegionQuiz === 'fence-exclusive-guide-preferred';
-      let projectOk = true;
-      let projectMsg = '';
-      if (inputs.project) {
-        const hasRegionsOrBlockages = (inputs.project.placementRegions?.length > 0) || (inputs.project.blockages?.length > 0);
-        projectOk = hasRegionsOrBlockages;
-        projectMsg = !hasRegionsOrBlockages ? 'Define at least one placement blockage or region in the Studio to partition hierarchical domains. ' : '';
-      }
-      const passed = isQuizOk && projectOk;
-      return {
-        passed,
-        score: passed ? 45 : (isQuizOk ? 30 : 15),
-        stars: passed ? 3 : (isQuizOk ? 2 : 1),
-        feedback: passed
-          ? '✓ Hierarchical placement regions and domain partitioning certified!'
-          : projectMsg ? `⚠️ ${projectMsg}Configure blockages in Studio and re-verify.` : '⚠️ Hard FENCE regions enforce strict mutual exclusion; GUIDE regions gently attract placement without strict containment.',
-      };
+      return evaluateGuidedAssignment('fp-26', inputs, isQuizOk, 45);
     },
   },
 
@@ -888,23 +687,7 @@ export const EXPANDED_LESSONS = {
     ],
     validate: (inputs) => {
       const isQuizOk = inputs.legalizationQuiz === 'min-displacement-cost';
-      let projectOk = true;
-      let projectMsg = '';
-      if (inputs.project) {
-        const signoff = evaluateFloorplanSignoff(inputs.project);
-        const hasOverlap = signoff.violations.some((v) => v.rule.includes('Overlap'));
-        projectOk = !hasOverlap;
-        projectMsg = hasOverlap ? 'Your Studio project still has overlapping macros. Run the Macro Legalizer assistant or separate macros. ' : '';
-      }
-      const passed = isQuizOk && projectOk;
-      return {
-        passed,
-        score: passed ? 45 : (isQuizOk ? 30 : 15),
-        stars: passed ? 3 : (isQuizOk ? 2 : 1),
-        feedback: passed
-          ? '✓ Assisted macro legalization and physical overlap clearance certified!'
-          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Legalization minimizes perturbation (displacement Δx, Δy) from the engineer’s intended architectural seed placement.',
-      };
+      return evaluateGuidedAssignment('fp-27', inputs, isQuizOk, 45);
     },
   },
 
@@ -933,23 +716,7 @@ export const EXPANDED_LESSONS = {
     ],
     validate: (inputs) => {
       const isQuizOk = inputs.pinConstraintQuiz === 'corner-keepout-power-pad';
-      let projectOk = true;
-      let projectMsg = '';
-      if (inputs.project) {
-        const signoff = evaluateFloorplanSignoff(inputs.project);
-        const hasPinPitchViolation = signoff.violations.some((v) => v.rule.includes('Pin Pitch'));
-        projectOk = !hasPinPitchViolation;
-        projectMsg = hasPinPitchViolation ? 'Your Studio project has I/O pin pitch violations (<10 µm). Run the Pin Legalizer assistant. ' : '';
-      }
-      const passed = isQuizOk && projectOk;
-      return {
-        passed,
-        score: passed ? 45 : (isQuizOk ? 30 : 15),
-        stars: passed ? 3 : (isQuizOk ? 2 : 1),
-        feedback: passed
-          ? '✓ Corner keepout rationale and pin distribution constraints certified!'
-          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Corner pad regions and power ring turns monopolize corner metal; signal pins must be offset inward.',
-      };
+      return evaluateGuidedAssignment('fp-28', inputs, isQuizOk, 45);
     },
   },
 
@@ -979,25 +746,7 @@ export const EXPANDED_LESSONS = {
     ],
     validate: (inputs) => {
       const isQuizOk = inputs.pdnMeshQuiz === 'orthogonal-mesh-grid';
-      let projectOk = true;
-      let projectMsg = '';
-      if (inputs.project) {
-        const straps = inputs.project.powerNetwork?.straps || [];
-        const vias = inputs.project.powerNetwork?.vias || [];
-        const hasStraps = straps.length >= 2;
-        const hasVias = vias.length >= 2;
-        projectOk = hasStraps && hasVias;
-        projectMsg = !projectOk ? 'Your project needs orthogonal straps and vias. Use the PDN Grid Synthesizer assistant in Studio. ' : '';
-      }
-      const passed = isQuizOk && projectOk;
-      return {
-        passed,
-        score: passed ? 50 : (isQuizOk ? 30 : 20),
-        stars: passed ? 3 : (isQuizOk ? 2 : 1),
-        feedback: passed
-          ? '✓ Orthogonal power mesh grid topology and synthesized straps certified!'
-          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Alternating metal directions forms an electrical 2D grid matrix that distributes current evenly across the die.',
-      };
+      return evaluateGuidedAssignment('fp-29', inputs, isQuizOk, 50);
     },
   },
 
@@ -1028,23 +777,7 @@ export const EXPANDED_LESSONS = {
     ],
     validate: (inputs) => {
       const isQuizOk = inputs.irNodalQuiz === 'ir-drop-20mv';
-      let projectOk = true;
-      let projectMsg = '';
-      if (inputs.project) {
-        const pdnSolve = solveResistivePDN(inputs.project.powerNetwork, inputs.project.technologyProfile, inputs.project.constraints, inputs.project.macros);
-        const irOk = !pdnSolve.hasOpenCircuit && pdnSolve.worstDropMv <= 35;
-        projectOk = irOk;
-        projectMsg = !irOk ? `Static IR drop (${pdnSolve.worstDropMv} mV) exceeds budget or has open circuit. Widen power straps in Studio. ` : '';
-      }
-      const passed = isQuizOk && projectOk;
-      return {
-        passed,
-        score: passed ? 50 : (isQuizOk ? 30 : 20),
-        stars: passed ? 3 : (isQuizOk ? 2 : 1),
-        feedback: passed
-          ? '✓ Nodal resistive IR drop calculation and power network mesh verification certified!'
-          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Ohm’s law: ΔV = I × R = 0.040 A × 0.50 Ω = 0.020 V = 20 mV.',
-      };
+      return evaluateGuidedAssignment('fp-30', inputs, isQuizOk, 50);
     },
   },
 
@@ -1075,22 +808,7 @@ export const EXPANDED_LESSONS = {
     ],
     validate: (inputs) => {
       const isQuizOk = inputs.pdnFaultQuiz === 'electrical-short-catastrophic';
-      let projectOk = true;
-      let projectMsg = '';
-      if (inputs.project) {
-        const shortCheck = detectVDDVSSShort(inputs.project.powerNetwork);
-        projectOk = !shortCheck.hasShort;
-        projectMsg = shortCheck.hasShort ? 'Project contains a VDD-VSS short circuit! Remove the bridging via in Studio. ' : '';
-      }
-      const passed = isQuizOk && projectOk;
-      return {
-        passed,
-        score: passed ? 50 : (isQuizOk ? 30 : 20),
-        stars: passed ? 3 : (isQuizOk ? 2 : 1),
-        feedback: passed
-          ? '✓ VDD-VSS short-circuit diagnosis and clean electrical isolation certified!'
-          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Power-to-ground bridging shorts are catastrophic DRC errors that destroy silicon during power-up.',
-      };
+      return evaluateGuidedAssignment('fp-31', inputs, isQuizOk, 50);
     },
   },
 
@@ -1119,23 +837,7 @@ export const EXPANDED_LESSONS = {
     ],
     validate: (inputs) => {
       const isQuizOk = inputs.paretoQuiz === 'pareto-non-dominated';
-      let projectOk = true;
-      let projectMsg = '';
-      if (inputs.project) {
-        const candidates = inputs.project.candidates || [];
-        // Project either has candidates snapshot or valid macros and core
-        projectOk = candidates.length >= 2 || (inputs.project.macros && inputs.project.macros.length >= 1);
-        projectMsg = !projectOk ? 'Take at least two candidate snapshots in Studio to evaluate Pareto trade-offs. ' : '';
-      }
-      const passed = isQuizOk && projectOk;
-      return {
-        passed,
-        score: passed ? 50 : (isQuizOk ? 30 : 20),
-        stars: passed ? 3 : (isQuizOk ? 2 : 1),
-        feedback: passed
-          ? '✓ Pareto frontier and multiobjective trade-off optimization certified!'
-          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Pareto optimality requires non-domination: improving one metric without sacrificing all other objectives.',
-      };
+      return evaluateGuidedAssignment('fp-32', inputs, isQuizOk, 50);
     },
   },
 
@@ -1164,23 +866,7 @@ export const EXPANDED_LESSONS = {
     ],
     validate: (inputs) => {
       const isQuizOk = inputs.channelBottleneckQuiz === 'narrow-channel-track-shortage';
-      let projectOk = true;
-      let projectMsg = '';
-      if (inputs.project) {
-        const cong = computeCongestionMap(inputs.project);
-        const ratioOk = (cong.maxRatio || 0) < 1.0;
-        projectOk = ratioOk;
-        projectMsg = !ratioOk ? `Routing congestion peak ratio (${cong.maxRatio}) exceeds 1.0. Widen macro channels in Studio. ` : '';
-      }
-      const passed = isQuizOk && projectOk;
-      return {
-        passed,
-        score: passed ? 55 : (isQuizOk ? 35 : 20),
-        stars: passed ? 3 : (isQuizOk ? 2 : 1),
-        feedback: passed
-          ? '✓ Narrow routing channel bottleneck analysis and congestion relief certified!'
-          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Keep macro channels >= 35 µm wide to allow multi-metal track routing without exhausting routing capacity.',
-      };
+      return evaluateGuidedAssignment('fp-33', inputs, isQuizOk, 55);
     },
   },
 
@@ -1211,27 +897,7 @@ export const EXPANDED_LESSONS = {
     ],
     validate: (inputs) => {
       const isQuizOk = inputs.dataExchangeQuiz === 'lef-abstract-standard';
-      let projectOk = true;
-      let projectMsg = '';
-      if (inputs.project) {
-        try {
-          const lef = generateLEF(inputs.project);
-          const def = generateDEF(inputs.project);
-          projectOk = lef.includes('VERSION 5.8') && def.includes('VERSION 5.8');
-        } catch {
-          projectOk = false;
-        }
-        projectMsg = !projectOk ? 'Design layout could not be exported to valid LEF/DEF physical formats. ' : '';
-      }
-      const passed = isQuizOk && projectOk;
-      return {
-        passed,
-        score: passed ? 55 : (isQuizOk ? 35 : 20),
-        stars: passed ? 3 : (isQuizOk ? 2 : 1),
-        feedback: passed
-          ? '✓ LEF/DEF physical data exchange standards and layout syntax verified!'
-          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ LEF abstracts provide black-box geometry for placement without disclosing proprietary foundry transistor layers.',
-      };
+      return evaluateGuidedAssignment('fp-34', inputs, isQuizOk, 55);
     },
   },
 
@@ -1260,23 +926,7 @@ export const EXPANDED_LESSONS = {
     ],
     validate: (inputs) => {
       const isQuizOk = inputs.designReviewQuiz === 'routability-margin-signoff';
-      let projectOk = true;
-      let projectMsg = '';
-      if (inputs.project) {
-        const signoff = evaluateFloorplanSignoff(inputs.project);
-        const utilOk = signoff.metrics.effectiveUtilization <= 85;
-        projectOk = utilOk;
-        projectMsg = !utilOk ? `Effective utilization (${signoff.metrics.effectiveUtilization}%) exceeds 85% FDR sign-off margin. Enlarge core in Studio. ` : '';
-      }
-      const passed = isQuizOk && projectOk;
-      return {
-        passed,
-        score: passed ? 60 : (isQuizOk ? 40 : 25),
-        stars: passed ? 3 : (isQuizOk ? 2 : 1),
-        feedback: passed
-          ? '✓ Floorplan design review defense, routability margins, and layout PPA certified!'
-          : projectMsg ? `⚠️ ${projectMsg}` : '⚠️ Utilization above 90% leaves zero margin for clock buffers and engineering change orders (ECOs).',
-      };
+      return evaluateGuidedAssignment('fp-35', inputs, isQuizOk, 60);
     },
   },
 
@@ -1312,41 +962,8 @@ export const EXPANDED_LESSONS = {
       },
     ],
     validate: (inputs) => {
-      const project = inputs && inputs.project;
-      const isQuizOk = inputs && inputs.socSignoffQuiz === 'all-signoff-gates';
-
-      if (!project) {
-        return {
-          passed: false,
-          score: isQuizOk ? 25 : 0,
-          stars: isQuizOk ? 1 : 0,
-          feedback: '⚠️ No saved Studio project found. Open the Floorplan Studio, build your 6+ macro SoC design, verify DRC and IR drop <= 30 mV, press Save, then come back.',
-        };
-      }
-
-      const report = evaluateFloorplanSignoff(project);
-      const macrosOk = report.metrics.macroCount >= 6;
-      const cleanOk = report.clean && report.errorCount === 0;
-      const irOk = report.metrics.maxIRDropMv <= 30;
-      const congestionOk = (report.analysis.congestion?.maxRatio || 0) < 1.0;
-      const passed = macrosOk && cleanOk && irOk && congestionOk;
-
-      const firstIssue = report.violations[0];
-      return {
-        passed,
-        score: passed ? 100 : (macrosOk && cleanOk) ? 70 : macrosOk ? 40 : 20,
-        stars: passed ? 3 : (macrosOk && cleanOk) ? 2 : 1,
-        report,
-        feedback: passed
-          ? `🏆 EXPERT SOC CAPSTONE SIGNED OFF! ${report.metrics.macroCount} macros, 0 DRC violations, static IR drop ${report.metrics.maxIRDropMv} mV (budget <=30mV), utilization ${report.metrics.nominalUtilization}%. Floorplan signoff complete and verified clean for Placement & CTS handoff!`
-          : !macrosOk
-          ? `⚠️ The expert capstone requires at least 6 hard macros (your project has ${report.metrics.macroCount}). Add more functional blocks (SRAM, ROM, PLL, DMA) from the Master Library.`
-          : !cleanOk
-          ? `⚠️ Physical design violations remain (${report.violations.length} total). First: ${firstIssue.rule} — ${firstIssue.message}`
-          : !irOk
-          ? `⚠️ Worst static IR drop is ${report.metrics.maxIRDropMv} mV, which exceeds the 30 mV budget. Add parallel power straps or widen rails.`
-          : `⚠️ Routing track congestion overflow detected. Spread clustered macros or widen routing channels.`,
-      };
+      const isQuizOk = inputs.socSignoffQuiz === 'all-signoff-gates';
+      return evaluateGuidedAssignment('fp-36', inputs, isQuizOk, 100);
     },
   },
 };

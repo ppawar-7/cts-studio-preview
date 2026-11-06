@@ -8,6 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { getActivity, hasActivity } from '../../activities/activityRegistry.js';
 import { EXPANDED_LESSONS } from '../../activities/floorplanning/expanded/fpExpandedCurriculumData.js';
+import { getPassingAssignmentProject } from '../../activities/floorplanning/expanded/guidedAssignmentService.js';
 
 describe('Floorplanning 3.0 Expanded Activities (fp-6 through fp-36)', () => {
   const lessonIds = Object.keys(EXPANDED_LESSONS);
@@ -27,38 +28,62 @@ describe('Floorplanning 3.0 Expanded Activities (fp-6 through fp-36)', () => {
         expect(typeof act.validator).toBe('function');
       });
 
-      it(`rejects incomplete submission`, () => {
+      it(`rejects incomplete submission without project or answers`, () => {
         const act = getActivity(id);
         const res = act.validator({});
         expect(res.passed).toBe(false);
+        expect(res.stars).toBe(0);
       });
     });
   });
 
-  it('fp-6 validates correctly with proper aspect ratio and quiz answer', () => {
+  it('fp-6 validates correctly with proper aspect ratio, quiz answer, and matching Studio project', () => {
     const act = getActivity('fp-6');
-    const validRes = act.validator({ aspectRatio: 0.6, bestRatioQuiz: 'ar-square' });
+    const validRes = act.validator({
+      aspectRatio: 0.6,
+      bestRatioQuiz: 'ar-square',
+      project: getPassingAssignmentProject('fp-6'),
+    });
     expect(validRes.passed).toBe(true);
     expect(validRes.stars).toBeGreaterThanOrEqual(2);
   });
 
-  it('fp-7 validates area budgets', () => {
+  it('fp-6 rejects quiz-only submission without a Studio project', () => {
+    const act = getActivity('fp-6');
+    const res = act.validator({ aspectRatio: 0.6, bestRatioQuiz: 'ar-square' });
+    expect(res.passed).toBe(false);
+    expect(res.stars).toBe(0);
+  });
+
+  it('fp-7 validates area budgets with matching Studio project', () => {
     const act = getActivity('fp-7');
-    const validRes = act.validator({ stdCellArea: 1250000, requiredCoreArea: 1785714 });
+    const validRes = act.validator({
+      stdCellArea: 1250000,
+      requiredCoreArea: 1785714,
+      project: getPassingAssignmentProject('fp-7'),
+    });
     expect(validRes.passed).toBe(true);
     expect(validRes.stars).toBeGreaterThanOrEqual(2);
   });
 
-  it('fp-11 validates halo separation sum rule', () => {
+  it('fp-11 validates halo separation sum rule with matching Studio project', () => {
     const act = getActivity('fp-11');
-    const validRes = act.validator({ requiredSeparation: 35, corridorQuiz: 'corridor-congestion' });
+    const validRes = act.validator({
+      requiredSeparation: 35,
+      corridorQuiz: 'corridor-congestion',
+      project: getPassingAssignmentProject('fp-11'),
+    });
     expect(validRes.passed).toBe(true);
     expect(validRes.stars).toBeGreaterThanOrEqual(2);
   });
 
-  it('fp-18 validates static IR drop calculation', () => {
+  it('fp-18 validates static IR drop calculation with matching Studio project', () => {
     const act = getActivity('fp-18');
-    const validRes = act.validator({ calculatedDrop: 30, irFixQuiz: 'add-more-straps' });
+    const validRes = act.validator({
+      calculatedDrop: 30,
+      irFixQuiz: 'add-more-straps',
+      project: getPassingAssignmentProject('fp-18'),
+    });
     expect(validRes.passed).toBe(true);
     expect(validRes.stars).toBeGreaterThanOrEqual(2);
   });

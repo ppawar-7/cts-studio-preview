@@ -24,6 +24,7 @@ import {
   solveResistivePDN,
 } from './floorplanPDN.js';
 import { computeCongestionMap } from './floorplanCongestion.js';
+import { validateProjectShape } from './floorplanProjectModel.js';
 
 /**
  * @param {Object} project - FloorplanProject
@@ -45,6 +46,21 @@ export function evaluateFloorplanSignoff(project) {
   const macros = project.macros || [];
   const core = project.core;
   const constraints = project.constraints || {};
+
+  // ── Structural Schema & Boundary Verification ───────────────────────────
+  const schemaProblems = validateProjectShape(project);
+  if (schemaProblems.length > 0) {
+    schemaProblems.forEach((prob) => {
+      list.push({
+        rule: 'Project Schema DRC',
+        severity: 'error',
+        targetId: 'project',
+        targetType: 'project',
+        message: prob,
+        suggestion: 'Correct project boundaries and entity definitions according to Schema v2 rules.',
+      });
+    });
+  }
 
   // ── Macro-to-macro overlap and keepout halos ─────────────────────────────
   for (let i = 0; i < macros.length; i++) {
@@ -154,9 +170,36 @@ export function evaluateFloorplanSignoff(project) {
     });
   });
 
-  // Static IR-drop budget check
+  // Static IR-drop budget and power network electrical integrity check
   const voltageBudget = Number(constraints.voltageDropBudgetMv) || 30;
-  if (irDrop.hasOpenCircuit) {
+  if (irDrop.valid === false && irDrop.evaluated === false) {
+    list.push({
+      rule: 'Power Grid Unmodeled',
+      severity: 'error',
+      targetId: 'powerNetwork',
+      targetType: 'power',
+      message: irDrop.reason || 'Power distribution network is not properly modeled.',
+      suggestion: 'Synthesize or route VDD and VSS power rings and straps with valid supply pads.',
+    });
+  } else if (irDrop.hasShortCircuit) {
+    list.push({
+      rule: 'VDD/VSS Short Circuit',
+      severity: 'error',
+      targetId: 'powerNetwork',
+      targetType: 'power',
+      message: irDrop.reason || 'Catastrophic VDD to VSS short circuit detected.',
+      suggestion: 'Remove intersecting vias or separate VDD and VSS metal conductors.',
+    });
+  } else if (irDrop.hasMissingSupply) {
+    list.push({
+      rule: 'Incomplete Supply Topology',
+      severity: 'error',
+      targetId: 'powerNetwork',
+      targetType: 'power',
+      message: irDrop.reason || 'Both VDD and VSS power networks must be modeled.',
+      suggestion: 'Add missing power or ground rings and straps.',
+    });
+  } else if (irDrop.hasOpenCircuit) {
     list.push({
       rule: 'Power Grid Open Circuit',
       severity: 'error',
@@ -173,6 +216,32 @@ export function evaluateFloorplanSignoff(project) {
       targetType: 'ring',
       message: `Worst modeled nodal IR drop (${irDrop.worstDropMv.toFixed(1)} mV) exceeds the ${voltageBudget} mV budget.`,
       suggestion: 'Add parallel power straps or feed vias to reduce grid impedance.',
+    });
+  }
+
+  if (irDrop.hasOrphanLoads && irDrop.orphanLoads) {
+    irDrop.orphanLoads.forEach((ol) => {
+      list.push({
+        rule: 'Orphan Load Reference',
+        severity: 'error',
+        targetId: ol.loadId,
+        targetType: 'load',
+        message: ol.reason,
+        suggestion: 'Connect load to an existing strap or ring ID.',
+      });
+    });
+  }
+
+  if (irDrop.invalidVias && irDrop.invalidVias.length > 0) {
+    irDrop.invalidVias.forEach((iv) => {
+      list.push({
+        rule: 'Floating Power Grid Via',
+        severity: 'error',
+        targetId: iv.viaId,
+        targetType: 'via',
+        message: iv.reason,
+        suggestion: 'Ensure the via physically lands on metal on both designated layers.',
+      });
     });
   }
 

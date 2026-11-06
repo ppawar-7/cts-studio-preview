@@ -69,7 +69,7 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
   const lesson = EXPANDED_LESSONS[lessonId] || EXPANDED_LESSONS['fp-6'];
   const location = useLocation();
   const isExplore = location.pathname.startsWith('/explore');
-  const studioPath = isExplore ? '/explore/studio/floorplanning' : '/studio/floorplanning';
+  const studioPath = `${isExplore ? '/explore/studio/floorplanning' : '/studio/floorplanning'}?assignment=${lessonId}`;
   const [studioProject, setStudioProject] = useState(() => loadStudioProject(isExplore));
   const projectReport = useMemo(
     () => (studioProject ? evaluateFloorplanSignoff(studioProject) : null),
@@ -150,7 +150,20 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
           <h4 className="dff-challenge__section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span>🛠️</span> Live Studio Design Evidence
           </h4>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            {studioProject?.assignmentId === lessonId ? (
+              <span className="badge badge--completed" style={{ background: '#065f46', color: '#34d399', fontSize: '0.75rem' }}>
+                ✓ Assignment Matched ({lessonId.toUpperCase()})
+              </span>
+            ) : studioProject?.assignmentId ? (
+              <span className="badge badge--warning" style={{ background: '#854d0e', color: '#fde047', fontSize: '0.75rem' }}>
+                ⚠️ Active: {studioProject.assignmentId.toUpperCase()}
+              </span>
+            ) : (
+              <span className="badge badge--locked" style={{ fontSize: '0.75rem' }}>
+                No Scenario Loaded
+              </span>
+            )}
             <button
               type="button"
               className="btn btn--secondary btn--sm"
@@ -160,15 +173,15 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
               }}
               title="Refresh project telemetry from Studio"
             >
-              ↻ Sync from Studio
+              ↻ Sync
             </button>
             <Link
               to={studioPath}
               className="btn btn--primary btn--sm"
               style={{ textDecoration: 'none' }}
-              title="Launch CAD Studio to edit layout"
+              title="Launch CAD Studio with this lesson scenario"
             >
-              🚀 Launch Studio ↗
+              🚀 Launch Assignment in Studio ↗
             </Link>
           </div>
         </div>

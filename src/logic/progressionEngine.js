@@ -246,6 +246,16 @@ export function isKingdomUnlocked(player, kingdomId) {
   if (!kingdom) return false;
   if (kingdom.order === 1) return true;
 
+  // Active Three-Studio Scope: Floorplanning unlocks directly from RTL Understanding
+  if (kingdomId === 'floorplanning') {
+    const rtlKingdom = KINGDOMS.find((k) => k.id === 'rtl-understanding');
+    const rtlDone = areAllKingdomLevelsCompleted(player, 'rtl-understanding');
+    const rtlXP = getKingdomXP(player, 'rtl-understanding');
+    if (rtlDone || (rtlKingdom && rtlXP >= rtlKingdom.pointsToUnlockNext)) {
+      return true;
+    }
+  }
+
   const prevKingdom = KINGDOMS.find((k) => k.order === kingdom.order - 1);
   if (!prevKingdom) return false;
 
