@@ -91,7 +91,7 @@ export default function WorldMapPage({ isLegacy: isLegacyProp }) {
                   <div className="studio-hub-card__title-group">
                     <div className="studio-hub-card__emoji">🧩</div>
                     <div>
-                      <h2 className="studio-hub-card__title">RTL Playground</h2>
+                      <h2 className="studio-hub-card__title">RTL Design &amp; Simulation</h2>
                       <div className="studio-hub-card__subtitle">Digital Logic &amp; Verilog HDL Engineering Studio</div>
                     </div>
                   </div>
@@ -111,7 +111,7 @@ export default function WorldMapPage({ isLegacy: isLegacyProp }) {
                 </div>
                 <div className="studio-hub-card__actions">
                   <Link to="/studio/rtl" className="btn btn--primary" data-testid="launch-rtl-studio">
-                    ⚡ Launch RTL Studio ↗
+                    ⚡ Launch RTL ↗
                   </Link>
                   <Link to="/kingdom/rtl-understanding" className="btn btn--secondary">
                     📚 RTL Curriculum (5 Levels)
@@ -128,8 +128,8 @@ export default function WorldMapPage({ isLegacy: isLegacyProp }) {
                   <div className="studio-hub-card__title-group">
                     <div className="studio-hub-card__emoji">🗺️</div>
                     <div>
-                      <h2 className="studio-hub-card__title">Floorplanning Kingdom &amp; CAD Studio 3.0</h2>
-                      <div className="studio-hub-card__subtitle">Deep ASIC Physical Design CAD Workspace &amp; 36 Labs</div>
+                      <h2 className="studio-hub-card__title">Physical Floorplanning</h2>
+                      <div className="studio-hub-card__subtitle">Deep ASIC CAD Studio 3.0 &amp; 36-Lesson Curriculum</div>
                     </div>
                   </div>
                   <span className="badge badge--completed" style={{ background: '#d1fae5', color: '#047857', borderColor: '#a7f3d0' }}>
@@ -149,7 +149,7 @@ export default function WorldMapPage({ isLegacy: isLegacyProp }) {
                 </div>
                 <div className="studio-hub-card__actions">
                   <Link to="/studio/floorplanning" className="btn btn--primary" style={{ background: '#059669', borderColor: '#059669' }} data-testid="launch-fp-studio">
-                    🗺️ Launch Floorplan Studio ↗
+                    🗺️ Launch Floorplanning ↗
                   </Link>
                   <Link to="/kingdom/floorplanning" className="btn btn--secondary">
                     📐 Floorplan Curriculum (36 Labs)
@@ -166,7 +166,7 @@ export default function WorldMapPage({ isLegacy: isLegacyProp }) {
                   <div className="studio-hub-card__title-group">
                     <div className="studio-hub-card__emoji">⏱️</div>
                     <div>
-                      <h2 className="studio-hub-card__title">STA Playground</h2>
+                      <h2 className="studio-hub-card__title">Static Timing Analysis</h2>
                       <div className="studio-hub-card__subtitle">Static Timing Analysis &amp; Verification Laboratory</div>
                     </div>
                   </div>
@@ -187,7 +187,7 @@ export default function WorldMapPage({ isLegacy: isLegacyProp }) {
                 </div>
                 <div className="studio-hub-card__actions">
                   <Link to="/studio/sta" className="btn btn--primary" style={{ background: '#d97706', borderColor: '#d97706' }} data-testid="launch-sta-studio">
-                    ⏱️ Launch STA Studio ↗
+                    ⏱️ Launch STA ↗
                   </Link>
                   <Link to="/explore/studio/sta" className="btn btn--ghost" style={{ fontSize: '0.85rem' }}>
                     🧭 Explore Sandbox

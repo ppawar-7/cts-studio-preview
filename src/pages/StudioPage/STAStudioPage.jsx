@@ -71,10 +71,10 @@ export default function STAStudioPage({ isExploreMode = false }) {
         <div className="container studio-page__header-inner">
           <div className="studio-page__title-area">
             <Link
-              to={isExplore ? "/explore" : `/kingdom/${currentStage.kingdom}`}
+              to={isExplore ? "/explore" : "/world-map"}
               className="studio-page__back-link"
             >
-              {isExplore ? "← Return to Explore Mode" : `← Return to ${currentStage.label.split(' ')[0]} Kingdom`}
+              {isExplore ? "← Return to Explore Mode" : "← Return to Three-Studio Hub"}
             </Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
               <h1 className="studio-page__title">⏱️ Static Timing Analysis (STA) Studio (Integrated)</h1>

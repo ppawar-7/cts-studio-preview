@@ -54,12 +54,25 @@ export default function RTLStudioPage({ isExploreMode = false }) {
       <div className="studio-page__header">
         <div className="container studio-page__header-inner">
           <div className="studio-page__title-area">
-            <Link
-              to={isExplore ? "/explore" : "/kingdom/rtl-understanding"}
-              className="studio-page__back-link"
-            >
-              {isExplore ? "← Return to Explore Mode" : "← Return to RTL Kingdom"}
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+              <Link
+                to={isExplore ? "/explore" : "/world-map"}
+                className="studio-page__back-link"
+              >
+                {isExplore ? "← Return to Explore Mode" : "← Return to Three-Studio Hub"}
+              </Link>
+              {!isExplore && (
+                <>
+                  <span style={{ color: '#94a3b8' }}>|</span>
+                  <Link
+                    to="/kingdom/rtl-understanding"
+                    className="studio-page__back-link"
+                  >
+                    📚 RTL Kingdom
+                  </Link>
+                </>
+              )}
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
               <h1 className="studio-page__title">⚡ RTL Playground Studio (Integrated)</h1>
               <span className="badge badge--available">

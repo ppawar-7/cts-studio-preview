@@ -40,6 +40,7 @@ export default function StudioToolbar({
   showBlockages,
   onToggleBlockages,
   isExploreMode = false,
+  onReturnToHome,
   onReturnToKingdom,
   onAddMacro,
   onAddPin,
@@ -82,6 +83,16 @@ export default function StudioToolbar({
         <div className="fp-studio__toolbar-brand">
           📐 Floorplan Studio 3.0
         </div>
+
+        <button
+          type="button"
+          className="fp-toolbar-btn"
+          onClick={onReturnToHome || onReturnToKingdom}
+          title="Return to Three-Studio Home Hub"
+          data-testid="btn-return-home"
+        >
+          ← Home Hub
+        </button>
 
         <button
           type="button"

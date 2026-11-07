@@ -22,7 +22,7 @@ export const FEATURED_EXPERIENCES = [
   {
     id: 'rtl',
     kingdomId: 'rtl-understanding',
-    title: 'RTL Playground',
+    title: 'RTL Design & Simulation',
     subtitle: 'Digital Logic & HDL Engineering Studio',
     tagline: 'Construct combinational and sequential digital logic, state machines, and Verilog netlists.',
     emoji: '🧩',
@@ -41,7 +41,7 @@ export const FEATURED_EXPERIENCES = [
   {
     id: 'floorplanning',
     kingdomId: 'floorplanning',
-    title: 'Floorplanning Kingdom & Studio 3.0',
+    title: 'Physical Floorplanning',
     subtitle: 'Deep ASIC CAD & Physical Design Studio',
     tagline: 'Architect core dies, place hard macros, synthesize M4/M5 power mesh grids, and verify design rule sign-off.',
     emoji: '🗺️',
@@ -61,7 +61,7 @@ export const FEATURED_EXPERIENCES = [
   },
   {
     id: 'sta',
-    title: 'STA Playground',
+    title: 'Static Timing Analysis',
     subtitle: 'Static Timing Analysis & Verification Laboratory',
     tagline: 'Calculate setup/hold slack, analyze critical data paths, enforce SDC timing constraints, and inspect clock skew.',
     emoji: '⏱️',

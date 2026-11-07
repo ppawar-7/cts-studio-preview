@@ -581,6 +581,10 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     navigate(isExplore ? '/explore/kingdom/floorplanning' : '/kingdom/floorplanning');
   }, [isExplore, navigate]);
 
+  const handleReturnToHome = useCallback(() => {
+    navigate(isExplore ? '/explore' : '/world-map');
+  }, [isExplore, navigate]);
+
   const activeAssignmentId = assignmentParam || project?.assignmentId;
   const handleReturnToLesson = useCallback(() => {
     if (!activeAssignmentId) {
@@ -620,6 +624,7 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
         showBlockages={showBlockages}
         onToggleBlockages={() => setShowBlockages(!showBlockages)}
         isExploreMode={isExplore}
+        onReturnToHome={handleReturnToHome}
         onReturnToKingdom={handleReturnToKingdom}
         onAddMacro={handleAddMacro}
         onAddPin={handleAddPin}
