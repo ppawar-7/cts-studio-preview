@@ -12,6 +12,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayer } from '../../context/PlayerContext.jsx';
+import { FEATURED_EXPERIENCES } from '../../config/featureScope.js';
 import './LandingPage.css';
 
 // Decorative star positions (static so they don't re-randomize)
@@ -23,11 +24,10 @@ const STARS = Array.from({ length: 60 }, (_, i) => ({
   delay: `${(i * 0.37) % 3}s`,
 }));
 
-const THREE_STUDIOS = [
-  { emoji: '⚡', label: 'RTL Logic Studio' },
-  { emoji: '🗺️', label: 'Floorplanning Studio 3.0' },
-  { emoji: '⏱️', label: 'STA Timing Studio' },
-];
+const THREE_STUDIOS = FEATURED_EXPERIENCES.map((exp) => ({
+  emoji: exp.emoji,
+  label: exp.title,
+}));
 
 const FEATURES = [
   {
@@ -38,7 +38,7 @@ const FEATURES = [
   {
     emoji: '📐',
     title: '36-Lesson Floorplan Curriculum',
-    desc: 'From core aspect ratio to multi-macro SoC tape-out with genuine CAD project grading.',
+    desc: 'From core aspect ratio to multi-macro SoC educational signoff with genuine CAD project grading.',
   },
   {
     emoji: '⚡',

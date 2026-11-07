@@ -43,6 +43,7 @@ export default function App() {
                   <Route path="/studio/rtl" element={<RTLStudioPage />} />
                   <Route path="/rtl-studio" element={<Navigate to="/studio/rtl" replace />} />
                   <Route path="/studio/floorplanning" element={<FloorplanStudioPage />} />
+                  <Route path="/kingdom/floorplanning/studio" element={<FloorplanStudioPage />} />
                   <Route path="/floorplan-studio" element={<Navigate to="/studio/floorplanning" replace />} />
                   <Route path="/studio/sta" element={<STAStudioPage />} />
                   <Route path="/sta-studio" element={<Navigate to="/studio/sta" replace />} />
@@ -57,6 +58,7 @@ export default function App() {
                   <Route path="/explore/studio/rtl" element={<RTLStudioPage isExploreMode={true} />} />
                   <Route path="/explore/studio/sta" element={<STAStudioPage isExploreMode={true} />} />
                   <Route path="/explore/studio/floorplanning" element={<FloorplanStudioPage isExploreMode={true} />} />
+                  <Route path="/explore/kingdom/floorplanning/studio" element={<FloorplanStudioPage isExploreMode={true} />} />
 
                   <Route path="/sanity-checks" element={<Navigate to="/world-map" replace />} />
                   <Route path="*" element={<Navigate to="/world-map" replace />} />

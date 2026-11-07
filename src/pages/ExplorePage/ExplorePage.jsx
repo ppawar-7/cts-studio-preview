@@ -19,6 +19,7 @@ import { KINGDOMS } from '../../data/kingdomsData.js';
 import { SANITY_CHECK_REQUIREMENTS } from '../../logic/studentDesignContext.js';
 import { CHECK_CLASSIFICATION } from '../../logic/designArtifactContracts.js';
 import { hasActivity } from '../../activities/activityRegistry.js';
+import { FEATURED_EXPERIENCES } from '../../config/featureScope.js';
 import './ExplorePage.css';
 
 export default function ExplorePage() {
@@ -96,15 +97,16 @@ export default function ExplorePage() {
             <Link to="/world-map" className="btn btn--primary">
               🎮 Return to Normal Game
             </Link>
-            <Link to="/studio/rtl?from=explore" className="btn btn--secondary">
-              ⚡ RTL Studio (Logic Lab)
-            </Link>
-            <Link to="/studio/floorplanning?from=explore" className="btn btn--secondary" data-testid="explore-fp-studio">
-              🗺️ Floorplan Studio (CAD 3.0)
-            </Link>
-            <Link to="/studio/sta?from=explore" className="btn btn--secondary">
-              ⏱️ STA Studio (Timing Lab)
-            </Link>
+            {FEATURED_EXPERIENCES.map((exp) => (
+              <Link
+                key={exp.id}
+                to={`${exp.studioRoute}?from=explore`}
+                className="btn btn--secondary"
+                data-testid={`explore-${exp.id}-studio`}
+              >
+                {exp.emoji} {exp.title}
+              </Link>
+            ))}
           </div>
 
           {/* Metric Counter Bar */}

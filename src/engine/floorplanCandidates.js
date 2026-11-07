@@ -93,7 +93,11 @@ export function compareCandidates(candidates = []) {
 
   // Populate comparison rows with delta relative to first candidate
   const evaluatedRows = rows.map((r) => {
-    const values = candidates.map((c) => c.metrics[r.key]);
+    const values = candidates.map((c) => {
+      const m = c.metrics || c;
+      const v = m ? m[r.key] : null;
+      return v !== undefined ? v : null;
+    });
     const baseline = values[0];
 
     const deltas = values.map((val) => {
@@ -158,8 +162,10 @@ export function findParetoFrontier(candidates, objectives = ['totalHPWL', 'worst
       let strictlyBetterOnOne = false;
 
       for (const obj of objectives) {
-        const valA = candA.metrics[obj];
-        const valB = candB.metrics[obj];
+        const mA = candA.metrics || candA;
+        const mB = candB.metrics || candB;
+        const valA = mA && mA[obj] !== undefined ? mA[obj] : null;
+        const valB = mB && mB[obj] !== undefined ? mB[obj] : null;
 
         if (valA === null || valB === null) {
           // Incomplete data cannot dominate

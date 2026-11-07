@@ -120,6 +120,7 @@ export default function DesignExplorer({
               className={`fp-explorer__item ${selectedType === 'die' ? 'fp-explorer__item--selected' : ''}`}
               onClick={() => onSelect('die', 'die')}
               data-testid="explorer-die"
+              data-test="explorer-item-die"
             >
               <span>🔳</span>
               <span>Die ({project.die.width}×{project.die.height})</span>
@@ -128,6 +129,7 @@ export default function DesignExplorer({
               className={`fp-explorer__item ${selectedType === 'core' ? 'fp-explorer__item--selected' : ''}`}
               onClick={() => onSelect('core', 'core')}
               data-testid="explorer-core"
+              data-test="explorer-item-core"
             >
               <span>⬚</span>
               <span>Core ({project.core.width}×{project.core.height})</span>

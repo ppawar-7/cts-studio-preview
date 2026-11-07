@@ -15,6 +15,7 @@ import {
   validateProjectShape,
   MACRO_MASTERS_LIBRARY,
   EXAMPLE_DUAL_SRAM_CONTROLLER,
+  SCENARIO_CONGESTION_STRESS,
 } from '../../../engine/floorplanProjectModel.js';
 import {
   computeAspectRatio,
@@ -48,7 +49,7 @@ export function getAssignmentScenario(lessonId) {
     return p24;
   }
 
-  const base = createDefaultProject(`FP Assignment ${lessonId}`, 'empty');
+  let base = createDefaultProject(`FP Assignment ${lessonId}`, 'empty');
   base.assignmentId = lessonId;
 
   switch (lessonId) {
@@ -332,17 +333,26 @@ export function getAssignmentScenario(lessonId) {
     case 'fp-32':
       base.die = { x: 0, y: 0, width: 600, height: 500 };
       base.core = { x: 50, y: 50, width: 500, height: 400 };
-      base.candidates = [{ id: 'cand_1', name: 'Initial Seed', hpwl: 1400, worstDropMv: 22 }];
+      base.candidates = [{
+        id: 'cand_1',
+        name: 'Initial Seed',
+        metrics: {
+          dieArea: 300000,
+          coreArea: 200000,
+          totalHPWL: 1400,
+          worstIRDropMv: 22,
+          nominalUtilization: 20,
+          errorCount: 0,
+          warningCount: 0,
+          isClean: true,
+        },
+      }];
       break;
 
     // ── Module 8: Routability, Export & Capstone ──
     case 'fp-33':
-      base.die = { x: 0, y: 0, width: 650, height: 500 };
-      base.core = { x: 50, y: 50, width: 550, height: 400 };
-      base.macros = [
-        { id: 'M_LEFT', masterId: 'SRAM_64KB', x: 60, y: 60, width: 160, height: 120, orientation: 'R0', halo: 15 },
-        { id: 'M_RIGHT', masterId: 'SRAM_64KB', x: 230, y: 60, width: 160, height: 120, orientation: 'R0', halo: 15 },
-      ];
+      base = JSON.parse(JSON.stringify(SCENARIO_CONGESTION_STRESS));
+      base.assignmentId = 'fp-33';
       break;
 
     case 'fp-34':
@@ -398,7 +408,20 @@ export function getAssignmentScenario(lessonId) {
           { nodeId: 'strap_vss_1', net: 'VSS', currentMa: 40 },
         ],
       };
-      base.candidates = [{ id: 'cand_1', name: 'Seed Arch', hpwl: 1800, worstDropMv: 45 }];
+      base.candidates = [{
+        id: 'cand_1',
+        name: 'Seed Arch',
+        metrics: {
+          dieArea: 720 * 540,
+          coreArea: 620 * 440,
+          totalHPWL: 1800,
+          worstIRDropMv: 45,
+          nominalUtilization: 25,
+          errorCount: 0,
+          warningCount: 0,
+          isClean: true,
+        },
+      }];
       break;
 
     default:
@@ -538,15 +561,22 @@ export function evaluateGuidedAssignment(lessonId, inputs, isQuizOk = true, xpRe
 
     case 'fp-12': {
       let minPitch = Infinity;
+      let hasSpacingViolation = false;
       ['top', 'bottom', 'left', 'right'].forEach((side) => {
         const sidePins = pins.filter((p) => p.edge === side);
         const res = checkPinSpacing(sidePins, side, 10, core.width, core.height);
-        if (res.minObservedPitch < minPitch) minPitch = res.minObservedPitch;
+        if (!res.valid || res.violations.length > 0) hasSpacingViolation = true;
+        const getPos = (p) => (typeof p.coord === 'number' ? p.coord : p.position || 0);
+        const sorted = [...sidePins].sort((a, b) => getPos(a) - getPos(b));
+        for (let i = 0; i < sorted.length - 1; i++) {
+          const sp = getPos(sorted[i + 1]) - getPos(sorted[i]);
+          if (sp < minPitch) minPitch = sp;
+        }
       });
-      isCadPassed = minPitch >= 10 && pins.length >= 2;
+      isCadPassed = !hasSpacingViolation && minPitch >= 10 && pins.length >= 2;
       feedback = isCadPassed
         ? `✓ I/O pad pitch verified (minimum pitch: ${minPitch} µm >= 10 µm DRC rule)!`
-        : `⚠️ Minimum pad pitch is ${minPitch} µm (< 10 µm rule). Space adjacent pads at least 10 µm apart.`;
+        : `⚠️ Minimum pad pitch is ${Number.isFinite(minPitch) ? minPitch + ' µm' : 'violating'} (< 10 µm rule). Space adjacent pads at least 10 µm apart.`;
       break;
     }
 
@@ -561,15 +591,22 @@ export function evaluateGuidedAssignment(lessonId, inputs, isQuizOk = true, xpRe
 
     case 'fp-14': {
       let minPitch = Infinity;
+      let hasSpacingViolation = false;
       ['top', 'bottom', 'left', 'right'].forEach((side) => {
         const sidePins = pins.filter((p) => p.edge === side);
         const res = checkPinSpacing(sidePins, side, 10, core.width, core.height);
-        if (res.minObservedPitch < minPitch) minPitch = res.minObservedPitch;
+        if (!res.valid || res.violations.length > 0) hasSpacingViolation = true;
+        const getPos = (p) => (typeof p.coord === 'number' ? p.coord : p.position || 0);
+        const sorted = [...sidePins].sort((a, b) => getPos(a) - getPos(b));
+        for (let i = 0; i < sorted.length - 1; i++) {
+          const sp = getPos(sorted[i + 1]) - getPos(sorted[i]);
+          if (sp < minPitch) minPitch = sp;
+        }
       });
-      isCadPassed = minPitch >= 10 && pins.length >= 2;
+      isCadPassed = !hasSpacingViolation && minPitch >= 10 && pins.length >= 2;
       feedback = isCadPassed
         ? `✓ Area bump pad pitch certified (${minPitch} µm >= 10 µm)!`
-        : `⚠️ Bump pad pitch is ${minPitch} µm (< 10 µm). Space bumps apart.`;
+        : `⚠️ Bump pad pitch is ${Number.isFinite(minPitch) ? minPitch + ' µm' : 'violating'} (< 10 µm). Space bumps apart.`;
       break;
     }
 
@@ -761,10 +798,14 @@ export function evaluateGuidedAssignment(lessonId, inputs, isQuizOk = true, xpRe
     case 'fp-33': {
       const cong = computeCongestionMap(project);
       const ratio = cong?.maxRatio || 0;
-      isCadPassed = ratio < 1.0;
+      const hotspots = cong?.hotspots?.length || 0;
+      const hasMinCore = (core?.width || 0) >= 200 && (core?.height || 0) >= 150;
+      isCadPassed = hasMinCore && ratio < 0.80 && hotspots === 0;
       feedback = isCadPassed
-        ? `✓ Routing channel congestion certified (Peak ratio: ${(ratio * 100).toFixed(1)}% < 100%)!`
-        : `⚠️ Peak congestion ratio is ${(ratio * 100).toFixed(1)}% (>= 100% overflow). Widen macro channels in Studio to reduce routing demand.`;
+        ? `✓ Routing channel congestion certified (Peak ratio: ${(ratio * 100).toFixed(1)}% < 80%, 0 hotspots)!`
+        : !hasMinCore
+        ? '⚠️ Core area is too small for routing channel analysis. Maintain reasonable core dimensions.'
+        : `⚠️ Routing channel congestion detected (Peak ratio: ${(ratio * 100).toFixed(1)}%, ${hotspots} hotspot(s) >= 80%). Relocate bottleneck macros to clear channel obstruction.`;
       break;
     }
 
@@ -1015,7 +1056,11 @@ export function getPassingAssignmentProject(lessonId) {
       break;
 
     case 'fp-33':
-      p.macros[1].x = 300; // Channel 80um > 40um
+      p.macros[0].x = 40;
+      p.macros[0].y = 40;
+      p.macros[1].x = 250;
+      p.macros[1].y = 180;
+      p.blockages = [];
       break;
 
     case 'fp-34':

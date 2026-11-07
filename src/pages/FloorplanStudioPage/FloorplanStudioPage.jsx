@@ -89,13 +89,18 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
 
   useEffect(() => {
     if (assignmentParam && project.assignmentId !== assignmentParam) {
-      const scenario = getAssignmentScenario(assignmentParam);
-      if (scenario) {
-        setProject(scenario);
-        if (isExplore) {
-          window.sessionStorage.setItem(EXPLORE_STORAGE_KEY, serializeProject(scenario));
-        } else {
-          window.localStorage.setItem(STORAGE_KEY, serializeProject(scenario));
+      const stored = readStoredProject(isExplore);
+      if (stored && stored.assignmentId === assignmentParam) {
+        setProject(stored);
+      } else {
+        const scenario = getAssignmentScenario(assignmentParam);
+        if (scenario) {
+          setProject(scenario);
+          if (isExplore) {
+            window.sessionStorage.setItem(EXPLORE_STORAGE_KEY, serializeProject(scenario));
+          } else {
+            window.localStorage.setItem(STORAGE_KEY, serializeProject(scenario));
+          }
         }
       }
     }
@@ -142,7 +147,7 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
   const [measureMode, setMeasureMode] = useState(false);
 
   // Candidate comparison
-  const [candidates, setCandidates] = useState([]);
+  const [candidates, setCandidates] = useState(() => (Array.isArray(project?.candidates) ? project.candidates : []));
   const [isCandidateModalOpen, setIsCandidateModalOpen] = useState(false);
 
   // Update project helper with history recording
@@ -173,17 +178,21 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
   // Save
   const handleSave = useCallback(() => {
     try {
+      const projectToSave = {
+        ...project,
+        candidates: candidates.length > 0 ? candidates : (project.candidates || []),
+      };
       if (isExplore) {
-        window.sessionStorage.setItem(EXPLORE_STORAGE_KEY, serializeProject(project));
+        window.sessionStorage.setItem(EXPLORE_STORAGE_KEY, serializeProject(projectToSave));
         alert('Saved to this Explore session only. Your Normal Game floorplan is unchanged.');
       } else {
-        window.localStorage.setItem(STORAGE_KEY, serializeProject(project));
+        window.localStorage.setItem(STORAGE_KEY, serializeProject(projectToSave));
         alert('Floorplan project saved.');
       }
     } catch (e) {
       alert('Failed to save project: ' + e.message);
     }
-  }, [project, isExplore]);
+  }, [project, candidates, isExplore]);
 
   // Multi-format EDA Exporter (LEF, DEF, JSON, Text Signoff Report)
   const handleExport = useCallback((format = 'json') => {
@@ -217,6 +226,7 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
   const handleImport = useCallback((jsonStr) => {
     try {
       const parsed = deserializeProject(jsonStr);
+      setCandidates(parsed.candidates || []);
       updateProject(parsed);
       setSelectedId(null);
       setSelectedType(null);
@@ -230,12 +240,15 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
   // New Project
   const handleNewProject = useCallback(() => {
     if (window.confirm('Create a new blank floorplan project? Any unsaved edits will be lost.')) {
-      updateProject(createDefaultProject('New Design', 'empty'));
+      const fresh = createDefaultProject('New Design', 'empty');
+      if (assignmentParam) fresh.assignmentId = assignmentParam;
+      setCandidates([]);
+      updateProject(fresh);
       setSelectedId(null);
       setSelectedType(null);
       requestFit();
     }
-  }, [updateProject, requestFit]);
+  }, [updateProject, requestFit, assignmentParam]);
 
   // Load Preset / Scenario
   const handleLoadPreset = useCallback((presetKey) => {
@@ -252,12 +265,15 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     else if (presetKey === 'scenario-capstone' || presetKey === 'capstone-soc') preset = SCENARIO_SOC_CAPSTONE;
 
     if (preset) {
-      updateProject(migrateProject(JSON.parse(JSON.stringify(preset))));
+      const migrated = migrateProject(JSON.parse(JSON.stringify(preset)));
+      if (assignmentParam) migrated.assignmentId = assignmentParam;
+      setCandidates(migrated.candidates || []);
+      updateProject(migrated);
       setSelectedId(null);
       setSelectedType(null);
       requestFit();
     }
-  }, [updateProject, requestFit]);
+  }, [updateProject, requestFit, assignmentParam]);
 
   // Update Macro Position (during drag)
   const handleUpdateMacroPosition = useCallback((macroId, x, y) => {
@@ -467,9 +483,11 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
       ...prev,
       powerNetwork: {
         ...(prev.powerNetwork || {}),
-        rings: prev.powerNetwork?.rings || [],
+        rings: generated.rings || prev.powerNetwork?.rings || [],
         straps: generated.straps,
         vias: generated.vias,
+        sources: generated.sources || prev.powerNetwork?.sources || [],
+        loads: generated.loads || prev.powerNetwork?.loads || [],
       },
     }));
     alert(`PDN Grid Assistant: ${generated.message}`);
@@ -480,9 +498,14 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     const promptRes = window.prompt ? window.prompt('Enter a label for this design candidate snapshot:', `Candidate ${candidates.length + 1} (${project.name})`) : null;
     const name = (promptRes && promptRes.trim()) ? promptRes.trim() : `Candidate ${candidates.length + 1}`;
     const snap = createCandidateSnapshot(project, name);
-    setCandidates((c) => [...c, snap]);
+    const next = [...candidates, snap];
+    setCandidates(next);
+    updateProject((prev) => ({
+      ...prev,
+      candidates: next,
+    }));
     if (window.alert) window.alert(`Snapshot "${name}" saved! View side-by-side in Candidate tab or modal.`);
-  }, [project, candidates.length]);
+  }, [project, candidates, updateProject]);
 
   const handleLoadCandidate = useCallback((candProject) => {
     updateProject(JSON.parse(JSON.stringify(candProject)));
@@ -492,8 +515,13 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
   }, [updateProject, requestFit]);
 
   const handleDeleteCandidate = useCallback((index) => {
-    setCandidates((c) => c.filter((_, idx) => idx !== index));
-  }, []);
+    const next = candidates.filter((_, idx) => idx !== index);
+    setCandidates(next);
+    updateProject((prev) => ({
+      ...prev,
+      candidates: next,
+    }));
+  }, [candidates, updateProject]);
 
   // ─── LIVE EDA ANALYSIS ─────
   const signoff = useMemo(() => evaluateFloorplanSignoff(project), [project]);
@@ -549,9 +577,18 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedType, selectedId, snapToGrid, gridSize, project, handleUndo, handleRedo, handleUpdateMacro]);
 
-  const handleReturnToKingdom = () => {
+  const handleReturnToKingdom = useCallback(() => {
     navigate(isExplore ? '/explore/kingdom/floorplanning' : '/kingdom/floorplanning');
-  };
+  }, [isExplore, navigate]);
+
+  const activeAssignmentId = assignmentParam || project?.assignmentId;
+  const handleReturnToLesson = useCallback(() => {
+    if (!activeAssignmentId) {
+      handleReturnToKingdom();
+      return;
+    }
+    navigate(isExplore ? `/explore/kingdom/floorplanning/level/${activeAssignmentId}` : `/kingdom/floorplanning/level/${activeAssignmentId}`);
+  }, [activeAssignmentId, isExplore, navigate, handleReturnToKingdom]);
 
   return (
     <div className="fp-studio" data-testid="fp-studio" ref={studioRef}>
@@ -597,6 +634,55 @@ export default function FloorplanStudioPage({ isExploreMode = false }) {
         onOpenCandidateCompare={() => setIsCandidateModalOpen(true)}
         onSnapshotCandidate={handleSnapshotCandidate}
       />
+
+      {/* Guided Lesson Banner */}
+      {activeAssignmentId && (
+        <div
+          className="fp-studio__guided-banner"
+          data-testid="guided-lesson-banner"
+          style={{
+            background: '#0f172a',
+            borderBottom: '2px solid #f59e0b',
+            padding: '0.45rem 1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '0.875rem',
+            color: '#f8fafc',
+            flexWrap: 'wrap',
+            gap: '0.5rem',
+            zIndex: 10,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <span style={{ fontSize: '1.15rem' }}>🎯</span>
+            <span>
+              <strong>Guided Lesson Mode:</strong> Currently editing assignment for <strong>Lesson {activeAssignmentId.toUpperCase()}</strong>.
+            </span>
+            <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
+              (All modifications are saved to persistent project storage)
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn btn--sm btn--primary"
+            data-testid="btn-return-lesson"
+            onClick={handleReturnToLesson}
+            style={{
+              padding: '0.3rem 0.85rem',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              backgroundColor: '#f59e0b',
+              color: '#0f172a',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            ← Return to Lesson {activeAssignmentId.toUpperCase()}
+          </button>
+        </div>
+      )}
 
       {/* 2. BODY (3-COLUMN LAYOUT) */}
       <div className="fp-studio__body">

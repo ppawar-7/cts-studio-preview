@@ -456,7 +456,7 @@ export function removeVia(powerNetwork, viaId) {
  * @returns {{ voltages: number[], isSingular: boolean, disconnectedNodes: number[], maxResidual: number }}
  */
 export function solveMNA(nodes, branches, dirichlet, neumann = {}) {
-  const n = nodes.length;
+  const n = typeof nodes === 'number' ? nodes : (nodes?.length || 0);
   if (n === 0) return { voltages: [], isSingular: false, disconnectedNodes: [], maxResidual: 0 };
 
   const adj = Array.from({ length: n }, () => []);
@@ -1026,48 +1026,100 @@ export function solveResistivePDN(powerNetwork, techProfile = {}, constraints = 
 
 export function generatePDNGrid(coreRect, options = {}) {
   const core = (coreRect && coreRect.core) ? coreRect.core : (coreRect || { x: 40, y: 40, width: 320, height: 240 });
-  const strapWidth = Number(options.strapWidth) || 4;
-  const pitchX = Number(options.pitchX) || 100;
-  const pitchY = Number(options.pitchY) || 80;
+  const strapWidth = Number(options.strapWidth) || 10;
+  const pitchX = Number(options.pitchX) || 160;
+  const pitchY = Number(options.pitchY) || 160;
 
+  const ringVdd = {
+    id: 'ring_vdd',
+    net: 'VDD',
+    layer: 'M5',
+    x: core.x - 14,
+    y: core.y - 14,
+    width: core.width + 28,
+    height: core.height + 28,
+    lineWidth: 10,
+  };
+  const ringVss = {
+    id: 'ring_vss',
+    net: 'VSS',
+    layer: 'M5',
+    x: core.x - 28,
+    y: core.y - 28,
+    width: core.width + 56,
+    height: core.height + 56,
+    lineWidth: 10,
+  };
+
+  const rings = [ringVdd, ringVss];
   const straps = [];
   const vias = [];
   let idCounter = 1;
 
-  // Horizontal straps on M4 across core
-  const startY = core.y + 40;
-  const endY = core.y + core.height - 40;
+  // Horizontal straps on M4 across core connecting to ring
+  const startY = core.y + 60;
+  const endY = core.y + core.height - 60;
   for (let y = startY; y <= endY; y += pitchY) {
     const isVdd = (Math.round((y - startY) / pitchY) % 2) === 0;
     const net = isVdd ? 'VDD' : 'VSS';
+    const targetRing = isVdd ? ringVdd : ringVss;
     const strapId = `strap_gen_${net.toLowerCase()}_h_${idCounter++}`;
+    
+    // Extends to connect with vertical arms of target ring
+    const x1 = targetRing.x;
+    const x2 = targetRing.x + targetRing.width;
+    
     straps.push({
       id: strapId,
       net,
       layer: 'M4',
-      x1: core.x - 10,
+      x1,
       y1: y,
-      x2: core.x + core.width + 10,
+      x2,
       y2: y,
       width: strapWidth,
     });
+
+    // Ring connection feed vias (joining M4 strap to M5 ring)
+    vias.push({
+      id: `via_feed_${strapId}_left`,
+      net,
+      layer1: 'M4',
+      layer2: 'M5',
+      x: x1,
+      y,
+    });
+    vias.push({
+      id: `via_feed_${strapId}_right`,
+      net,
+      layer1: 'M4',
+      layer2: 'M5',
+      x: x2,
+      y,
+    });
   }
 
-  // Vertical straps on M5 across core
-  const startX = core.x + 40;
-  const endX = core.x + core.width - 40;
+  // Vertical straps on M5 across core connecting to ring
+  const startX = core.x + 80;
+  const endX = core.x + core.width - 80;
   for (let x = startX; x <= endX; x += pitchX) {
     const isVdd = (Math.round((x - startX) / pitchX) % 2) === 0;
     const net = isVdd ? 'VDD' : 'VSS';
+    const targetRing = isVdd ? ringVdd : ringVss;
     const strapId = `strap_gen_${net.toLowerCase()}_v_${idCounter++}`;
+    
+    // Vertical straps stay within core boundary to prevent M5-M5 ring shorts
+    const y1 = core.y;
+    const y2 = core.y + core.height;
+
     straps.push({
       id: strapId,
       net,
       layer: 'M5',
       x1: x,
-      y1: core.y - 10,
+      y1,
       x2: x,
-      y2: core.y + core.height + 10,
+      y2,
       width: strapWidth,
     });
   }
@@ -1091,9 +1143,22 @@ export function generatePDNGrid(coreRect, options = {}) {
     });
   });
 
+  const sources = [
+    { nodeId: 'ring_vdd', net: 'VDD' },
+    { nodeId: 'ring_vss', net: 'VSS' },
+  ];
+
+  const loads = [
+    { nodeId: hStraps[0]?.id || 'ring_vdd', net: 'VDD', currentMa: 15 },
+    { nodeId: hStraps.find((s) => s.net === 'VSS')?.id || 'ring_vss', net: 'VSS', currentMa: 15 },
+  ];
+
   return {
+    rings,
     straps,
     vias,
-    message: `Synthesized ${straps.length} orthogonal power straps and ${vias.length} mesh vias.`,
+    sources,
+    loads,
+    message: `Synthesized continuous PDN mesh: ${rings.length} rings, ${straps.length} straps, ${vias.length} vias.`,
   };
 }

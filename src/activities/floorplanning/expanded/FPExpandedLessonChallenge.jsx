@@ -177,6 +177,7 @@ export default function FPExpandedLessonChallenge({ level, kingdom, onVerify, al
             </button>
             <Link
               to={studioPath}
+              data-testid="btn-launch-studio-assignment"
               className="btn btn--primary btn--sm"
               style={{ textDecoration: 'none' }}
               title="Launch CAD Studio with this lesson scenario"

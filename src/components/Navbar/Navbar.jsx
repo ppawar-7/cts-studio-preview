@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
 import { usePlayer } from '../../context/PlayerContext.jsx';
+import { FEATURED_EXPERIENCES } from '../../config/featureScope.js';
 import './Navbar.css';
 
 export default function Navbar() {
@@ -20,9 +21,13 @@ export default function Navbar() {
     { to: '/dashboard', label: 'Dashboard', emoji: '📊' },
     { to: '/world-map', label: 'Home Hub', emoji: '🏛️' },
     { to: '/explore', label: 'Explore', emoji: '🧭' },
-    { to: '/studio/rtl', label: 'RTL Studio', emoji: '⚡' },
-    { to: '/studio/floorplanning', label: 'Floorplan Studio', emoji: '🗺️' },
-    { to: '/studio/sta', label: 'STA Studio', emoji: '⏱️' },
+    ...FEATURED_EXPERIENCES.map((exp) => ({
+      to: exp.studioRoute,
+      label: exp.id === 'rtl' ? 'RTL Studio' : exp.id === 'floorplanning' ? 'Floorplan Studio' : 'STA Studio',
+      emoji: exp.emoji,
+    })),
+
+
   ];
 
   return (

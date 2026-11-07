@@ -274,7 +274,8 @@ export default function StudioCanvas({
 
     const macroEl = e.target.closest ? e.target.closest('[data-macro-id]') : null;
     const svg = svgRef.current;
-    if (svg && svg.setPointerCapture) {
+    const pId = e.pointerId !== undefined ? e.pointerId : 1;
+    if (svg && svg.setPointerCapture && e.pointerId !== undefined) {
       try { svg.setPointerCapture(e.pointerId); } catch { /* ignore */ }
     }
     if (macroEl) {
@@ -284,7 +285,7 @@ export default function StudioCanvas({
       const w = clientToWorld(e.clientX, e.clientY);
       gesture.current = {
         kind: 'drag',
-        pointerId: e.pointerId,
+        pointerId: pId,
         macroId: macro.id,
         offset: { x: w.x - macro.x, y: w.y - macro.y },
         from: { x: macro.x, y: macro.y },
@@ -299,7 +300,7 @@ export default function StudioCanvas({
     const u = clientToUser(e.clientX, e.clientY);
     gesture.current = {
       kind: 'pan',
-      pointerId: e.pointerId,
+      pointerId: pId,
       startUser: u,
       startPan: { ...pan },
       startClient: { x: e.clientX, y: e.clientY },
@@ -321,7 +322,8 @@ export default function StudioCanvas({
     }
 
     const g = gesture.current;
-    if (!g || g.pointerId !== e.pointerId) return;
+    if (!g) return;
+    if (e.pointerId !== undefined && g.pointerId !== undefined && g.pointerId !== e.pointerId) return;
     const dist = Math.hypot(e.clientX - g.startClient.x, e.clientY - g.startClient.y);
     if (!g.moved && dist < DRAG_THRESHOLD_PX) return;
     g.moved = true;
@@ -351,14 +353,15 @@ export default function StudioCanvas({
 
   const endGesture = (e) => {
     const g = gesture.current;
-    if (!g || (e && g.pointerId !== e.pointerId)) return;
+    if (!g) return;
+    if (e && e.pointerId !== undefined && g.pointerId !== undefined && g.pointerId !== e.pointerId) return;
     gesture.current = null;
     setIsPanning(false);
     if (g.kind === 'drag') {
       if (g.moved && (g.last.x !== g.from.x || g.last.y !== g.from.y) && onCommitMacroDrag) {
         onCommitMacroDrag(g.macroId, g.from);
       }
-    } else if (g.kind === 'pan' && !g.moved && e && e.type === 'pointerup') {
+    } else if (g.kind === 'pan' && !g.moved && e && (e.type === 'pointerup' || e.type === 'mouseup')) {
       onSelect(g.selection.type, g.selection.id);
     }
   };
@@ -401,6 +404,9 @@ export default function StudioCanvas({
           onPointerUp={endGesture}
           onPointerCancel={endGesture}
           onLostPointerCapture={endGesture}
+          onMouseDown={handlePointerDown}
+          onMouseMove={handlePointerMove}
+          onMouseUp={endGesture}
         >
           <defs>
             {/* Hard blockage crosshatch pattern */}
