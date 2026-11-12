@@ -70,6 +70,8 @@ import CTSTopologiesChallenge from './cts/CTSTopologiesChallenge.jsx';
 import { validateCTSTopologies } from './cts/validators/validateCTSTopologies.js';
 import CTSKingdomChallenge from './cts/CTSKingdomChallenge.jsx';
 import { validateCTSKingdom } from './cts/validators/validateCTSKingdom.js';
+import CTSExpandedLessonChallenge from './cts/expanded/CTSExpandedLessonChallenge.jsx';
+import { validateCTSExpandedLesson } from './cts/validators/validateCTSExpandedLesson.js';
 
 // Kingdom 6: Routing
 import RTIntroChallenge from './routing/RTIntroChallenge.jsx';
@@ -341,6 +343,69 @@ const ACTIVITY_REGISTRY = {
     validator: validateCTSKingdom,
     maxScore: 50,
     starThresholds: [20, 38, 50],
+  },
+  'cts-6': {
+    levelId: 'cts-6',
+    kingdomId: 'cts',
+    title: 'Wire RC Delay and Slew Degradation',
+    component: CTSExpandedLessonChallenge,
+    validator: validateCTSExpandedLesson,
+    maxScore: 55,
+    starThresholds: [20, 38, 55],
+  },
+  'cts-7': {
+    levelId: 'cts-7',
+    kingdomId: 'cts',
+    title: 'Fanout Limits and Capacitive Load Management',
+    component: CTSExpandedLessonChallenge,
+    validator: validateCTSExpandedLesson,
+    maxScore: 60,
+    starThresholds: [22, 42, 60],
+  },
+  'cts-8': {
+    levelId: 'cts-8',
+    kingdomId: 'cts',
+    title: 'Sink Clustering and Hierarchical Tree Synthesis',
+    component: CTSExpandedLessonChallenge,
+    validator: validateCTSExpandedLesson,
+    maxScore: 65,
+    starThresholds: [25, 45, 65],
+  },
+  'cts-9': {
+    levelId: 'cts-9',
+    kingdomId: 'cts',
+    title: 'Obstruction-Aware Clock Routing',
+    component: CTSExpandedLessonChallenge,
+    validator: validateCTSExpandedLesson,
+    maxScore: 70,
+    starThresholds: [28, 50, 70],
+  },
+  'cts-10': {
+    levelId: 'cts-10',
+    kingdomId: 'cts',
+    title: 'Clock Gating Architecture and Dynamic Power',
+    component: CTSExpandedLessonChallenge,
+    validator: validateCTSExpandedLesson,
+    maxScore: 75,
+    starThresholds: [30, 55, 75],
+  },
+  'cts-11': {
+    levelId: 'cts-11',
+    kingdomId: 'cts',
+    title: 'Useful Skew Optimization (Setup vs Hold Slack)',
+    component: CTSExpandedLessonChallenge,
+    validator: validateCTSExpandedLesson,
+    maxScore: 80,
+    starThresholds: [32, 60, 80],
+  },
+  'cts-12': {
+    levelId: 'cts-12',
+    kingdomId: 'cts',
+    title: 'Advanced CTS Capstone Laboratory',
+    component: CTSExpandedLessonChallenge,
+    validator: validateCTSExpandedLesson,
+    maxScore: 100,
+    starThresholds: [40, 75, 100],
   },
 
   // ─── Kingdom 6: Routing ────────────────────────────────────────────────────

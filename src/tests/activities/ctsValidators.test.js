@@ -22,6 +22,9 @@ import {
   validateCTSKingdom,
   CORRECT_ICG_CONCEPT_ID,
 } from '../../activities/cts/validators/validateCTSKingdom.js';
+import { validateCTSExpandedLesson } from '../../activities/cts/validators/validateCTSExpandedLesson.js';
+import { createCTSProject } from '../../engine/ctsProjectModel.js';
+import { autoBalanceClockTree } from '../../engine/ctsEngine.js';
 
 describe('Kingdom 5: CTS Validators', () => {
   describe('cts-1: validateCTSIntro', () => {
@@ -132,6 +135,120 @@ describe('Kingdom 5: CTS Validators', () => {
       });
       expect(res.passed).toBe(false);
       expect(res.skewMet).toBe(false);
+    });
+  });
+
+  describe('cts-6 through cts-12: validateCTSExpandedLesson', () => {
+    it('rejects empty submission or missing concept answer', () => {
+      expect(validateCTSExpandedLesson(null).passed).toBe(false);
+      expect(validateCTSExpandedLesson({ lessonId: 'cts-6', answer: 'wrong' }).passed).toBe(false);
+    });
+
+    it('validates cts-6: wire RC delay and repeater slicing', () => {
+      const cleanProject = createCTSProject({ scenarioId: 'scenario-balanced-4' });
+      const res = validateCTSExpandedLesson({
+        lessonId: 'cts-6',
+        answer: 'opt-linearize-rc',
+        project: cleanProject,
+      });
+      expect(res.passed).toBe(true);
+      expect(res.score).toBe(55);
+      expect(res.stars).toBe(3);
+    });
+
+    it('validates cts-7: fanout and capacitive limits', () => {
+      const balancedProject = createCTSProject({ scenarioId: 'scenario-balanced-4' });
+      const res = validateCTSExpandedLesson({
+        lessonId: 'cts-7',
+        answer: 'opt-upsize-or-split',
+        project: balancedProject,
+      });
+      expect(res.passed).toBe(true);
+      expect(res.score).toBe(60);
+      expect(res.stars).toBe(3);
+    });
+
+    it('validates cts-9: obstruction-aware clock routing around macro blockages', () => {
+      const blockageProject = createCTSProject({ scenarioId: 'scenario-blockage-8' });
+      const res = validateCTSExpandedLesson({
+        lessonId: 'cts-9',
+        answer: 'opt-balance-delay',
+        project: blockageProject,
+      });
+      expect(res.passed).toBe(true);
+      expect(res.score).toBe(70);
+    });
+
+    it('validates cts-10: low power clock gating architecture', () => {
+      const proj = createCTSProject({ scenarioId: 'scenario-balanced-4' });
+      const res = validateCTSExpandedLesson({
+        lessonId: 'cts-10',
+        answer: 'opt-prevent-glitches',
+        project: proj,
+      });
+      expect(res.passed).toBe(true);
+      expect(res.score).toBe(75);
+    });
+
+    it('validates cts-11: useful skew and setup vs hold slack', () => {
+      const proj = createCTSProject({ scenarioId: 'scenario-balanced-4' });
+      const res = validateCTSExpandedLesson({
+        lessonId: 'cts-11',
+        answer: 'opt-hold-violation',
+        project: proj,
+      });
+      expect(res.passed).toBe(true);
+      expect(res.score).toBe(80);
+    });
+
+    describe('cts-12: Advanced CTS Capstone (12 Golden Gates)', () => {
+      it('rejects capstone project with fewer than 8 sinks', () => {
+        const smallProject = createCTSProject({ scenarioId: 'scenario-balanced-4' }); // only 4 sinks
+        const res = validateCTSExpandedLesson({
+          lessonId: 'cts-12',
+          answer: 'opt-slew-failure',
+          project: smallProject,
+        });
+        expect(res.passed).toBe(false);
+        expect(res.feedback).toContain('Gate 1 Failed');
+      });
+
+      it('rejects capstone project with disconnected sinks', () => {
+        const capstone = createCTSProject({ scenarioId: 'scenario-capstone-soc' });
+        // Disconnect one branch
+        capstone.branches = capstone.branches.slice(0, -2);
+        const res = validateCTSExpandedLesson({
+          lessonId: 'cts-12',
+          answer: 'opt-slew-failure',
+          project: capstone,
+        });
+        expect(res.passed).toBe(false);
+        expect(res.feedback).toContain('disconnected');
+      });
+
+      it('passes complete 10-sink SoC Capstone, awards 100 XP, 3 stars, and generates official design artifact', () => {
+        const capstone = createCTSProject({ scenarioId: 'scenario-capstone-soc' });
+        const balancedRes = autoBalanceClockTree(capstone);
+        const balancedCapstone = balancedRes.updatedProject || balancedRes;
+        const res = validateCTSExpandedLesson({
+          lessonId: 'cts-12',
+          answer: 'opt-slew-failure',
+          project: balancedCapstone,
+        });
+
+        expect(res.passed).toBe(true);
+        expect(res.score).toBe(100);
+        expect(res.stars).toBe(3);
+        expect(res.feedback).toContain('12 Golden Gates');
+        expect(res.artifacts).toBeDefined();
+        expect(res.artifacts.length).toBeGreaterThan(0);
+
+        const treeArt = res.artifacts[0];
+        expect(treeArt.measurements.skewPs).toBeLessThanOrEqual(60);
+        expect(treeArt.measurements.latencyPs).toBeLessThanOrEqual(350);
+        expect(treeArt.measurements.setupSlack).toBeGreaterThanOrEqual(0);
+        expect(treeArt.measurements.holdSlack).toBeGreaterThanOrEqual(0);
+      });
     });
   });
 });

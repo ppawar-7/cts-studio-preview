@@ -18,6 +18,7 @@ import ExplorePage from './pages/ExplorePage/ExplorePage.jsx';
 import RTLStudioPage from './pages/StudioPage/RTLStudioPage.jsx';
 import STAStudioPage from './pages/StudioPage/STAStudioPage.jsx';
 import FloorplanStudioPage from './pages/FloorplanStudioPage/FloorplanStudioPage.jsx';
+import CTSStudioPage from './pages/CTSStudioPage/CTSStudioPage.jsx';
 
 export default function App() {
   return (
@@ -47,6 +48,9 @@ export default function App() {
                   <Route path="/floorplan-studio" element={<Navigate to="/studio/floorplanning" replace />} />
                   <Route path="/studio/sta" element={<STAStudioPage />} />
                   <Route path="/sta-studio" element={<Navigate to="/studio/sta" replace />} />
+                  <Route path="/studio/cts" element={<CTSStudioPage />} />
+                  <Route path="/cts-studio" element={<Navigate to="/studio/cts" replace />} />
+                  <Route path="/kingdom/cts/studio" element={<CTSStudioPage />} />
 
                   {/* Legacy Internal Mode for Maintainers */}
                   <Route path="/legacy/world-map" element={<WorldMapPage isLegacy={true} />} />
@@ -59,6 +63,8 @@ export default function App() {
                   <Route path="/explore/studio/sta" element={<STAStudioPage isExploreMode={true} />} />
                   <Route path="/explore/studio/floorplanning" element={<FloorplanStudioPage isExploreMode={true} />} />
                   <Route path="/explore/kingdom/floorplanning/studio" element={<FloorplanStudioPage isExploreMode={true} />} />
+                  <Route path="/explore/studio/cts" element={<CTSStudioPage isExploreMode={true} />} />
+                  <Route path="/explore/kingdom/cts/studio" element={<CTSStudioPage isExploreMode={true} />} />
 
                   <Route path="/sanity-checks" element={<Navigate to="/world-map" replace />} />
                   <Route path="*" element={<Navigate to="/world-map" replace />} />

@@ -1,4 +1,5 @@
 import { EXPANDED_LESSONS } from '../../activities/floorplanning/expanded/fpExpandedCurriculumData.js';
+import { CTS_EXPANDED_CURRICULUM } from '../../activities/cts/expanded/ctsCurriculumData.js';
 /**
  * KingdomPage.jsx
  * ================
@@ -34,6 +35,15 @@ import { evaluateSanityCheck } from '../../engine/sanityCheckEngine.js';
 import { SANITY_CHECK_REQUIREMENTS, getStudentDesignForSanityCheck } from '../../logic/studentDesignContext.js';
 import { CHECK_CLASSIFICATION } from '../../logic/designArtifactContracts.js';
 import './KingdomPage.css';
+
+const CTS_MODULES = [
+  {
+    num: 2,
+    title: 'Module 2: Advanced Clock Tree Synthesis (CAD Labs 6 – 12)',
+    desc: 'Wire RC delay mitigation, fanout & max capacitance load management, centroid sink clustering, obstruction-aware macro bypass, clock gating power estimation, useful skew setup/hold optimization, and 12-Gate Capstone.',
+    range: ['cts-6', 'cts-7', 'cts-8', 'cts-9', 'cts-10', 'cts-11', 'cts-12'],
+  },
+];
 
 const FP_MODULES = [
   {
@@ -120,14 +130,14 @@ export default function KingdomPage({ isExploreMode = false }) {
   ).length;
   const levelsDone = areAllKingdomLevelsCompleted(player, kingdomId);
 
-  // Expanded Floorplanning lessons count (31 expanded + 5 core = 36 total)
-  const expandedLessonsList = kingdomId === 'floorplanning' ? Object.keys(EXPANDED_LESSONS) : [];
-  const expandedCompleted = kingdomId === 'floorplanning'
-    ? expandedLessonsList.filter((id) => player.levelProgress?.[id]?.completed).length
-    : 0;
-  const totalDisplayLevels = kingdomId === 'floorplanning'
-    ? kingdom.levels.length + expandedLessonsList.length
-    : kingdom.levels.length;
+  // Expanded lessons count (Floorplanning 31 + 5 = 36 total; CTS 7 + 5 = 12 total)
+  const expandedLessonsList = kingdomId === 'floorplanning'
+    ? Object.keys(EXPANDED_LESSONS)
+    : kingdomId === 'cts'
+    ? Object.keys(CTS_EXPANDED_CURRICULUM)
+    : [];
+  const expandedCompleted = expandedLessonsList.filter((id) => player.levelProgress?.[id]?.completed).length;
+  const totalDisplayLevels = kingdom.levels.length + expandedLessonsList.length;
   const totalDisplayCompleted = completedLevels + expandedCompleted;
 
   // Sanity checks info
@@ -413,6 +423,29 @@ export default function KingdomPage({ isExploreMode = false }) {
               </div>
             )}
 
+            {kingdom.id === 'cts' && (
+              <div className="kingdom-external-lab-card cts-studio-banner" data-testid="cts-studio-banner" style={{ border: '2px solid #0284c7', background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08), rgba(30, 58, 95, 0.12))' }}>
+                <div className="kingdom-external-lab-info">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <h3>⚡ Clock Tree Synthesis (CTS) Studio 1.0 (Interactive CAD Workspace)</h3>
+                    <span className="badge badge--available">Full EDA CAD Suite</span>
+                  </div>
+                  <p>
+                    Interactive clock tree design & timing optimization laboratory: multi-layer clock canvas, Elmore RC delay solver, drive-strength sensitive buffers (CLKBUF_X1..X8), auto-balancing heuristics, signed skew setup/hold timing verification, dynamic switching power estimation, and candidate trade-off comparison.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <Link
+                    to={isExplore ? "/explore/studio/cts" : "/studio/cts"}
+                    className="btn btn--primary"
+                    style={{ fontWeight: 800 }}
+                  >
+                    ⚡ Open CTS Studio 1.0 →
+                  </Link>
+                </div>
+              </div>
+            )}
+
             {kingdom.id === 'rtl-understanding' && (
               <div className="kingdom-external-lab-card">
                 <div className="kingdom-external-lab-info">
@@ -659,6 +692,87 @@ export default function KingdomPage({ isExploreMode = false }) {
                                   </span>
                                   <Link
                                     to={isExplore ? "/explore/kingdom/floorplanning/level/" + lvlId : "/kingdom/floorplanning/level/" + lvlId}
+                                    className={`btn ${completed ? 'btn--secondary' : isCapstone ? 'btn--primary' : 'btn--secondary'} btn--sm`}
+                                    style={{ fontSize: '0.75rem' }}
+                                  >
+                                    {completed ? '✓ Review' : isCapstone ? '🚀 Launch Capstone' : '▶ Start'}
+                                  </Link>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ─── CLOCK TREE SYNTHESIS COMPLETE CURRICULUM MODULES (Modules 2: CTS-6 to CTS-12) ─── */}
+            {kingdom.id === 'cts' && (
+              <div className="kingdom-page__section-wrapper" style={{ marginTop: '2.5rem' }}>
+                <div className="kingdom-page__section-title-row">
+                  <div>
+                    <h2 className="kingdom-page__levels-title">
+                      🎓 Part 2: Advanced CTS Curriculum (Labs 6 – 12)
+                    </h2>
+                    <p style={{ color: '#64748b', fontSize: '0.88rem', margin: '0.25rem 0 0' }}>
+                      7 authentic hands-on CAD engineering laboratories covering wire RC delay mitigation, fanout limits, centroid clustering, macro blockage routing, low-power clock gating, useful skew optimization, and 12-Gate Capstone.
+                    </p>
+                  </div>
+                  <span className="badge badge--available">
+                    7 Advanced CAD Labs
+                  </span>
+                </div>
+
+                <div className="fp-curriculum-modules-list" style={{ marginTop: '1rem' }}>
+                  {CTS_MODULES.map((mod) => {
+                    const modCompletedCount = mod.range.filter((lvlId) => player.levelProgress?.[lvlId]?.completed).length;
+                    return (
+                      <details key={mod.num} className="fp-curriculum-module fp-module-accordion" open>
+                        <summary className="fp-curriculum-module__header">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 800, color: '#0284c7' }}>{mod.title}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>({mod.range.length} Lessons)</span>
+                            <span className="fp-module-progress-chip">
+                              {modCompletedCount}/{mod.range.length} Done
+                            </span>
+                          </div>
+                          <span style={{ fontSize: '0.78rem', color: '#0284c7', fontWeight: 700 }}>Expand / Collapse</span>
+                        </summary>
+                        <p style={{ padding: '0.5rem 1.25rem 0', margin: 0, fontSize: '0.82rem', color: '#64748b' }}>
+                          {mod.desc}
+                        </p>
+                        <div className="fp-curriculum-module__body">
+                          {mod.range.map((lvlId) => {
+                            const lData = CTS_EXPANDED_CURRICULUM[lvlId];
+                            if (!lData) return null;
+                            const completed = Boolean(player.levelProgress?.[lvlId]?.completed);
+                            const isCapstone = lvlId === 'cts-12';
+
+                            return (
+                              <div
+                                key={lvlId}
+                                className={`fp-lesson-card ${isCapstone ? 'fp-lesson-card--capstone' : ''}`}
+                              >
+                                <div className="fp-lesson-card__header">
+                                  <span className="fp-lesson-card__id">{lvlId.toUpperCase()}</span>
+                                  {isCapstone && (
+                                    <span className="fp-capstone-badge">🏆 CTS Capstone</span>
+                                  )}
+                                  {completed && (
+                                    <span className="fp-lesson-card__status fp-lesson-card__status--done">✓ Done</span>
+                                  )}
+                                </div>
+                                <h4 className="fp-lesson-card__title">{lData.title}</h4>
+                                <p className="fp-lesson-card__desc">{lData.subtitle}</p>
+                                <div className="fp-lesson-card__footer">
+                                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b' }}>
+                                    ⭐ +{lData.xpReward} XP
+                                  </span>
+                                  <Link
+                                    to={isExplore ? `/explore/kingdom/cts/level/${lvlId}` : `/kingdom/cts/level/${lvlId}`}
                                     className={`btn ${completed ? 'btn--secondary' : isCapstone ? 'btn--primary' : 'btn--secondary'} btn--sm`}
                                     style={{ fontSize: '0.75rem' }}
                                   >

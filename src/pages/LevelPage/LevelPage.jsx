@@ -17,6 +17,7 @@ import {
 } from '../../logic/progressionEngine.js';
 import { KINGDOMS } from '../../data/kingdomsData.js';
 import { EXPANDED_LESSONS } from '../../activities/floorplanning/expanded/fpExpandedCurriculumData.js';
+import { CTS_EXPANDED_CURRICULUM } from '../../activities/cts/expanded/ctsCurriculumData.js';
 import ActivityHost from '../../components/ActivityHost/ActivityHost.jsx';
 import { hasActivity } from '../../activities/activityRegistry.js';
 import './LevelPage.css';
@@ -43,25 +44,48 @@ export default function LevelPage({ isExploreMode = false }) {
   const kingdom = KINGDOMS.find((k) => k.id === kingdomId);
   let level = kingdom?.levels.find((l) => l.id === levelId);
 
-  // Fallback for Floorplanning 2.0 expanded lessons (fp-6 to fp-24)
-  const expandedIds = Object.keys(EXPANDED_LESSONS);
+  // Fallback for expanded lessons (Floorplanning and CTS)
+  const expandedIds = kingdomId === 'floorplanning'
+    ? Object.keys(EXPANDED_LESSONS)
+    : kingdomId === 'cts'
+    ? Object.keys(CTS_EXPANDED_CURRICULUM)
+    : [];
   const coreLevelCount = kingdom?.levels.length || 0;
   const toExpandedLevel = (id) => {
-    const exp = EXPANDED_LESSONS[id];
-    return {
-      id: exp.id,
-      name: exp.title,
-      title: exp.title,
-      description: exp.description,
-      xpReward: exp.xpReward || 35,
-      starThresholds: exp.starThresholds,
-      duration: exp.duration || '~10 min',
-      module: exp.module,
-      order: coreLevelCount + expandedIds.indexOf(id) + 1,
-      isExpanded: true,
-    };
+    if (kingdomId === 'floorplanning') {
+      const exp = EXPANDED_LESSONS[id];
+      if (!exp) return null;
+      return {
+        id: exp.id,
+        name: exp.title,
+        title: exp.title,
+        description: exp.description,
+        xpReward: exp.xpReward || 35,
+        starThresholds: exp.starThresholds,
+        duration: exp.duration || '~10 min',
+        module: exp.module,
+        order: coreLevelCount + expandedIds.indexOf(id) + 1,
+        isExpanded: true,
+      };
+    }
+    if (kingdomId === 'cts') {
+      const exp = CTS_EXPANDED_CURRICULUM[id];
+      if (!exp) return null;
+      return {
+        id: exp.id,
+        name: exp.title,
+        title: exp.title,
+        description: exp.subtitle || exp.objective,
+        xpReward: exp.xpReward || 55,
+        starThresholds: exp.starThresholds,
+        duration: exp.duration || '~15 min',
+        order: coreLevelCount + expandedIds.indexOf(id) + 1,
+        isExpanded: true,
+      };
+    }
+    return null;
   };
-  if (!level && kingdomId === 'floorplanning' && EXPANDED_LESSONS[levelId]) {
+  if (!level && (EXPANDED_LESSONS[levelId] || CTS_EXPANDED_CURRICULUM[levelId])) {
     level = toExpandedLevel(levelId);
   }
 
@@ -144,7 +168,7 @@ export default function LevelPage({ isExploreMode = false }) {
     prevLevel = idx > 0 ? toExpandedLevel(expandedIds[idx - 1]) : kingdom.levels[kingdom.levels.length - 1];
     nextLevel = idx < expandedIds.length - 1 ? toExpandedLevel(expandedIds[idx + 1]) : null;
   }
-  const totalLessons = kingdom.id === 'floorplanning' ? coreLevelCount + expandedIds.length : coreLevelCount;
+  const totalLessons = coreLevelCount + expandedIds.length;
   const nextKingdom = KINGDOMS.find((k) => k.order === kingdom.order + 1);
 
   // Show full completion overlay when completed
