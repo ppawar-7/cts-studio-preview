@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PD Playground – Clock Tree Synthesis (CTS) Studio 1.0 Preview</title>
+    <meta name="description" content="Interactive Clock Tree Synthesis (CTS) CAD Studio and ASIC Physical Design Playground." />
+    <script>
+      (function() {
+        var path = window.location.pathname;
+        var repoBase = '/cts-studio-preview';
+        var route = path.indexOf(repoBase) === 0 ? path.slice(repoBase.length) : path;
+        if (route && route !== '/' && !window.location.hash) {
+          if (!route.startsWith('/')) route = '/' + route;
+          window.location.replace((path.indexOf(repoBase) === 0 ? repoBase : '') + '/#' + route + window.location.search);
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/cts-studio-preview/assets/index-DM1zir-e.js"></script>
+    <link rel="stylesheet" crossorigin href="/cts-studio-preview/assets/index-BxD6rMAc.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
