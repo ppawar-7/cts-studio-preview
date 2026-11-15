@@ -42,13 +42,14 @@ export default function CTSStudioPage({ isExploreMode = false }) {
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const assignmentParam = queryParams.get('assignment');
+  const isExplore = Boolean(isExploreMode || location.pathname.startsWith('/explore'));
 
   // Initialize project from storage, URL scenario, or default balanced 4-sink H-tree
   const [project, setProject] = useState(() => {
     if (assignmentParam && CTS_SCENARIOS[assignmentParam]) {
       return createCTSProject({ scenarioId: assignmentParam });
     }
-    const saved = loadCTSProjectFromStorage('active');
+    const saved = loadCTSProjectFromStorage('active', isExplore);
     if (saved) return saved;
     return createCTSProject({ scenarioId: 'scenario-balanced-4' });
   });
@@ -119,9 +120,14 @@ export default function CTSStudioPage({ isExploreMode = false }) {
 
   // Save project
   const handleSave = () => {
-    saveCTSProjectToStorage(project, 'active');
+    saveCTSProjectToStorage(project, 'active', isExplore);
     showToast('Saved clock tree project to browser storage.');
   };
+
+  // Node Drag End (records undoable snapshot after drag finishes)
+  const handleNodeDragEnd = useCallback(() => {
+    setHistory((prev) => pushHistorySnapshot(prev, project));
+  }, [project]);
 
   // Auto-Balance clock tree
   const handleAutoBalance = () => {
@@ -367,6 +373,7 @@ export default function CTSStudioPage({ isExploreMode = false }) {
           selectedEntity={selectedEntity}
           onSelectEntity={setSelectedEntity}
           onMoveNode={handleMoveNode}
+          onNodeDragEnd={handleNodeDragEnd}
         />
 
         {/* Right Properties Inspector */}

@@ -144,6 +144,55 @@ describe('Kingdom 5: CTS Validators', () => {
       expect(validateCTSExpandedLesson({ lessonId: 'cts-6', answer: 'wrong' }).passed).toBe(false);
     });
 
+    it('strictly rejects quiz-only bypass (missing or null project) for all expanded lessons', () => {
+      const lessons = ['cts-6', 'cts-7', 'cts-8', 'cts-9', 'cts-10', 'cts-11', 'cts-12'];
+      const answers = {
+        'cts-6': 'opt-linearize-rc',
+        'cts-7': 'opt-upsize-or-split',
+        'cts-8': 'opt-minimize-dispersion',
+        'cts-9': 'opt-balance-delay',
+        'cts-10': 'opt-prevent-glitches',
+        'cts-11': 'opt-hold-violation',
+        'cts-12': 'opt-slew-failure',
+      };
+
+      lessons.forEach((lId) => {
+        const resNoProj = validateCTSExpandedLesson({
+          lessonId: lId,
+          answer: answers[lId],
+          project: null,
+        });
+        expect(resNoProj.passed).toBe(false);
+        expect(resNoProj.feedback).toMatch(/saved CTS Studio project is required/i);
+      });
+    });
+
+    it('rejects untouched flawed starter with overloaded CLKBUF_X1 for cts-7', () => {
+      const flawedStarter = createCTSProject({ scenarioId: 'scenario-flawed-starter' });
+      const res = validateCTSExpandedLesson({
+        lessonId: 'cts-7',
+        answer: 'opt-upsize-or-split',
+        project: flawedStarter,
+      });
+      expect(res.passed).toBe(false);
+      expect(res.feedback).toMatch(/fanout or capacitance violations/i);
+    });
+
+    it('rejects illegal buffer placement inside macro keepout for cts-9', () => {
+      const blockageProject = createCTSProject({ scenarioId: 'scenario-blockage-8' });
+      // Illegally move BUF_CORRIDOR_W inside BLK_SRAM_WEST (x: 100..260, y: 200..400)
+      blockageProject.buffers = blockageProject.buffers.map((b) =>
+        b.id === 'BUF_CORRIDOR_W' ? { ...b, x: 180, y: 250 } : b
+      );
+      const res = validateCTSExpandedLesson({
+        lessonId: 'cts-9',
+        answer: 'opt-balance-delay',
+        project: blockageProject,
+      });
+      expect(res.passed).toBe(false);
+      expect(res.feedback).toMatch(/macro keepout/i);
+    });
+
     it('validates cts-6: wire RC delay and repeater slicing', () => {
       const cleanProject = createCTSProject({ scenarioId: 'scenario-balanced-4' });
       const res = validateCTSExpandedLesson({
@@ -156,7 +205,7 @@ describe('Kingdom 5: CTS Validators', () => {
       expect(res.stars).toBe(3);
     });
 
-    it('validates cts-7: fanout and capacitive limits', () => {
+    it('validates cts-7: fanout and capacitive limits with resolved tree', () => {
       const balancedProject = createCTSProject({ scenarioId: 'scenario-balanced-4' });
       const res = validateCTSExpandedLesson({
         lessonId: 'cts-7',
@@ -165,6 +214,18 @@ describe('Kingdom 5: CTS Validators', () => {
       });
       expect(res.passed).toBe(true);
       expect(res.score).toBe(60);
+      expect(res.stars).toBe(3);
+    });
+
+    it('validates cts-8: sink clustering and hierarchical tree', () => {
+      const balancedProject = createCTSProject({ scenarioId: 'scenario-balanced-4' });
+      const res = validateCTSExpandedLesson({
+        lessonId: 'cts-8',
+        answer: 'opt-minimize-dispersion',
+        project: balancedProject,
+      });
+      expect(res.passed).toBe(true);
+      expect(res.score).toBe(65);
       expect(res.stars).toBe(3);
     });
 

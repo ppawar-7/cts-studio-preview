@@ -17,6 +17,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { CTS_EXPANDED_CURRICULUM } from './ctsCurriculumData.js';
 import { loadCTSProjectFromStorage } from '../../../engine/ctsProjectModel.js';
 import { solveClockTreeElmore } from '../../../engine/ctsEngine.js';
+import { validateCTSExpandedLesson } from '../validators/validateCTSExpandedLesson.js';
 
 export default function CTSExpandedLessonChallenge({
   level,
@@ -27,21 +28,21 @@ export default function CTSExpandedLessonChallenge({
   const lessonId = level?.id || 'cts-6';
   const lesson = CTS_EXPANDED_CURRICULUM[lessonId] || CTS_EXPANDED_CURRICULUM['cts-6'];
   const location = useLocation();
-  const isExplore = location.pathname.startsWith('/explore');
+  const isExplore = Boolean(location.pathname.startsWith('/explore'));
 
   const studioUrl = `${isExplore ? '/explore/studio/cts' : '/studio/cts'}?assignment=${lesson.assignment.scenarioId}`;
 
-  // Read student's active project from browser storage
-  const [storedProject, setStoredProject] = useState(() => loadCTSProjectFromStorage('active'));
+  // Read student's active project from browser storage (strictly isolated per mode)
+  const [storedProject, setStoredProject] = useState(() => loadCTSProjectFromStorage('active', isExplore));
 
   // Re-read storage on window focus or mount
   useEffect(() => {
     const handleFocus = () => {
-      setStoredProject(loadCTSProjectFromStorage('active'));
+      setStoredProject(loadCTSProjectFromStorage('active', isExplore));
     };
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, []);
+  }, [isExplore]);
 
   // Compute live solution on the student's project
   const solution = useMemo(() => {
@@ -56,16 +57,19 @@ export default function CTSExpandedLessonChallenge({
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    const freshProject = loadCTSProjectFromStorage('active', isExplore) || storedProject;
     const submission = {
       lessonId,
       answer: selectedAnswer,
-      project: storedProject,
-      solution,
+      project: freshProject,
+      isExplore,
     };
 
-    if (onVerify) {
-      const result = onVerify(submission);
-      setFeedback(result);
+    const result = validateCTSExpandedLesson(submission);
+    setFeedback(result);
+
+    if (result && result.passed && onVerify) {
+      onVerify(result);
     }
   };
 

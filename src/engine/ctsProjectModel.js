@@ -11,6 +11,7 @@ import { CTS_SCENARIOS } from './ctsScenarios.js';
 export const CTS_SCHEMA_VERSION = 1;
 
 export const CTS_STORAGE_KEY_ACTIVE = 'pd_cts_active_project_v1';
+export const CTS_STORAGE_KEY_EXPLORE = 'pd_cts_explore_project_v1';
 export const CTS_STORAGE_KEY_CANDIDATE_PREFIX = 'pd_cts_candidate_';
 
 export const DEFAULT_CTS_CONSTRAINTS = {
@@ -109,20 +110,38 @@ export function validateCTSProject(project) {
 const memoryStorage = new Map();
 
 /**
- * Saves a CTS project into localStorage (with in-memory fallback for test/node environments).
+ * Saves a CTS project into storage (with strict Explore-mode session isolation
+ * and in-memory fallback for test/node environments).
  */
-export function saveCTSProjectToStorage(project, slot = 'active') {
+export function saveCTSProjectToStorage(project, slot = 'active', isExplore = false) {
   try {
-    const key = slot === 'active' ? CTS_STORAGE_KEY_ACTIVE : `${CTS_STORAGE_KEY_CANDIDATE_PREFIX}${slot}`;
+    let key = '';
+    if (isExplore) {
+      key = slot === 'active' ? CTS_STORAGE_KEY_EXPLORE : `${CTS_STORAGE_KEY_CANDIDATE_PREFIX}explore_${slot}`;
+    } else {
+      key = slot === 'active' ? CTS_STORAGE_KEY_ACTIVE : `${CTS_STORAGE_KEY_CANDIDATE_PREFIX}${slot}`;
+    }
+
     const cleanProject = {
       ...project,
       updatedAt: new Date().toISOString(),
     };
     const serialized = JSON.stringify(cleanProject);
-    if (typeof localStorage !== 'undefined' && localStorage?.setItem) {
-      localStorage.setItem(key, serialized);
+
+    if (isExplore) {
+      if (typeof window !== 'undefined' && window.sessionStorage?.setItem) {
+        window.sessionStorage.setItem(key, serialized);
+      } else if (typeof localStorage !== 'undefined' && localStorage?.setItem) {
+        localStorage.setItem(key, serialized);
+      } else {
+        memoryStorage.set(key, serialized);
+      }
     } else {
-      memoryStorage.set(key, serialized);
+      if (typeof localStorage !== 'undefined' && localStorage?.setItem) {
+        localStorage.setItem(key, serialized);
+      } else {
+        memoryStorage.set(key, serialized);
+      }
     }
     return { success: true, key };
   } catch (err) {
@@ -132,17 +151,35 @@ export function saveCTSProjectToStorage(project, slot = 'active') {
 }
 
 /**
- * Loads a CTS project from localStorage (with in-memory fallback for test/node environments).
+ * Loads a CTS project from storage (with strict Explore-mode session isolation
+ * and in-memory fallback for test/node environments).
  */
-export function loadCTSProjectFromStorage(slot = 'active') {
+export function loadCTSProjectFromStorage(slot = 'active', isExplore = false) {
   try {
-    const key = slot === 'active' ? CTS_STORAGE_KEY_ACTIVE : `${CTS_STORAGE_KEY_CANDIDATE_PREFIX}${slot}`;
-    let raw = null;
-    if (typeof localStorage !== 'undefined' && localStorage?.getItem) {
-      raw = localStorage.getItem(key);
+    let key = '';
+    if (isExplore) {
+      key = slot === 'active' ? CTS_STORAGE_KEY_EXPLORE : `${CTS_STORAGE_KEY_CANDIDATE_PREFIX}explore_${slot}`;
     } else {
-      raw = memoryStorage.get(key) || null;
+      key = slot === 'active' ? CTS_STORAGE_KEY_ACTIVE : `${CTS_STORAGE_KEY_CANDIDATE_PREFIX}${slot}`;
     }
+
+    let raw = null;
+    if (isExplore) {
+      if (typeof window !== 'undefined' && window.sessionStorage?.getItem) {
+        raw = window.sessionStorage.getItem(key);
+      } else if (typeof localStorage !== 'undefined' && localStorage?.getItem) {
+        raw = localStorage.getItem(key);
+      } else {
+        raw = memoryStorage.get(key) || null;
+      }
+    } else {
+      if (typeof localStorage !== 'undefined' && localStorage?.getItem) {
+        raw = localStorage.getItem(key);
+      } else {
+        raw = memoryStorage.get(key) || null;
+      }
+    }
+
     if (!raw) return null;
     const project = JSON.parse(raw);
     const valid = validateCTSProject(project);

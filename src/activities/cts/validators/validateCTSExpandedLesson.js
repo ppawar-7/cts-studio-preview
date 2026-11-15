@@ -3,6 +3,13 @@
  * ==============================
  * Pure deterministic validators for CTS Expanded Curriculum (cts-6 through cts-12).
  * Supports both standalone submission checks and comprehensive 12-gate CTS Capstone.
+ *
+ * Strict engineering acceptance criteria:
+ * - Recomputes metrics from the project graph (never trusts client-supplied solution objects).
+ * - Enforces required saved project (no quiz-only bypass).
+ * - Detects cycles, disconnected sinks, and invalid topologies.
+ * - Enforces level-specific design evidence (repeaters, blockage avoidance, power, timing slack).
+ * - Standardizes on BLOCKAGE_COLLISION / MACRO_OBSTRUCTION blockage violation handling.
  */
 
 import { solveClockTreeElmore } from '../../../engine/ctsEngine.js';
@@ -19,7 +26,7 @@ export function validateCTSExpandedLesson(submission) {
     };
   }
 
-  const { lessonId, answer, project, solution } = submission;
+  const { lessonId, answer, project } = submission;
   const lessonData = CTS_EXPANDED_CURRICULUM[lessonId];
 
   if (!lessonData) {
@@ -42,15 +49,72 @@ export function validateCTSExpandedLesson(submission) {
     };
   }
 
-  // Solve the student's project if not pre-solved
-  const sol = solution || (project ? solveClockTreeElmore(project) : null);
+  // 2. Reject Missing or Untouched Project (Fail-Closed against quiz-only bypass)
+  if (!project || typeof project !== 'object' || !project.root || !Array.isArray(project.sinks) || !Array.isArray(project.branches)) {
+    return {
+      passed: false,
+      score: 0,
+      stars: 0,
+      feedback: 'A saved CTS Studio project is required to verify this lesson. Open CTS Studio 1.0, configure your clock tree design, and click Save before submitting.',
+    };
+  }
 
-  // 2. Specific Level Gate Checks
+  // 3. Recompute metrics strictly from the project graph (never trust client-supplied solution object)
+  const sol = solveClockTreeElmore(project);
+
+  // 4. Verify graph validity (acyclic, reachable sinks, valid node structure)
+  if (!sol.isValid) {
+    const errorMsg = sol.errors?.join('; ') || 'Graph configuration error.';
+    return {
+      passed: false,
+      score: 15,
+      stars: 0,
+      feedback: `Clock tree is invalid: ${errorMsg} (disconnected sinks or illegal topology).`,
+    };
+  }
+
+  if (sol.diagnostics?.hasCycle) {
+    return {
+      passed: false,
+      score: 15,
+      stars: 0,
+      feedback: 'Graph contains cycles. Clock trees must be directed acyclic graphs (DAGs).',
+    };
+  }
+
+  if (sol.diagnostics?.hasDisconnectedSinks || sol.sinks.some((s) => !s.isReached)) {
+    return {
+      passed: false,
+      score: 15,
+      stars: 0,
+      feedback: 'One or more clock sinks are disconnected from the clock root pin.',
+    };
+  }
+
+  // 5. Specific Level Gate Checks & Evidence Verification
   switch (lessonId) {
     case 'cts-6': {
       // Wire RC Delay & Repeater Slicing
-      const maxSlew = sol?.violations?.find((v) => v.type === 'MAX_TRANSITION');
-      if (sol && maxSlew) {
+      if (project.sinks.length < 4) {
+        return {
+          passed: false,
+          score: 15,
+          stars: 0,
+          feedback: 'Lab 6 requires an asymmetric distribution network with at least 4 sinks. Please load scenario-asymmetric-6 in CTS Studio.',
+        };
+      }
+
+      if (!project.buffers || project.buffers.length < 2) {
+        return {
+          passed: false,
+          score: 20,
+          stars: 1,
+          feedback: 'Repeater buffers are required to segment long clock lines and prevent quadratic RC delay growth. Insert repeaters in CTS Studio!',
+        };
+      }
+
+      const maxSlew = sol.violations?.find((v) => v.type === 'MAX_TRANSITION');
+      if (maxSlew) {
         return {
           passed: false,
           score: 20,
@@ -58,6 +122,16 @@ export function validateCTSExpandedLesson(submission) {
           feedback: `Concept correct, but your saved design still has transition slew violations (${maxSlew.message}). Insert repeaters along long lines!`,
         };
       }
+
+      if (sol.maxArrivalPs > 350) {
+        return {
+          passed: false,
+          score: 20,
+          stars: 1,
+          feedback: `Insertion delay (${sol.maxArrivalPs} ps) exceeds 350 ps budget. Tune buffer placement to reduce latency.`,
+        };
+      }
+
       return {
         passed: true,
         score: lessonData.xpReward,
@@ -68,9 +142,18 @@ export function validateCTSExpandedLesson(submission) {
 
     case 'cts-7': {
       // Fanout & Max Capacitance
-      const hasFanoutViolation = sol?.violations?.some((v) => v.type === 'MAX_FANOUT');
-      const hasCapViolation = sol?.violations?.some((v) => v.type === 'MAX_CAPACITANCE');
-      if (sol && (hasFanoutViolation || hasCapViolation)) {
+      if (project.sinks.length < 4) {
+        return {
+          passed: false,
+          score: 15,
+          stars: 0,
+          feedback: 'Lab 7 requires the overloaded driver benchmark. Please load scenario-flawed-starter in CTS Studio.',
+        };
+      }
+
+      const hasFanoutViolation = sol.violations?.some((v) => v.type === 'MAX_FANOUT');
+      const hasCapViolation = sol.violations?.some((v) => v.type === 'MAX_CAPACITANCE');
+      if (hasFanoutViolation || hasCapViolation) {
         return {
           passed: false,
           score: 22,
@@ -78,6 +161,17 @@ export function validateCTSExpandedLesson(submission) {
           feedback: 'Concept correct, but your design still contains fanout or capacitance violations. Upsize buffers or split branch loads!',
         };
       }
+
+      // Reject untouched flawed starter (where weak X1 buffer drives everything directly)
+      if (project.buffers.length < 2 && project.buffers.every((b) => b.cellType === 'CLKBUF_X1')) {
+        return {
+          passed: false,
+          score: 22,
+          stars: 1,
+          feedback: 'You must upsize the weak driver (e.g. to CLKBUF_X4) or add intermediate distribution repeaters to split fanout!',
+        };
+      }
+
       return {
         passed: true,
         score: lessonData.xpReward,
@@ -88,14 +182,33 @@ export function validateCTSExpandedLesson(submission) {
 
     case 'cts-8': {
       // Sink Clustering & Hierarchical Tree
-      if (sol && sol.skewPs > 45) {
+      if (project.sinks.length < 4) {
+        return {
+          passed: false,
+          score: 15,
+          stars: 0,
+          feedback: 'Lab 8 requires at least 4 clock sinks. Please load scenario-asymmetric-6 in CTS Studio.',
+        };
+      }
+
+      if (!project.buffers || project.buffers.length < 2) {
         return {
           passed: false,
           score: 25,
           stars: 1,
-          feedback: `Concept correct, but clock skew (${sol.skewPs} ps) exceeds cluster budget (<= 45 ps). Place buffers near cluster centroids!`,
+          feedback: 'Hierarchical tree synthesis requires intermediate distribution buffers driving regional sink clusters.',
         };
       }
+
+      if (sol.skewPs > 40) {
+        return {
+          passed: false,
+          score: 25,
+          stars: 1,
+          feedback: `Concept correct, but clock skew (${sol.skewPs} ps) exceeds cluster budget (<= 40 ps). Place buffers near cluster centroids or run Auto-Balance!`,
+        };
+      }
+
       return {
         passed: true,
         score: lessonData.xpReward,
@@ -106,8 +219,26 @@ export function validateCTSExpandedLesson(submission) {
 
     case 'cts-9': {
       // Obstruction-Aware Clock Routing
-      const hasBlockageViolation = sol?.violations?.some((v) => v.type === 'BLOCKAGE_COLLISION');
-      if (sol && hasBlockageViolation) {
+      if (project.sinks.length < 6) {
+        return {
+          passed: false,
+          score: 15,
+          stars: 0,
+          feedback: 'Lab 9 requires the obstruction benchmark. Please load scenario-blockage-8 in CTS Studio.',
+        };
+      }
+
+      if (!project.blockages || project.blockages.length === 0) {
+        return {
+          passed: false,
+          score: 15,
+          stars: 0,
+          feedback: 'Lab 9 requires macro keepout blockages. Please load scenario-blockage-8 in CTS Studio.',
+        };
+      }
+
+      const hasBlockageViolation = sol.violations?.some((v) => v.type === 'BLOCKAGE_COLLISION' || v.type === 'MACRO_OBSTRUCTION');
+      if (hasBlockageViolation) {
         return {
           passed: false,
           score: 28,
@@ -115,6 +246,16 @@ export function validateCTSExpandedLesson(submission) {
           feedback: 'Concept correct, but buffers overlap with macro keepout zones! Move buffers into legal placement corridors.',
         };
       }
+
+      if (sol.skewPs > 40) {
+        return {
+          passed: false,
+          score: 28,
+          stars: 1,
+          feedback: `Clock skew (${sol.skewPs} ps) exceeds corridor budget (<= 40 ps). Balance detour paths in CTS Studio.`,
+        };
+      }
+
       return {
         passed: true,
         score: lessonData.xpReward,
@@ -125,14 +266,33 @@ export function validateCTSExpandedLesson(submission) {
 
     case 'cts-10': {
       // Clock Gating & Power
-      if (sol && sol.dynamicPowerMw > 3.0) {
+      if (project.sinks.length < 4) {
+        return {
+          passed: false,
+          score: 15,
+          stars: 0,
+          feedback: 'Lab 10 requires at least 4 clock sinks to evaluate switching power.',
+        };
+      }
+
+      if (sol.dynamicPowerMw > 2.5) {
         return {
           passed: false,
           score: 30,
           stars: 1,
-          feedback: `Concept correct, but clock dynamic power (${sol.dynamicPowerMw} mW) exceeds allocated power budget (<= 3.0 mW). Trim wirelength or resize repeaters!`,
+          feedback: `Concept correct, but clock dynamic power (${sol.dynamicPowerMw} mW) exceeds allocated power budget (<= 2.5 mW). Trim wirelength or resize repeaters!`,
         };
       }
+
+      if (sol.skewPs > 40) {
+        return {
+          passed: false,
+          score: 30,
+          stars: 1,
+          feedback: `Clock skew (${sol.skewPs} ps) exceeds budget (<= 40 ps).`,
+        };
+      }
+
       return {
         passed: true,
         score: lessonData.xpReward,
@@ -143,9 +303,18 @@ export function validateCTSExpandedLesson(submission) {
 
     case 'cts-11': {
       // Useful Skew & Hold Slack
-      const hasSetupViolation = sol?.violations?.some((v) => v.type === 'SETUP_TIMING_VIOLATION');
-      const hasHoldViolation = sol?.violations?.some((v) => v.type === 'HOLD_TIMING_VIOLATION');
-      if (sol && (hasSetupViolation || hasHoldViolation)) {
+      if (!project.dataPaths || project.dataPaths.length === 0) {
+        return {
+          passed: false,
+          score: 15,
+          stars: 0,
+          feedback: 'Lab 11 requires synchronous data paths. Please load scenario-asymmetric-6 or scenario-capstone-soc in CTS Studio.',
+        };
+      }
+
+      const hasSetupViolation = sol.violations?.some((v) => v.type === 'SETUP_TIMING_VIOLATION');
+      const hasHoldViolation = sol.violations?.some((v) => v.type === 'HOLD_TIMING_VIOLATION');
+      if (hasSetupViolation || hasHoldViolation) {
         return {
           passed: false,
           score: 32,
@@ -153,6 +322,16 @@ export function validateCTSExpandedLesson(submission) {
           feedback: 'Concept correct, but your active clock tree exhibits setup or hold timing violations. Ensure positive skew does not cause hold race conditions!',
         };
       }
+
+      if (sol.dataPaths.some((dp) => !dp.setupPassed || !dp.holdPassed)) {
+        return {
+          passed: false,
+          score: 32,
+          stars: 1,
+          feedback: 'One or more synchronous data paths failed timing closure.',
+        };
+      }
+
       return {
         passed: true,
         score: lessonData.xpReward,
@@ -163,15 +342,6 @@ export function validateCTSExpandedLesson(submission) {
 
     case 'cts-12': {
       // ─── ADVANCED CTS CAPSTONE (12 GOLDEN GATES) ──────────────────────────
-      if (!project || !sol) {
-        return {
-          passed: false,
-          score: 0,
-          stars: 0,
-          feedback: 'CTS Capstone requires a complete, saved clock tree design from CTS Studio 1.0.',
-        };
-      }
-
       // Gate 1: Sink count >= 8
       if (project.sinks.length < 8) {
         return {
@@ -202,8 +372,8 @@ export function validateCTSExpandedLesson(submission) {
         };
       }
 
-      // Gate 4: Blockage overlap
-      if (sol.violations?.some((v) => v.type === 'BLOCKAGE_COLLISION')) {
+      // Gate 4: Blockage overlap (support both BLOCKAGE_COLLISION and MACRO_OBSTRUCTION)
+      if (sol.violations?.some((v) => v.type === 'BLOCKAGE_COLLISION' || v.type === 'MACRO_OBSTRUCTION')) {
         return {
           passed: false,
           score: 50,
@@ -238,7 +408,7 @@ export function validateCTSExpandedLesson(submission) {
           passed: false,
           score: 65,
           stars: 2,
-          feedback: 'Gate 7 Failed: Clock edge transition time exceeds 100 ps limit.',
+          feedback: 'Gate 7 Failed: Clock edge transition time exceeds limit.',
         };
       }
 

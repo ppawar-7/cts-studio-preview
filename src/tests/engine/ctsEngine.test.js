@@ -202,7 +202,83 @@ describe('CTS Engine', () => {
       ],
     };
     const sol = solveClockTreeElmore(blockageProject);
-    expect(sol.violations.some((v) => v.type === 'MACRO_OBSTRUCTION')).toBe(true);
+    expect(sol.violations.some((v) => v.type === 'BLOCKAGE_COLLISION' || v.type === 'MACRO_OBSTRUCTION')).toBe(true);
+  });
+
+  it('proves that user edits to constraints (skew, latency, slew, voltage) directly affect solver metrics and violations', () => {
+    const baseProject = {
+      core: { width: 400, height: 400 },
+      root: { id: 'ROOT', x: 200, y: 50, cellType: 'CLKBUF_X4' },
+      buffers: [
+        { id: 'BUF_1', x: 200, y: 150, cellType: 'CLKBUF_X2' },
+      ],
+      sinks: [
+        { id: 'S1', x: 150, y: 300, loadCapPf: 0.005 },
+        { id: 'S2', x: 250, y: 300, loadCapPf: 0.005 },
+      ],
+      branches: [
+        { from: 'ROOT', to: 'BUF_1' },
+        { from: 'BUF_1', to: 'S1' },
+        { from: 'BUF_1', to: 'S2' },
+      ],
+      constraints: {
+        maxSkewBudgetPs: 100,
+        maxLatencyBudgetPs: 500,
+        maxTransitionTimePs: 120,
+        supplyVoltageV: 1.0,
+        periodNs: 1.0,
+      },
+    };
+
+    const sol1 = solveClockTreeElmore(baseProject);
+    expect(sol1.violations.some((v) => v.type === 'SKEW_BUDGET_EXCEEDED')).toBe(false);
+    expect(sol1.violations.some((v) => v.type === 'LATENCY_BUDGET_EXCEEDED')).toBe(false);
+    expect(sol1.violations.some((v) => v.type === 'MAX_TRANSITION')).toBe(false);
+
+    // 1. Tighten skew budget to 0 ps -> must trigger SKEW_BUDGET_EXCEEDED if residual skew > 0
+    // Or tighten latency budget to 5 ps -> must trigger LATENCY_BUDGET_EXCEEDED
+    const tightLatencyProj = {
+      ...baseProject,
+      constraints: {
+        ...baseProject.constraints,
+        maxLatencyBudgetPs: 10, // latency is ~60 ps, so 10 ps budget must fail!
+      },
+    };
+    const solTightLatency = solveClockTreeElmore(tightLatencyProj);
+    expect(solTightLatency.violations.some((v) => v.type === 'LATENCY_BUDGET_EXCEEDED')).toBe(true);
+
+    // 2. Tighten transition time limit to 5 ps -> must trigger MAX_TRANSITION
+    const tightSlewProj = {
+      ...baseProject,
+      constraints: {
+        ...baseProject.constraints,
+        maxTransitionTimePs: 5,
+      },
+    };
+    const solTightSlew = solveClockTreeElmore(tightSlewProj);
+    expect(solTightSlew.violations.some((v) => v.type === 'MAX_TRANSITION')).toBe(true);
+
+    // 3. Edit voltage from 1.0 V to 1.5 V -> dynamic power must increase by (1.5 / 1.0)^2 = 2.25x
+    const highVoltageProj = {
+      ...baseProject,
+      constraints: {
+        ...baseProject.constraints,
+        supplyVoltageV: 1.5,
+      },
+    };
+    const solHighVoltage = solveClockTreeElmore(highVoltageProj);
+    expect(solHighVoltage.dynamicPowerMw).toBeGreaterThan(sol1.dynamicPowerMw * 2.0);
+
+    // 4. Edit periodNs from 1.0 ns (1 GHz) to 0.5 ns (2 GHz) -> dynamic power must double
+    const highFreqProj = {
+      ...baseProject,
+      constraints: {
+        ...baseProject.constraints,
+        periodNs: 0.5,
+      },
+    };
+    const solHighFreq = solveClockTreeElmore(highFreqProj);
+    expect(solHighFreq.dynamicPowerMw).toBeCloseTo(sol1.dynamicPowerMw * 2.0, 1);
   });
 
   it('auto-balances a skewed clock tree by transforming the actual project graph', () => {

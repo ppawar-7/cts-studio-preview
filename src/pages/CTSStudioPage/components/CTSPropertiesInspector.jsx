@@ -69,6 +69,19 @@ export default function CTSPropertiesInspector({
             </div>
 
             <div className="cts-form-group">
+              <label className="cts-form-label">Max Transition Slew (ps)</label>
+              <input
+                type="number"
+                step="5"
+                min="10"
+                max="500"
+                className="cts-form-input"
+                value={project.constraints?.maxTransitionTimePs ?? 100}
+                onChange={(e) => onUpdateConstraints({ maxTransitionTimePs: parseInt(e.target.value, 10) || 100 })}
+              />
+            </div>
+
+            <div className="cts-form-group">
               <label className="cts-form-label">Supply Voltage Vdd (V)</label>
               <input
                 type="number"

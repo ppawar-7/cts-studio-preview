@@ -593,10 +593,10 @@ export function solveClockTreeElmore(project) {
   propagateDelays(rootNode.id);
 
   // 8. Physical Design Rule Checks (Fanout, Max Cap, Max Slew, Blockages, Bounds)
-  const maxFanoutConfig = constraints.maxFanout || 4;
-  const maxSlewConfigPs = constraints.maxSlewPs || 120;
-  const skewBudgetPs = constraints.skewBudgetPs || 40;
-  const maxLatencyBudgetPs = constraints.maxLatencyBudgetPs || 350;
+  const maxFanoutConfig = constraints.maxFanout ?? 4;
+  const maxSlewConfigPs = constraints.maxTransitionTimePs ?? constraints.maxSlewPs ?? 100;
+  const skewBudgetPs = constraints.maxSkewBudgetPs ?? constraints.skewBudgetPs ?? 50;
+  const maxLatencyBudgetPs = constraints.maxLatencyBudgetPs ?? constraints.latencyBudgetPs ?? 400;
 
   const violations = [];
 
@@ -659,10 +659,10 @@ export function solveClockTreeElmore(project) {
           node.y <= blk.y + blk.height
         ) {
           violations.push({
-            type: 'MACRO_OBSTRUCTION',
+            type: 'BLOCKAGE_COLLISION',
             nodeId: node.id,
             blockageId: blk.id,
-            message: `Buffer "${node.id}" is illegally placed inside macro blockage "${blk.name || blk.id}".`,
+            message: `Buffer "${node.id}" is illegally placed inside macro blockage "${blk.label || blk.name || blk.id}".`,
             suggestion: 'Move buffer to legal standard-cell routing corridors outside macro halos.',
           });
         }
@@ -816,8 +816,9 @@ export function solveClockTreeElmore(project) {
   // Dynamic Power: P_dyn = alpha * C_total * Vdd^2 * f_clk
   // Vdd = 1.0 V, f_clk = 1.0 GHz (1e9 Hz), alpha = 1.0 (clock switches every cycle)
   // P (mW) = 1.0 * (C in pF * 1e-12) * (1.0)^2 * 1e9 * 1e3 = C_total in pF * 1.0 mW
-  const vdd = constraints.vdd || 1.0;
-  const fClkGhz = (1.0 / (constraints.periodNs || 1.0));
+  const vdd = constraints.supplyVoltageV ?? constraints.vdd ?? 1.1;
+  const periodNs = constraints.periodNs ?? 1.0;
+  const fClkGhz = 1.0 / periodNs;
   const activityFactor = 1.0; // Standard full-toggle clock network
   const dynamicPowerMw = Number((activityFactor * totalTreeCapPf * (vdd * vdd) * fClkGhz).toFixed(3));
   const leakagePowerMw = Number((totalLeakageUw * 0.001).toFixed(4));

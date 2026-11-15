@@ -19,6 +19,7 @@ export default function CTSCanvas({
   selectedEntity,
   onSelectEntity,
   onMoveNode,
+  onNodeDragEnd,
 }) {
   const containerRef = useRef(null);
   const [zoom, setZoom] = useState(1.0);
@@ -29,6 +30,7 @@ export default function CTSCanvas({
 
   // Dragging state for nodes
   const [draggingNode, setDraggingNode] = useState(null);
+  const [hasDraggedNode, setHasDraggedNode] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   const coreWidth = project.core?.width || 500;
@@ -70,6 +72,7 @@ export default function CTSCanvas({
     }
 
     if (draggingNode) {
+      setHasDraggedNode(true);
       const rect = containerRef.current.getBoundingClientRect();
       let rawX = (e.clientX - rect.left - pan.x) / zoom;
       let rawY = (e.clientY - rect.top - pan.y) / zoom;
@@ -89,7 +92,11 @@ export default function CTSCanvas({
 
   const handleMouseUp = () => {
     setIsPanning(false);
+    if (draggingNode && hasDraggedNode && onNodeDragEnd) {
+      onNodeDragEnd();
+    }
     setDraggingNode(null);
+    setHasDraggedNode(false);
   };
 
   // Node Drag Start
@@ -97,6 +104,7 @@ export default function CTSCanvas({
     e.stopPropagation();
     onSelectEntity({ type, id });
     setDraggingNode({ type, id });
+    setHasDraggedNode(false);
   };
 
   // Quick lookup maps
