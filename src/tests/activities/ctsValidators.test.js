@@ -203,6 +203,20 @@ describe('Kingdom 5: CTS Validators', () => {
       expect(res.passed).toBe(true);
       expect(res.score).toBe(55);
       expect(res.stars).toBe(3);
+
+      // Negative: rejects when no repeaters are inserted (direct unbuffered branches from root)
+      const directUnbuffered = {
+        ...cleanProject,
+        buffers: [],
+        branches: cleanProject.sinks.map((s) => ({ from: cleanProject.root.id, to: s.id })),
+      };
+      const resNoBuf = validateCTSExpandedLesson({
+        lessonId: 'cts-6',
+        answer: 'opt-linearize-rc',
+        project: directUnbuffered,
+      });
+      expect(resNoBuf.passed).toBe(false);
+      expect(resNoBuf.feedback).toMatch(/repeater buffers are required/i);
     });
 
     it('validates cts-7: fanout and capacitive limits with resolved tree', () => {
@@ -227,6 +241,16 @@ describe('Kingdom 5: CTS Validators', () => {
       expect(res.passed).toBe(true);
       expect(res.score).toBe(65);
       expect(res.stars).toBe(3);
+
+      // Negative: rejects untouched asymmetric project where skew (43 ps) exceeds budget (<= 40 ps)
+      const rawAsym = createCTSProject({ scenarioId: 'scenario-asymmetric-6' });
+      const resHighSkew = validateCTSExpandedLesson({
+        lessonId: 'cts-8',
+        answer: 'opt-minimize-dispersion',
+        project: rawAsym,
+      });
+      expect(resHighSkew.passed).toBe(false);
+      expect(resHighSkew.feedback).toMatch(/clock skew .* exceeds cluster budget/i);
     });
 
     it('validates cts-9: obstruction-aware clock routing around macro blockages', () => {
@@ -249,6 +273,19 @@ describe('Kingdom 5: CTS Validators', () => {
       });
       expect(res.passed).toBe(true);
       expect(res.score).toBe(75);
+
+      // Negative: rejects when power budget is exceeded (e.g. extreme frequency)
+      const highPowerProj = {
+        ...proj,
+        constraints: { ...proj.constraints, periodNs: 0.05, supplyVoltageV: 1.8 },
+      };
+      const resHighPower = validateCTSExpandedLesson({
+        lessonId: 'cts-10',
+        answer: 'opt-prevent-glitches',
+        project: highPowerProj,
+      });
+      expect(resHighPower.passed).toBe(false);
+      expect(resHighPower.feedback).toMatch(/exceeds allocated power budget/i);
     });
 
     it('validates cts-11: useful skew and setup vs hold slack', () => {
@@ -260,6 +297,28 @@ describe('Kingdom 5: CTS Validators', () => {
       });
       expect(res.passed).toBe(true);
       expect(res.score).toBe(80);
+
+      // Negative: rejects when hold timing is violated
+      const violatingTimingProj = {
+        ...proj,
+        dataPaths: [
+          {
+            id: 'PATH_HOLD_FAIL',
+            fromSinkId: 'REG_TL',
+            toSinkId: 'REG_BL',
+            tCombMinNs: 0.01,
+            tCqMinNs: 0.02,
+            tHoldNs: 0.50, // Huge hold requirement -> guaranteed hold violation
+          },
+        ],
+      };
+      const resHoldViol = validateCTSExpandedLesson({
+        lessonId: 'cts-11',
+        answer: 'opt-hold-violation',
+        project: violatingTimingProj,
+      });
+      expect(resHoldViol.passed).toBe(false);
+      expect(resHoldViol.feedback).toMatch(/timing closure|hold timing violations/i);
     });
 
     describe('cts-12: Advanced CTS Capstone (12 Golden Gates)', () => {

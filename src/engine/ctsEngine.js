@@ -921,9 +921,13 @@ export function autoBalanceClockTree(project) {
   const currentBuffers = updated.buffers || [];
   currentBuffers.forEach((buf) => {
     const currentCell = CLOCK_BUFFER_LIB[buf.cellType] || CLOCK_BUFFER_LIB.CLKBUF_X2;
-    // If buffer is currently X1 or X2 and has fanout >= 3, upsize to X4
+    // If buffer has high fanout, upsize appropriately
     const fanout = (updated.branches || []).filter((b) => b.from === buf.id).length;
-    if (fanout >= 3 && (buf.cellType === 'CLKBUF_X1' || buf.cellType === 'CLKBUF_X2')) {
+    if (fanout >= 4 && buf.cellType !== 'CLKBUF_X8') {
+      buf.cellType = 'CLKBUF_X8';
+      report.push(`Upsized buffer "${buf.id}" to CLKBUF_X8 for heavy fanout and capacitive load.`);
+      changesCount++;
+    } else if (fanout >= 3 && (buf.cellType === 'CLKBUF_X1' || buf.cellType === 'CLKBUF_X2')) {
       buf.cellType = 'CLKBUF_X4';
       report.push(`Upsized buffer "${buf.id}" to CLKBUF_X4 for load handling.`);
       changesCount++;

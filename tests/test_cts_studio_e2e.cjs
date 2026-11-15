@@ -215,9 +215,9 @@ async function runCTSE2E() {
     `);
     await wait(600);
 
-    const violationCount = await evalCdp('document.querySelectorAll(".cts-badge--fail")?.length');
-    console.log(`  Fail Badges / Violations Detected: ${violationCount}`);
-    assert(violationCount >= 1, 'Flawed starter preset must trigger design rule violations');
+    const violationCountBefore = await evalCdp('document.querySelectorAll(".cts-badge--fail")?.length');
+    console.log(`  Fail Badges / Violations Detected Before: ${violationCountBefore}`);
+    assert(violationCountBefore >= 2, 'Flawed starter preset must trigger multiple violations (fanout and cap)');
     await captureScreenshot('02_cts_flawed_starter_violations.png');
 
     // ─── TEST 3: INSPECT & TUNE PROPERTIES ──────────────────────────────────
@@ -249,7 +249,19 @@ async function runCTSE2E() {
     `);
     await wait(1500);
 
-    // Switch to Timing & Skew tab
+    // Switch to Diagnostics tab first to verify violation resolution
+    await evalCdp(`
+      const tabs = Array.from(document.querySelectorAll(".cts-dock__tab"));
+      const drcTab = tabs.find(t => t.textContent.includes("Diagnostics"));
+      if (drcTab) drcTab.click();
+    `);
+    await wait(600);
+
+    const violationCountAfter = await evalCdp('document.querySelectorAll(".cts-badge--fail")?.length');
+    console.log(`  Fail Badges / Violations After Auto-Balance: ${violationCountAfter} (was ${violationCountBefore})`);
+    assert(violationCountAfter === 0, `Auto-balance must resolve all violations to 0 (was ${violationCountBefore}, now ${violationCountAfter})`);
+
+    // Switch to Timing & Skew tab to verify constraints satisfaction
     await evalCdp(`
       const tabs = Array.from(document.querySelectorAll(".cts-dock__tab"));
       const timingTab = tabs.find(t => t.textContent.includes("Timing"));
@@ -259,7 +271,9 @@ async function runCTSE2E() {
 
     const skewAfter = await evalCdp('document.querySelector(".cts-kpi-card__value")?.textContent');
     console.log(`  Skew after auto-balance: ${skewAfter}`);
-    assert(Boolean(skewAfter), 'Skew metric must be displayed after auto-balance');
+    const skewVal = parseInt(skewAfter, 10);
+    assert(!isNaN(skewVal) && skewVal <= 50, `Resulting design must satisfy max skew constraint <= 50 ps (got ${skewVal} ps)`);
+    console.log(`  ✓ Auto-Balance resolved ${violationCountBefore} violations -> 0 and met skew budget (${skewVal} ps <= 50 ps)`);
     await captureScreenshot('04_cts_autobalanced_clean_tree.png');
 
     // ─── TEST 5: CANDIDATE COMPARISON MODAL ──────────────────────────────────
@@ -329,6 +343,28 @@ async function runCTSE2E() {
     assert(normalStorageKey, 'Normal mode must save active design to localStorage["pd_cts_active_project_v1"]');
     console.log('  ✓ Capstone SoC saved to normal mode localStorage');
     await captureScreenshot('07_cts_capstone_soc_closed.png');
+
+    // Verify Signoff Report displays APPROVED, timing metrics, and zero violations for valid capstone
+    console.log('  Generating Signoff Report for Valid Capstone...');
+    await evalCdp(`
+      const repBtn = Array.from(document.querySelectorAll(".cts-btn")).find(b => b.textContent.includes("Signoff Report"));
+      if (repBtn) repBtn.click();
+    `);
+    await wait(1000);
+
+    const capstoneReportText = await evalCdp('document.querySelector(".cts-modal pre")?.textContent || document.querySelector(".cts-modal")?.textContent');
+    assert(capstoneReportText.includes('Status: APPROVED (ZERO VIOLATIONS)'), 'Signoff report must indicate Status: APPROVED (ZERO VIOLATIONS)');
+    assert(capstoneReportText.includes('Total Violations: 0'), 'Signoff report must confirm Total Violations: 0');
+    assert(capstoneReportText.includes('Clock Skew:') && capstoneReportText.includes('[PASS]'), 'Signoff report must confirm Clock Skew [PASS]');
+    assert(capstoneReportText.includes('Max Insertion Delay:') && capstoneReportText.includes('[PASS]'), 'Signoff report must confirm Max Insertion Delay [PASS]');
+    console.log('  ✓ Capstone Signoff Report verified: APPROVED (ZERO VIOLATIONS), all timing metrics PASS, 0 violations');
+
+    // Close report modal
+    await evalCdp(`
+      const closeRepBtn = Array.from(document.querySelectorAll(".cts-modal .cts-btn")).find(b => b.textContent.includes("Close"));
+      if (closeRepBtn) closeRepBtn.click();
+    `);
+    await wait(500);
 
     // ─── TEST 8: EXPLORE MODE STORAGE ISOLATION (Fix 6) ──────────────────────
     console.log('\n--- Step 8: Verifying Explore Mode Storage Isolation ---');
@@ -425,14 +461,32 @@ async function runCTSE2E() {
     // Check completion banner in LevelPage (Fix 1 verification)
     const completionTitle = await evalCdp('document.querySelector(".level-page__complete-title")?.textContent');
     const completionFeedback = await evalCdp('document.querySelector(".level-page__complete-banner")?.textContent');
-    const activityResultText = await evalCdp('document.querySelector(".activity-container")?.textContent');
+    const xpText = await evalCdp('document.querySelector(".level-page__complete-xp")?.textContent');
 
     console.log(`  Completion Title: "${completionTitle}"`);
-    console.log(`  Level Completion Banner Rendered: ${Boolean(completionTitle)}`);
-    assert(Boolean(completionTitle) && (completionTitle.includes('Level Complete') || completionTitle.includes('Simulation Completed')),
-      'LevelPage must show Level Complete banner on verified activity submission');
-    assert((completionFeedback && completionFeedback.includes('12 Golden Gates')) || (activityResultText && activityResultText.includes('12 Golden Gates')),
-      'Verification result must confirm passing all 12 Golden Gates of CTS Signoff');
+    console.log(`  XP Text Awarded: "${xpText}"`);
+    assert(Boolean(completionTitle) && completionTitle.includes('Level Complete'), 'LevelPage must show Level Complete banner on verified activity submission');
+    assert(xpText && xpText.includes('+100 XP Verified & Earned'), `Expected "+100 XP Verified & Earned", got "${xpText}"`);
+    assert(completionFeedback && completionFeedback.includes('12 Golden Gates'), 'Completion feedback must confirm passing all 12 Golden Gates of CTS Signoff');
+
+    // Verify 3 stars awarded
+    const starCount = await evalCdp(`
+      Array.from(document.querySelectorAll(".level-page__complete-stars span"))
+        .filter(el => el.style.opacity === "1" || el.style.opacity === "").length
+    `);
+    assert(starCount === 3, `Expected 3 stars awarded, got ${starCount}`);
+    console.log(`  ✓ Awarded Stars Verified: ${starCount} Stars (All 3 stars filled at opacity 1)`);
+
+    // Verify persistence in localStorage['pdplayground_player_v2']
+    const playerRecord = await evalCdp(`
+      JSON.parse(localStorage.getItem("pdplayground_player_v2") || "{}")?.levelProgress?.["cts-12"]
+    `);
+    console.log(`  Persisted Capstone Progress: completed=${playerRecord?.completed}, stars=${playerRecord?.stars}, xpEarned=${playerRecord?.xpEarned}`);
+    assert(playerRecord && playerRecord.completed === true, 'Player progress must persist completed: true for cts-12');
+    assert(playerRecord.stars === 3, 'Player progress must persist stars: 3 for cts-12');
+    assert(playerRecord.xpEarned === 100, 'Player progress must persist xpEarned: 100 for cts-12');
+    assert(playerRecord.artifacts && playerRecord.artifacts.length > 0, 'Player progress must persist CTS Capstone design artifact');
+    console.log('  ✓ 12-Gate Capstone completion persisted to storage with verified 100 XP and 3 Stars');
 
     console.log('  ✓ Positive Test Passed: 12 Golden Gates satisfied, XP & stars awarded via LevelPage completion flow');
     await captureScreenshot('09_cts_level12_capstone_pass.png');
