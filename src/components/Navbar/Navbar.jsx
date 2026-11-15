@@ -23,7 +23,7 @@ export default function Navbar() {
     { to: '/explore', label: 'Explore', emoji: '🧭' },
     ...FEATURED_EXPERIENCES.map((exp) => ({
       to: exp.studioRoute,
-      label: exp.id === 'rtl' ? 'RTL Studio' : exp.id === 'floorplanning' ? 'Floorplan Studio' : 'STA Studio',
+      label: exp.id === 'rtl' ? 'RTL Studio' : exp.id === 'floorplanning' ? 'Floorplan Studio' : exp.id === 'cts' ? 'CTS Studio' : 'STA Studio',
       emoji: exp.emoji,
     })),
 

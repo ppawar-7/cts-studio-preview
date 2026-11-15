@@ -499,7 +499,7 @@ export default function LevelPage({ isExploreMode = false }) {
             </div>
             <div className="sanity-modal__body" style={{ padding: 0 }}>
               <iframe
-                src={kingdom.id === 'rtl-understanding' ? '/studios/rtl/index.html' : '/studios/sta/index.html'}
+                src={kingdom.id === 'rtl-understanding' ? `${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/studios/rtl/index.html` : `${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/studios/sta/index.html`}
                 title="Studio Companion"
                 style={{ width: '100%', height: '650px', border: 'none', display: 'block', background: '#050811' }}
                 sandbox="allow-scripts allow-same-origin allow-forms allow-modals"

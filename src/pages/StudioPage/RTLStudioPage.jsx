@@ -23,20 +23,21 @@ export default function RTLStudioPage({ isExploreMode = false }) {
   const currentTab = searchParams.get('tab') || 'fundamentals';
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  const baseUrl = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
   // Derive iframe URL based on active studio tab
   const getIframeSrc = () => {
     switch (currentTab) {
       case 'datapath':
-        return '/studios/rtl/advanced-lab/index.html?tab=datapath';
+        return `${baseUrl}/studios/rtl/advanced-lab/index.html?tab=datapath`;
       case 'sequential':
-        return '/studios/rtl/advanced-lab/index.html?tab=sequential';
+        return `${baseUrl}/studios/rtl/advanced-lab/index.html?tab=sequential`;
       case 'fsm':
-        return '/studios/rtl/advanced-lab/index.html?tab=fsm';
+        return `${baseUrl}/studios/rtl/advanced-lab/index.html?tab=fsm`;
       case 'lessons':
-        return '/studios/rtl/advanced-lab/index.html?tab=lessons';
+        return `${baseUrl}/studios/rtl/advanced-lab/index.html?tab=lessons`;
       case 'fundamentals':
       default:
-        return '/studios/rtl/index.html';
+        return `${baseUrl}/studios/rtl/index.html`;
     }
   };
 

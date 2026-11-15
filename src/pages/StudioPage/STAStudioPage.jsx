@@ -145,7 +145,7 @@ export default function STAStudioPage({ isExploreMode = false }) {
         <div className="container studio-page__iframe-container" style={{ width: '100%', height: '100%' }}>
           <iframe
             key={stage}
-            src={`/studios/sta/index.html?stage=${stage}`}
+            src={`${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/studios/sta/index.html?stage=${stage}`}
             title="Standalone STA Playground"
             className="studio-iframe studio-page__iframe"
             sandbox="allow-scripts allow-same-origin allow-forms allow-modals"

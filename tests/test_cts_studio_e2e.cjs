@@ -75,6 +75,7 @@ async function runCTSE2E() {
       const build = spawn('cmd', ['/c', 'npm', 'run', 'build'], {
         cwd: path.resolve(__dirname, '..'),
         stdio: 'inherit',
+        env: { ...process.env, LOCAL_E2E: '1', VITE_BASE_PATH: '/' },
       });
       build.on('close', (code) => {
         if (code === 0) resolve();
@@ -86,6 +87,7 @@ async function runCTSE2E() {
     console.log(`\n[2/4] Starting Vite preview server on port ${PORT}...`);
     previewProc = spawn('cmd', ['/c', 'npx', 'vite', 'preview', '--port', String(PORT), '--strictPort'], {
       cwd: path.resolve(__dirname, '..'),
+      env: { ...process.env, LOCAL_E2E: '1', VITE_BASE_PATH: '/' },
     });
 
     await pollHttp(BASE_URL);

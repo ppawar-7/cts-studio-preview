@@ -63,11 +63,11 @@ export default function WorldMapPage({ isLegacy: isLegacyProp }) {
           {/* Summary stats */}
           <div className="world-map__summary">
             <div className="world-map__summary-stat">
-              <div className="world-map__summary-value">3</div>
+              <div className="world-map__summary-value">4</div>
               <div className="world-map__summary-label">EDA Studios</div>
             </div>
             <div className="world-map__summary-stat">
-              <div className="world-map__summary-value">41</div>
+              <div className="world-map__summary-value">53</div>
               <div className="world-map__summary-label">Curriculum Labs</div>
             </div>
             <div className="world-map__summary-stat">
@@ -190,6 +190,44 @@ export default function WorldMapPage({ isLegacy: isLegacyProp }) {
                     ⏱️ Launch STA ↗
                   </Link>
                   <Link to="/explore/studio/sta" className="btn btn--ghost" style={{ fontSize: '0.85rem' }}>
+                    🧭 Explore Sandbox
+                  </Link>
+                </div>
+              </div>
+
+              {/* Studio 4: Clock Tree Synthesis (CTS) Studio 1.0 */}
+              <div className="studio-hub-card" style={{ borderLeft: '5px solid #06b6d4' }}>
+                <div className="studio-hub-card__top">
+                  <div className="studio-hub-card__title-group">
+                    <div className="studio-hub-card__emoji">🌲</div>
+                    <div>
+                      <h2 className="studio-hub-card__title">Clock Tree Synthesis (CTS)</h2>
+                      <div className="studio-hub-card__subtitle">Deep Interactive CAD Studio 1.0 &amp; 12-Lesson Curriculum</div>
+                    </div>
+                  </div>
+                  <span className="badge badge--completed" style={{ background: '#cffafe', color: '#0e7490', borderColor: '#a5f3fc' }}>
+                    CTS Studio 1.0 Preview
+                  </span>
+                </div>
+                <p className="studio-hub-card__tagline">
+                  Construct and balance clock distribution networks, size clock buffers,
+                  compute Elmore delays across tree segments, optimize clock skew and insertion latency,
+                  and sign off physical clock trees against max skew, transition, and fanout constraints.
+                </p>
+                <div className="studio-hub-card__highlights">
+                  <div className="studio-hub-card__highlight-item">✓ 12 Comprehensive Labs (CTS-1 through CTS-12)</div>
+                  <div className="studio-hub-card__highlight-item">✓ Multi-Layer Interactive CAD Canvas with Pan &amp; Zoom</div>
+                  <div className="studio-hub-card__highlight-item">✓ Elmore Delay Solver &amp; Real-Time Violation Highlighting</div>
+                  <div className="studio-hub-card__highlight-item">✓ Automated Skew Balancing &amp; Candidate Trade-Off Comparison</div>
+                </div>
+                <div className="studio-hub-card__actions">
+                  <Link to="/studio/cts" className="btn btn--primary" style={{ background: '#0891b2', borderColor: '#0891b2' }} data-testid="launch-cts-studio">
+                    🌲 Launch CTS Studio ↗
+                  </Link>
+                  <Link to="/kingdom/cts" className="btn btn--secondary">
+                    📚 CTS Curriculum (12 Labs)
+                  </Link>
+                  <Link to="/explore/studio/cts" className="btn btn--ghost" style={{ fontSize: '0.85rem' }}>
                     🧭 Explore Sandbox
                   </Link>
                 </div>

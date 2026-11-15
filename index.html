@@ -3,8 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PD Playground – ASIC Learning Adventure</title>
-    <meta name="description" content="Learn ASIC digital design and physical design through an interactive gamified journey." />
+    <title>PD Playground – Clock Tree Synthesis (CTS) Studio 1.0 Preview</title>
+    <meta name="description" content="Interactive Clock Tree Synthesis (CTS) CAD Studio and ASIC Physical Design Playground." />
+    <script>
+      (function() {
+        var path = window.location.pathname;
+        var repoBase = '/cts-studio-preview';
+        var route = path.indexOf(repoBase) === 0 ? path.slice(repoBase.length) : path;
+        if (route && route !== '/' && !window.location.hash) {
+          if (!route.startsWith('/')) route = '/' + route;
+          window.location.replace((path.indexOf(repoBase) === 0 ? repoBase : '') + '/#' + route + window.location.search);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

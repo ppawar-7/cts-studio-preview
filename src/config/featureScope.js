@@ -77,6 +77,25 @@ export const FEATURED_EXPERIENCES = [
       'Path Slack Breakdown & Critical Path Optimization Sandbox',
     ],
   },
+  {
+    id: 'cts',
+    kingdomId: 'cts',
+    title: 'Clock Tree Synthesis',
+    subtitle: 'Interactive Clock Tree & Skew CAD Studio 1.0',
+    tagline: 'Synthesize clock distribution networks, balance skew with Elmore delay modeling, size clock buffers, and achieve timing sign-off.',
+    emoji: '🌲',
+    color: '#06b6d4',
+    studioRoute: '/studio/cts',
+    kingdomRoute: '/kingdom/cts',
+    exploreStudioRoute: '/explore/studio/cts',
+    exploreKingdomRoute: '/explore/kingdom/cts',
+    highlights: [
+      'Interactive Multi-Level Clock Tree Visualization & Elmore Delay Solver',
+      'Dynamic Skew, Latency, and Power Analysis with Real-Time Violation Highlighting',
+      'Interactive Buffer Sizing, Topology Insertion & Relocation',
+      '12 Guided CTS Curriculum Levels & Industrial SoC Capstone Design',
+    ],
+  },
 ];
 
 export const POSTPONED_KINGDOMS = {
@@ -140,7 +159,7 @@ export const POSTPONED_KINGDOMS = {
  * Returns true if the kingdom is one of the active featured experiences.
  */
 export function isKingdomActive(kingdomId) {
-  return kingdomId === 'rtl-understanding' || kingdomId === 'floorplanning';
+  return kingdomId === 'rtl-understanding' || kingdomId === 'floorplanning' || kingdomId === 'cts';
 }
 
 /**

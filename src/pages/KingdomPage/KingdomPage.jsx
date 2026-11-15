@@ -485,7 +485,7 @@ export default function KingdomPage({ isExploreMode = false }) {
                 {showInlineStudio && (
                   <div style={{ width: '100%', marginTop: '1.25rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
                     <iframe
-                      src="/studios/rtl/index.html"
+                      src={`${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/studios/rtl/index.html`}
                       title="RTL Playground In-Page Studio"
                       style={{ width: '100%', height: '700px', border: 'none', display: 'block', background: '#050811' }}
                       sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
@@ -537,7 +537,7 @@ export default function KingdomPage({ isExploreMode = false }) {
                 {showInlineStudio && (
                   <div style={{ width: '100%', marginTop: '1.25rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
                     <iframe
-                      src="/studios/sta/index.html"
+                      src={`${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/studios/sta/index.html`}
                       title="STA Playground In-Page Studio"
                       style={{ width: '100%', height: '700px', border: 'none', display: 'block', background: '#050811' }}
                       sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
